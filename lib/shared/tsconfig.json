@@ -11,14 +11,14 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./lib",
+    "rootDir": "./",
     "resolveJsonModule": true,
     "types": ["jest", "node"]
   },
   "include": [
-    "lib/**/*",
-    "jest.setup.js",
-    "*.ts"
+    "**/*.ts",
+    "*.js",
+    "jest.setup.js"
   ],
   "exclude": [
     "node_modules",

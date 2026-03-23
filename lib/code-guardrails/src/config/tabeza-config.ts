@@ -7,18 +7,15 @@ import { GuardrailConfiguration, ProjectConfiguration, ProjectContext } from '..
 export const tabezaProjectContext: ProjectContext = {
   rootPath: process.cwd(),
   packageJson: {
-    name: 'tabeza-monorepo',
+    name: '@tabeza/customer',
     version: '1.0.0',
-    workspaces: [
-      'apps/*',
-      'packages/*'
-    ],
+    workspaces: [],
     dependencies: {},
     devDependencies: {},
     scripts: {
-      'build': 'turbo run build',
-      'dev': 'turbo run dev',
-      'test': 'turbo run test'
+      'build': 'next build',
+      'dev': 'next dev',
+      'test': 'jest'
     }
   },
   tsConfig: {
@@ -29,84 +26,78 @@ export const tabezaProjectContext: ProjectContext = {
       esModuleInterop: true,
       skipLibCheck: true,
       forceConsistentCasingInFileNames: true
-    }
+    },
+    include: ['**/*'],
+    exclude: ['node_modules', '.next', 'dist']
   },
   criticalFiles: [
     // Core business logic files
-    'packages/shared/tokens-service.ts',
-    'apps/staff/lib/businessHours.ts',
-    'apps/customer/lib/businessHours.ts',
+    'lib/tokens-service.ts',
+    'lib/order-state-helpers.ts',
+    'lib/notifications.ts',
     
     // Database and migration files
     'supabase/migrations/**/*.sql',
     'database/migrations/**/*.sql',
     
     // API route files
-    'apps/staff/app/api/**/*.ts',
-    'apps/customer/app/api/**/*.ts',
-    'api/**/*.ts',
+    'app/api/**/*.ts',
     
     // Authentication and security
-    'apps/staff/middleware.ts',
-    'apps/customer/lib/supabase.ts',
-    'apps/staff/lib/supabase.ts',
-    'packages/shared/lib/supabase.ts',
+    'lib/supabase.ts',
     
     // Payment processing
-    'api/payments/**/*.ts',
-    'api/orders/**/*.ts'
+    'app/api/payments/**/*.ts',
+    'app/api/orders/**/*.ts'
   ],
   protectedComponents: [
     {
       type: 'function',
       name: 'isWithinBusinessHours',
-      filePath: 'apps/staff/lib/businessHours.ts',
+      filePath: 'lib/order-state-helpers.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     },
     {
       type: 'function',
       name: 'canCreateNewTab',
-      filePath: 'apps/staff/lib/businessHours.ts',
+      filePath: 'lib/order-state-helpers.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     },
     {
       type: 'function',
       name: 'checkAndUpdateOverdueTabs',
-      filePath: 'apps/staff/lib/businessHours.ts',
+      filePath: 'lib/order-state-helpers.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     },
     {
       type: 'function',
       name: 'awardOrderTokens',
-      filePath: 'packages/shared/tokens-service.ts',
+      filePath: 'lib/tokens-service.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     },
     {
       type: 'function',
       name: 'redeemReward',
-      filePath: 'packages/shared/tokens-service.ts',
+      filePath: 'lib/tokens-service.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     },
     {
       type: 'class',
       name: 'TokenService',
-      filePath: 'packages/shared/tokens-service.ts',
+      filePath: 'lib/tokens-service.ts',
       location: { line: 1, column: 1 },
       dependencies: []
     }
   ],
   businessLogicPaths: [
-    'apps/staff/lib',
-    'apps/customer/lib',
-    'packages/shared',
-    'api/payments',
-    'api/orders',
-    'api/tabs'
+    'lib',
+    'app/api',
+    'components'
   ]
 };
 
@@ -114,6 +105,12 @@ export const tabezaProjectContext: ProjectContext = {
  * Tabeza Project Configuration - defines validation rules and protection levels
  */
 export const tabezaProjectConfiguration: ProjectConfiguration = {
+  protectionLevels: {
+    database: 'strict',
+    api: 'strict',
+    sharedTypes: 'moderate',
+    businessLogic: 'strict'
+  },
   validationRules: [
     // Breaking change prevention rules
     {
@@ -259,9 +256,8 @@ export const tabezaProjectConfiguration: ProjectConfiguration = {
   criticalComponents: [
     {
       paths: [
-        'packages/shared/tokens-service.ts',
-        'apps/staff/lib/businessHours.ts',
-        'apps/customer/lib/businessHours.ts'
+        'lib/tokens-service.ts',
+        'lib/order-state-helpers.ts'
       ],
       patterns: [
         '**/payment*.ts',
@@ -270,8 +266,8 @@ export const tabezaProjectConfiguration: ProjectConfiguration = {
         '**/business-hours*.ts',
         '**/businessHours*.ts',
         'supabase/migrations/**/*.sql',
-        'api/payments/**/*.ts',
-        'api/orders/**/*.ts'
+        'app/api/payments/**/*.ts',
+        'app/api/orders/**/*.ts'
       ],
       components: [],
       customRules: [
@@ -280,7 +276,30 @@ export const tabezaProjectConfiguration: ProjectConfiguration = {
         'token-calculation-validation'
       ]
     }
-  ]
+  ],
+  integrationSettings: {
+    gitHooks: {
+      preCommit: true,
+      prePush: true,
+      commitMsg: false,
+      customHooks: []
+    },
+    ide: {
+      realTimeValidation: true,
+      suggestionLevel: 'comprehensive',
+      autoFix: false,
+      showImpactAnalysis: true,
+      extensions: []
+    },
+    cicd: {
+      validateOnPR: true,
+      blockOnErrors: true,
+      generateReports: true,
+      integrationTests: true,
+      platforms: []
+    },
+    external: []
+  }
 };
 
 /**
@@ -319,7 +338,8 @@ export const tabezaGuardrailsConfig: GuardrailConfiguration = {
       generateReports: true,
       integrationTests: true,
       platforms: []
-    }
+    },
+    external: []
   },
 
   // AI assistant configuration

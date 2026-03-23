@@ -10,25 +10,23 @@ import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
 import { useSound } from '@/hooks/useSound';
 import { telegramMessageQueries } from '@/lib/telegram-queries';
-import { MessageAlert, InitiatedBy } from '../../../../packages/shared/types';
-import { TokensService } from '../../../../packages/shared/tokens-service';
-import { useRealtimeSubscription } from '../../../../packages/shared/hooks/useRealtimeSubscription';
-import { ConnectionStatusIndicator } from '../../../../packages/shared/components/ConnectionStatus';
-import { calculateResponseTime, formatResponseTime, type ResponseTimeResult } from '../../../../packages/shared';
+import { MessageAlert, InitiatedBy } from '@/lib/shared/types';
+import { TokensService } from '@/lib/shared/tokens-service';
+import { useRealtimeSubscription } from '@/lib/shared/hooks/useRealtimeSubscription';
+import { ConnectionStatusIndicator } from '@/lib/shared/components/ConnectionStatus';
+import { calculateResponseTime, formatResponseTime, type ResponseTimeResult } from '@/lib/shared';
 import { useToast } from '@/components/ui/Toast';
 import { 
   validateMpesaPhoneNumber, 
-  formatPhoneNumberInput, 
-  getPhoneNumberGuidance,
-  getNetworkProvider
-} from '@tabeza/shared';
+  formatPhoneNumberInput
+} from '@/lib/shared';
 import { validatePaymentContext, logPaymentDebugInfo } from '@/lib/payment-debug';
 import { TokenNotifications, useTokenNotifications } from '../../components/TokenNotifications';
 import PWAInstallPrompt from '../../components/PWAInstallPrompt';
 import PWAUpdateManager from '../../components/PWAUpdateManager';
 import PDFViewer from '../../../../components/PDFViewer'; 
 import MessagePanel from './MessagePanel';
-import { playCustomerNotification } from '@/lib/notifications'; // ADDED MISSING IMPORT
+import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
 
 // Temporary format function to bypass import issue

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import Logo from '@/components/Logo';
 import PWAUpdateManager from '@/components/PWAUpdateManager';
+import TailwindTest from '@/components/TailwindTest';
 import { getAllOpenTabs, hasOpenTabAtBar, validateDeviceIntegrity, storeActiveTab } from '@/lib/device-identity';
 
 export default function LandingPage() {
@@ -144,6 +145,7 @@ function LandingContent() {
           message: `Continuing to your ${displayName} at ${bar.name}`
         });
 
+        setCheckingTab(false);
         setTimeout(() => {
           router.replace('/menu');
         }, 800);
@@ -163,7 +165,8 @@ function LandingContent() {
         title: 'Welcome!',
         message: `Loading ${bar.name}...`
       });
-      
+
+      setCheckingTab(false);
       setTimeout(() => {
         router.replace(`/start?bar=${barSlug}`);
       }, 300);
@@ -344,6 +347,11 @@ function LandingContent() {
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Tabeza</h1>
           <p className="text-gray-600">Scan a bar's QR code to start</p>
+        </div>
+
+        {/* Tailwind Test Component */}
+        <div className="mb-6">
+          <TailwindTest />
         </div>
 
         <div className="space-y-4 mb-8">

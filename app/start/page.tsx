@@ -8,13 +8,11 @@ import { supabase } from '@/lib/supabase';
 import { 
   getDeviceId,
   getBarDeviceKey,
-  storeActiveTab,
-  getActiveTab,
-  clearActiveTab
-} from '@/lib/deviceId';
+  storeActiveTab
+} from '@/lib/device-identity';
 import { useToast } from '@/components/ui/Toast';
-import { TokensService, TOKENS_CONFIG } from '../../../../packages/shared/tokens-service';
-import { TokenNotifications, useTokenNotifications } from '../../components/TokenNotifications';
+import { TokensService, TOKENS_CONFIG } from '@/lib/tokens-service';
+import { TokenNotifications, useTokenNotifications } from '@/components/TokenNotifications';
 import QrScanner from 'qr-scanner';
 import { BarClosedSlideIn } from '../../components/BarClosedSlideIn';
 import { playCustomerNotification, requestVibrationPermission, isVibrationSupported } from '@/lib/notifications';
@@ -209,8 +207,8 @@ function ConsentContent() {
   }, []);
 
   useEffect(() => {
-    const initDebugDeviceId = () => {
-      const id = getDeviceId();
+    const initDebugDeviceId = async () => {
+      const id = await getDeviceId();
       setDebugDeviceId(id.slice(0, 20));
     };
     initDebugDeviceId();
@@ -247,8 +245,8 @@ function ConsentContent() {
         return;
       }
       
-      // Get device ID first - FIXED: remove supabase parameter
-      const deviceId = getDeviceId();
+      // Get device ID first 
+      const deviceId = await getDeviceId();
       
       // Get bar slug from URL or sessionStorage
       let slug = searchParams?.get('bar') || searchParams?.get('slug');
@@ -314,8 +312,8 @@ function ConsentContent() {
       // Check if bar is currently open for business BEFORE showing consent form
       try {
         // First check if user has existing overdue tabs for this bar
-        const deviceId = getDeviceId(); // FIXED: remove supabase parameter
-        const barDeviceKey = getBarDeviceKey(bar.id);
+        const deviceId = await getDeviceId();
+        const barDeviceKey = await getBarDeviceKey(bar.id);
         
         const { data: existingTabs } = await (supabase as any)
           .from('tabs')
@@ -516,7 +514,7 @@ function ConsentContent() {
 
     setCreating(true);
 
-    const deviceId = getDeviceId();
+    const deviceId = await getDeviceId();
     
     try {
       // Set bar context for RLS policies

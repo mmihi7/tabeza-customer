@@ -5,6 +5,9 @@ export * from './utils';
 export * from './lib/response-time';
 export * from './error-handling';
 
+// Export mode configuration service
+export * from './services/modeConfigService';
+
 // Export phone validation utilities (simplified version)
 export * from './lib/services/phoneValidation';
 
