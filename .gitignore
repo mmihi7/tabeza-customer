@@ -9,6 +9,11 @@ dist/
 *.zip
 *.exe
 
+# Next.js build artifacts
+.next/
+out/
+build/
+
 # Installer artifacts
 src/installer/nodejs-bundle/
 
