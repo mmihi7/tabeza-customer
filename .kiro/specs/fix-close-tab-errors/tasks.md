@@ -34,7 +34,7 @@ This implementation plan addresses the critical tab closing errors in both custo
     - _Requirements: 1.2, 3.4_
   
   - [x] 2.4 Implement close_tab RPC call
-    - Call supabase.rpc('close_tab', { p_tab_id: tabId, p_write_off_amount: null })
+    - Call supabaseClient.rpc('close_tab', { p_tab_id: tabId, p_write_off_amount: null })
     - Handle RPC errors with proper error categorization
     - Return 200 with success message on successful closure
     - Return 500 with sanitized error message on database errors

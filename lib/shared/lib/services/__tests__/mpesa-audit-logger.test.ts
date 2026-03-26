@@ -24,11 +24,11 @@ describe('MpesaAuditLogger', () => {
     jest.clearAllMocks();
     
     // Mock environment variables
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabaseClient.co';
     process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
     
     // Reset insert mock to return success
-    mockSupabase.insert.mockResolvedValue({ error: null });
+    mocksupabaseClient.insert.mockResolvedValue({ error: null });
     
     logger = new MpesaAuditLogger();
   });
@@ -46,8 +46,8 @@ describe('MpesaAuditLogger', () => {
 
       await logger.logPaymentEvent('payment_initiated', testData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'payment_initiated',
           bar_id: 'bar-789',
@@ -78,7 +78,7 @@ describe('MpesaAuditLogger', () => {
 
       await logger.logPaymentEvent('payment_stk_sent', testData);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       const stkPayload = insertCall.details.stk_request_payload;
 
       expect(stkPayload.Password).toBe('[REDACTED]');
@@ -107,7 +107,7 @@ describe('MpesaAuditLogger', () => {
 
       await logger.logPaymentEvent('payment_callback_received', testData);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       const callbackData = insertCall.details.callback_data;
       const phoneItem = callbackData.Body.stkCallback.CallbackMetadata.Item.find(
         (item: any) => item.Name === 'PhoneNumber'
@@ -118,7 +118,7 @@ describe('MpesaAuditLogger', () => {
 
     it('should handle database errors gracefully', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      mockSupabase.insert.mockResolvedValue({ error: { message: 'Database error' } });
+      mocksupabaseClient.insert.mockResolvedValue({ error: { message: 'Database error' } });
 
       const testData = {
         tab_id: 'tab-123',
@@ -153,7 +153,7 @@ describe('MpesaAuditLogger', () => {
 
       await logger.logStateTransition(testData);
 
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'payment_state_transition',
           details: expect.objectContaining({
@@ -182,7 +182,7 @@ describe('MpesaAuditLogger', () => {
 
         await logger.logPaymentEvent('payment_initiated', testData);
 
-        const insertCall = mockSupabase.insert.mock.calls[mockSupabase.insert.mock.calls.length - 1][0];
+        const insertCall = mocksupabaseClient.insert.mock.calls[mocksupabaseClient.insert.mock.calls.length - 1][0];
         
         if (testCase.input === '' || testCase.input.length < 6) {
           expect(insertCall.details.phone_number).toBe(testCase.expected);
@@ -197,9 +197,9 @@ describe('MpesaAuditLogger', () => {
 describe('Convenience functions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabaseClient.co';
     process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
-    mockSupabase.insert.mockResolvedValue({ error: null });
+    mocksupabaseClient.insert.mockResolvedValue({ error: null });
   });
 
   it('should use singleton logger instance', async () => {
@@ -212,8 +212,8 @@ describe('Convenience functions', () => {
     await logMpesaPaymentEvent('payment_completed', testData);
 
     // Should have been called twice with the same logger instance
-    expect(mockSupabase.from).toHaveBeenCalledTimes(2);
-    expect(mockSupabase.insert).toHaveBeenCalledTimes(2);
+    expect(mocksupabaseClient.from).toHaveBeenCalledTimes(2);
+    expect(mocksupabaseClient.insert).toHaveBeenCalledTimes(2);
   });
 
   it('should log state transitions using convenience function', async () => {
@@ -227,7 +227,7 @@ describe('Convenience functions', () => {
 
     await logMpesaStateTransition(testData);
 
-    expect(mockSupabase.insert).toHaveBeenCalledWith(
+    expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'payment_state_transition',
         details: expect.objectContaining({

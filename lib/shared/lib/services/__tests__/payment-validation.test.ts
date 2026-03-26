@@ -45,7 +45,7 @@ describe('Payment Validation Service', () => {
 
       // Mock successful balance query
       const mockSupabase = createServiceRoleClient();
-      mockSupabase.from().select().eq().single.mockResolvedValue({
+      mocksupabaseClient.from().select().eq().single.mockResolvedValue({
         data: { balance: 100 },
         error: null
       });
@@ -137,7 +137,7 @@ describe('Payment Validation Service', () => {
 
       // Mock successful balance query
       const mockSupabase = createServiceRoleClient();
-      mockSupabase.from().select().eq().single.mockResolvedValue({
+      mocksupabaseClient.from().select().eq().single.mockResolvedValue({
         data: { balance: 100 },
         error: null
       });
@@ -161,7 +161,7 @@ describe('Payment Validation Service', () => {
       const mockSupabase = createServiceRoleClient();
       
       // Mock finding pending payments
-      mockSupabase.from().select().eq().eq().in().limit.mockResolvedValue({
+      mocksupabaseClient.from().select().eq().eq().in().limit.mockResolvedValue({
         data: [{ id: 'payment-123' }],
         error: null
       });
@@ -176,7 +176,7 @@ describe('Payment Validation Service', () => {
       const mockSupabase = createServiceRoleClient();
       
       // Mock no pending payments
-      mockSupabase.from().select().eq().eq().in().limit.mockResolvedValue({
+      mocksupabaseClient.from().select().eq().eq().in().limit.mockResolvedValue({
         data: [],
         error: null
       });

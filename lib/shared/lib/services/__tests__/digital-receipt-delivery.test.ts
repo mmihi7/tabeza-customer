@@ -30,7 +30,7 @@ jest.mock('@supabase/supabase-js', () => ({
 
 describe('DigitalReceiptDeliveryService', () => {
   let service: DigitalReceiptDeliveryService;
-  const supabaseUrl = 'https://test.supabase.co';
+  const supabaseUrl = 'https://test.supabaseClient.co';
   const supabaseKey = 'test-key';
 
   const samplePrintData: PrintDataReceipt = {
@@ -142,7 +142,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mockSupabase.from as jest.Mock).mockImplementationOnce(errorMock.from);
+      (mocksupabaseClient.from as jest.Mock).mockImplementationOnce(errorMock.from);
 
       const result = await service.deliverToCustomer(
         samplePrintData,
@@ -215,7 +215,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mockSupabase.from as jest.Mock).mockImplementation(mixedMock.from);
+      (mocksupabaseClient.from as jest.Mock).mockImplementation(mixedMock.from);
 
       const customers = [
         { tabId: 'tab-1', tabNumber: 1, customerIdentifier: 'Customer 1' },
@@ -273,7 +273,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mockSupabase.from as jest.Mock).mockImplementation(retryMock.from);
+      (mocksupabaseClient.from as jest.Mock).mockImplementation(retryMock.from);
 
       const result = await serviceWithRetry.retryFailedDelivery(
         samplePrintData,
@@ -315,7 +315,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mockSupabase.from as jest.Mock).mockImplementation(failMock.from);
+      (mocksupabaseClient.from as jest.Mock).mockImplementation(failMock.from);
 
       const result = await serviceWithRetry.retryFailedDelivery(
         samplePrintData,
@@ -413,7 +413,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mockSupabase.from as jest.Mock).mockImplementationOnce(failMock.from);
+      (mocksupabaseClient.from as jest.Mock).mockImplementationOnce(failMock.from);
 
       await testService.deliverToCustomer(
         samplePrintData,

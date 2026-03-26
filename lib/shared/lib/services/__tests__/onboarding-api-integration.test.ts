@@ -88,7 +88,7 @@ describe('Complete Onboarding API Integration Tests', () => {
     // Set up test environment
     process.env = {
       ...originalEnv,
-      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabaseClient.co',
       SUPABASE_SECRET_KEY: 'test-secret-key'
     };
 

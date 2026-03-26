@@ -35,7 +35,7 @@ describe('Enhanced M-Pesa Callback Validation and Processing', () => {
     console.error = jest.fn();
     
     // Set up environment variables
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabaseClient.co';
     process.env.SUPABASE_SECRET_KEY = 'test-secret-key';
   });
 

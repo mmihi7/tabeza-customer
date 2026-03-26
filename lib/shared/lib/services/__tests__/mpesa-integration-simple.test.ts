@@ -95,7 +95,7 @@ describe('M-Pesa End-to-End Integration Test (Simplified)', () => {
     // Set up test environment
     process.env = {
       ...originalEnv,
-      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabaseClient.co',
       SUPABASE_SECRET_KEY: 'test-secret-key',
       MPESA_MOCK_MODE: 'false' // Test real flow, not mock
     };

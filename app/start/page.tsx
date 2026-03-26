@@ -11,8 +11,11 @@ import {
   storeActiveTab
 } from '@/lib/device-identity';
 import { useToast } from '@/components/ui/Toast';
-import { TokensService, TOKENS_CONFIG } from '@/lib/tokens-service';
-import { TokenNotifications, useTokenNotifications } from '@/components/TokenNotifications';
+import { useAuth } from '@/hooks/useAuth';
+// Token feature disabled
+// import { TokensService, TOKENS_CONFIG } from '@/lib/tokens-service';
+// import { TokenNotifications, useTokenNotifications } from '@/components/TokenNotifications';
+import { getCustomerId } from '@/lib/customer-service';
 import QrScanner from 'qr-scanner';
 import { BarClosedSlideIn } from '../../components/BarClosedSlideIn';
 import { playCustomerNotification, requestVibrationPermission, isVibrationSupported } from '@/lib/notifications';
@@ -22,13 +25,14 @@ function ConsentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   
   // Customer app origin for QR code validation
   const customerOrigin = process.env.NEXT_PUBLIC_CUSTOMER_ORIGIN || 'https://app.tabeza.co.ke';
   
-  // Token service and notifications
-  const tokensService = new TokensService(supabase);
-  const { showNotification } = useTokenNotifications();
+  // Token service and notifications - DISABLED
+  // const tokensService = new TokensService(supabase);
+  // const { showNotification } = useTokenNotifications();
   
   // Form states
   const [loading, setLoading] = useState(true);
@@ -207,6 +211,12 @@ function ConsentContent() {
   }, []);
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/');
+    }
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
     const initDebugDeviceId = async () => {
       const id = await getDeviceId();
       setDebugDeviceId(id.slice(0, 20));
@@ -311,15 +321,16 @@ function ConsentContent() {
 
       // Check if bar is currently open for business BEFORE showing consent form
       try {
-        // First check if user has existing overdue tabs for this bar
-        const deviceId = await getDeviceId();
-        const barDeviceKey = await getBarDeviceKey(bar.id);
-        
+        // First check if user has existing tabs for this bar.
+        // Now that customers are always authenticated, we use customer_id (= user.id)
+        // as the deduplication key instead of the legacy device-based owner_identifier.
+        // This is more reliable and survives device changes.
+        const deviceId = await getDeviceId(); // still needed for new tab creation below
         const { data: existingTabs } = await (supabase as any)
           .from('tabs')
           .select('id, tab_number, status, opened_at, notes')
           .eq('bar_id', bar.id)
-          .eq('owner_identifier', barDeviceKey)
+          .eq('customer_id', user?.id)
           .in('status', ['open', 'overdue']);
 
         // Allow access if user has existing tabs (open or overdue) - they need to pay!
@@ -494,11 +505,25 @@ function ConsentContent() {
   };
 
   const handleStartTab = async () => {
+    // Check if user is fully authenticated before allowing tab creation
+    if (!user?.id) {
+      console.error('❌ User not authenticated - cannot create tab');
+      showToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'Please sign in to create a tab.'
+      });
+      
+      // Redirect to authentication page
+      router.push('/auth/signin');
+      return;
+    }
+
     if (!termsAccepted) {
       showToast({
-        type: 'warning',
+        type: 'error',
         title: 'Terms Required',
-        message: 'Please accept the Terms of Use and Privacy Policy to continue'
+        message: 'Please accept the terms and conditions to continue.'
       });
       return;
     }
@@ -526,6 +551,10 @@ function ConsentContent() {
         // Continue anyway - the function might still work
       }
 
+      // Get or create customer record for this user
+      const customerId = await getCustomerId(user.id);
+      console.log('👤 Customer ID for tab creation:', customerId);
+
       // Prepare display name
       let displayName: string | null = nickname.trim();
       if (!displayName) {
@@ -533,10 +562,12 @@ function ConsentContent() {
       }
 
       // Use atomic tab creation function to prevent race conditions
+      // User is guaranteed to be authenticated at this point
       const { data: result, error } = await (supabase as any)
         .rpc('create_tab_if_not_exists', {
           p_bar_id: barId,
           p_device_id: deviceId,
+          p_customer_id: customerId, // Use customer_id instead of user_id
           p_display_name: displayName,
           p_notes: {
             has_nickname: !!nickname.trim(),
@@ -551,16 +582,42 @@ function ConsentContent() {
           }
         });
 
+      console.log('🔍 Tab creation response:', { result, error });
+
       if (error) {
+        console.error('❌ Tab creation error:', error);
         throw new Error(error.message || 'Failed to create tab');
       }
 
-      if (!result || !result.success) {
-        throw new Error(result?.message || 'Tab creation failed');
+      if (!result) {
+        console.error('❌ No result returned from tab creation');
+        throw new Error('No response from server');
       }
 
-      const tab = result.tab;
-      const isExisting = result.existing;
+      // RPC returns array: [{ success, message, existing, ...tab_fields }]
+      // PostgREST flattens composite return types — tab fields are merged
+      // directly into the row, NOT nested under a "tab" key.
+      console.log('🔍 Raw RPC result:', JSON.stringify(result));
+
+      const rpcRow = Array.isArray(result) ? result[0] : result;
+      if (!rpcRow?.success) {
+        throw new Error(rpcRow?.message || 'Tab creation failed');
+      }
+
+      // Extract tab from the flattened row — PostgREST merges composite columns
+      // into the parent row, so tab fields (id, bar_id, status, etc.) are at the
+      // top level of rpcRow alongside success/message/existing.
+      const tab = rpcRow.tab && rpcRow.tab.id
+        ? rpcRow.tab  // nested (future-proof if PostgREST behaviour changes)
+        : rpcRow;     // flattened (current PostgREST behaviour for composite columns)
+      const isExisting = rpcRow.existing ?? false;
+
+      if (!tab?.id) {
+        console.error('❌ Tab missing from RPC response:', rpcRow);
+        throw new Error('Tab was created but could not be loaded. Please refresh.');
+      }
+
+      console.log('✅ Tab ready:', tab.id, '| existing:', isExisting);
 
       // Get display name from tab
       let finalDisplayName: string;
@@ -571,9 +628,31 @@ function ConsentContent() {
         finalDisplayName = `Tab ${tab.tab_number}`;
       }
 
-      // Store tab data
-      storeActiveTab(barId, tab);
-      sessionStorage.setItem('currentTab', JSON.stringify(tab));
+      // Store tab data - clean the object to avoid circular references
+      const tabWithBarId = {
+        id: tab.id,
+        bar_id: barId, // Explicitly add bar_id field
+        tab_number: tab.tab_number,
+        status: tab.status,
+        opened_at: tab.opened_at,
+        closed_at: tab.closed_at,
+        notes: tab.notes,
+        created_at: tab.created_at,
+        updated_at: tab.updated_at,
+        closed_by: tab.closed_by,
+        device_identifier: tab.device_identifier,
+        moved_to_overdue_at: tab.moved_to_overdue_at,
+        overdue_reason: tab.overdue_reason,
+        sound_enabled: tab.sound_enabled,
+        vibration_enabled: tab.vibration_enabled,
+        user_id: tab.user_id,
+        customer_id: tab.customer_id,
+        is_loyalty_member: tab.is_loyalty_member,
+        // Only include the fields we need, exclude any circular references
+      };
+      
+      storeActiveTab(barId, tabWithBarId);
+      sessionStorage.setItem('currentTab', JSON.stringify(tabWithBarId));
       sessionStorage.setItem('displayName', finalDisplayName);
       sessionStorage.setItem('barName', barName);
       
@@ -587,27 +666,27 @@ function ConsentContent() {
       } else {
         sessionStorage.setItem('just_created_tab', 'true');
         
-        // Award first connection tokens for new tabs only
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user && barId) {
-            const tokenResult = await tokensService.awardFirstConnectionTokens(user.id, barId);
+        // Award first connection tokens for new tabs only - DISABLED
+        // try {
+        //   const { data: { user } } = await supabase.auth.getUser();
+        //   if (user && barId) {
+        //     const tokenResult = await tokensService.awardFirstConnectionTokens(user.id, barId);
             
-            if (tokenResult) {
-              showNotification({
-                type: 'bonus',
-                title: '🎉 Welcome Bonus!',
-                message: `🎉 +${TOKENS_CONFIG.FIRST_CONNECT_TOKENS} tokens earned for connecting to ${barName}!`,
-                amount: TOKENS_CONFIG.FIRST_CONNECT_TOKENS,
-                autoHide: 5000,
-                timestamp: new Date().toISOString()
-              });
-            }
-          }
-        } catch (error) {
-          // Token awarding failed, but don't block tab creation
-          console.warn('Token awarding failed:', error);
-        }
+        //     if (tokenResult) {
+        //       showNotification({
+        //         type: 'bonus',
+        //         title: '🎉 Welcome Bonus!',
+        //         message: `🎉 +${TOKENS_CONFIG.FIRST_CONNECT_TOKENS} tokens earned for connecting to ${barName}!`,
+        //         amount: TOKENS_CONFIG.FIRST_CONNECT_TOKENS,
+        //         autoHide: 5000,
+        //         timestamp: new Date().toISOString()
+        //       });
+        //     }
+        //   }
+        // } catch (error) {
+        //   // Token awarding failed, but don't block tab creation
+        //   console.warn('Token awarding failed:', error);
+        // }
         
         showToast({
           type: 'success',
@@ -961,7 +1040,8 @@ export default function ConsentPage() {
       </div>
     }>
       <ConsentContent />
-      <TokenNotifications />
+      {/* TokenNotifications component - DISABLED */}
+      {/* <TokenNotifications /> */}
     </Suspense>
   );
 }

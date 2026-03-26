@@ -44,7 +44,7 @@ export const tabezaProjectContext: ProjectContext = {
     'app/api/**/*.ts',
     
     // Authentication and security
-    'lib/supabase.ts',
+    'lib/supabaseClient.ts',
     
     // Payment processing
     'app/api/payments/**/*.ts',

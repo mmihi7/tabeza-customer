@@ -274,7 +274,7 @@ export class AIAssistantIntegrationImpl implements AIAssistantIntegration {
     const realtimePatterns = [
       /\/realtime/,
       /\/subscription/,
-      /supabase.*realtime/i,
+      /supabaseClient.*realtime/i,
       /useRealtimeSubscription/,
       /\/auth/,
       /\/middleware/,

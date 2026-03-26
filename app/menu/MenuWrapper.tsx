@@ -46,10 +46,20 @@ export function MenuWrapper({ children }: MenuWrapperProps): React.JSX.Element {
         }
         
         const tab = JSON.parse(tabData);
-        const currentBarId = tab.bar_id;
+        console.log('🔍 Tab data structure:', tab);
+        
+        // Try different possible bar ID field names
+        const currentBarId = tab.bar_id || tab.barId || tab.id;
+        
+        console.log('🔍 Extracted bar ID:', currentBarId, 'from fields:', {
+          bar_id: tab.bar_id,
+          barId: tab.barId,
+          id: tab.id
+        });
         
         if (!currentBarId) {
           console.error('No bar ID found in tab data');
+          console.error('Available tab fields:', Object.keys(tab));
           setLoading(false);
           return;
         }

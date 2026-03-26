@@ -85,7 +85,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const options: HistoryQueryOptions = {
         barId: mockBarId,
@@ -122,7 +122,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const options: HistoryQueryOptions = {
         barId: mockBarId,
@@ -162,7 +162,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const options: HistoryQueryOptions = {
         barId: mockBarId,
@@ -192,7 +192,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const options: HistoryQueryOptions = {
         barId: mockBarId
@@ -245,7 +245,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const timestamps = await service.getConfigurationTimestamps(mockBarId);
 
@@ -272,7 +272,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const timestamps = await service.getConfigurationTimestamps(mockBarId);
 
@@ -312,7 +312,7 @@ describe('ConfigurationHistoryService', () => {
         }))
       };
 
-      mockSupabase.from.mockReturnValue(mockQuery);
+      mocksupabaseClient.from.mockReturnValue(mockQuery);
 
       const recentChanges = await service.getRecentConfigurationChanges(mockBarId);
 

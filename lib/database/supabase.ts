@@ -1,2 +1,2 @@
-// supabase.ts
+// supabaseClient.ts
 export const placeholder = true;

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { AlertCircle, Zap, DollarSign, Bell, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
@@ -9,6 +9,9 @@ import Logo from '@/components/Logo';
 import PWAUpdateManager from '@/components/PWAUpdateManager';
 import TailwindTest from '@/components/TailwindTest';
 import { getAllOpenTabs, hasOpenTabAtBar, validateDeviceIntegrity, storeActiveTab } from '@/lib/device-identity';
+import { useAuth } from '@/hooks/useAuth';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import AnonymousToggle from '@/components/anonymous/AnonymousToggle';
 
 export default function LandingPage() {
   return (
@@ -28,7 +31,9 @@ export default function LandingPage() {
 function LandingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { showToast } = useToast();
+  const { user, loading: authLoading, signOut } = useAuth();
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [checkingTab, setCheckingTab] = useState(false);
@@ -40,6 +45,13 @@ function LandingContent() {
   useEffect(() => {
     initializeLanding();
   }, []);
+
+  useEffect(() => {
+    if (!authLoading && !user && pathname !== '/login') {
+      console.log('🔐 No authenticated user, redirecting to /login');
+      router.push('/login');
+    }
+  }, [authLoading, user, router, pathname]);
 
   const initializeLanding = async () => {
     try {
@@ -343,6 +355,38 @@ function LandingContent() {
         <Logo size="lg" className="text-white" />
       </div>
 
+      {/* Authentication button */}
+      <div className="absolute top-8 right-8">
+        {authLoading ? (
+          <div className="w-8 h-8 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
+        ) : user ? (
+          <div className="flex flex-col gap-2">
+            <span className="text-white text-sm font-medium">{user.email}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/saved')}
+                className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm hover:bg-white/30 transition"
+              >
+                Saved Restaurants
+              </button>
+              <button
+                onClick={signOut}
+                className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm hover:bg-white/30 transition"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/login')}
+            className="flex items-center justify-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <span className="text-gray-700 font-medium">Sign in</span>
+          </button>
+        )}
+      </div>
+
       <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full flex-1 flex flex-col">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Tabeza</h1>
@@ -371,50 +415,84 @@ function LandingContent() {
           ))}
         </div>
         
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Enter bar code:
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={manualCode}
-              onChange={(e) => setManualCode(e.target.value.toLowerCase())}
-              placeholder="e.g., sunset-lounge"
-              className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              onKeyPress={(e) => e.key === 'Enter' && handleManualSubmit()}
-              disabled={checkingTab}
-            />
-            <button
-              onClick={handleManualSubmit}
-              disabled={checkingTab || !manualCode.trim()}
-              className="px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-            >
-              {checkingTab ? '...' : 'Go'}
-            </button>
+        {!user && !authLoading ? (
+          <div className="text-center py-8">
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Sign in to start scanning</h3>
+              <p className="text-gray-600">Sign in to open tabs and save your favorite bars.</p>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => router.push('/login')}
+                className="flex items-center justify-center gap-3 px-6 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <span className="text-gray-700 font-medium">Sign in with email</span>
+              </button>
+            </div>
           </div>
-        </div>
-        
-        <button
-          onClick={handleStart}
-          disabled={checkingTab}
-          className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-600 hover:to-red-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition shadow-lg mt-auto"
-        >
-          {checkingTab ? (
-            <>
-              <span className="animate-spin inline-block mr-2">⟳</span>
-              Checking for your tab...
-            </>
-          ) : slug ? (
-            'Continue'
-          ) : (
-            'Scan QR or Enter Code'
-          )}
-        </button>
+        ) : (
+          <>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Enter bar code:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value.toLowerCase())}
+                  placeholder="e.g., sunset-lounge"
+                  className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  onKeyPress={(e) => e.key === 'Enter' && handleManualSubmit()}
+                  disabled={checkingTab}
+                />
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={checkingTab || !manualCode.trim().length}
+                  className="px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                  title={checkingTab ? 'Checking...' : !manualCode.trim().length ? 'Enter a bar code' : 'Go to bar'}
+                  onMouseEnter={() => console.log('Go button state:', { 
+                    checkingTab, 
+                    manualCode: JSON.stringify(manualCode), 
+                    trimmedLength: manualCode.trim().length,
+                    disabled: checkingTab || !manualCode.trim().length 
+                  })}
+                >
+                  {checkingTab ? '...' : 'Go'}
+                </button>
+              </div>
+              {/* Debug info - remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 mt-1 font-mono">
+                  Debug: checkingTab={String(checkingTab)} | manualCode="{manualCode}" | trimmedLength={manualCode.trim().length} | disabled={String(checkingTab || !manualCode.trim().length)}
+                </div>
+              )}
+            </div>
+            
+            <AnonymousToggle />
+            
+            <button
+              onClick={handleStart}
+              disabled={checkingTab}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-600 hover:to-red-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition shadow-lg mt-auto"
+            >
+              {checkingTab ? (
+                <>
+                  <span className="animate-spin inline-block mr-2">⟳</span>
+                  Checking for your tab...
+                </>
+              ) : slug ? (
+                'Continue'
+              ) : (
+                'Scan QR or Enter Code'
+              )}
+            </button>
 
-        <p className="text-xs text-gray-400 text-center mt-3">
-          🔒 No signup • 100% anonymous
-        </p>
+            <p className="text-xs text-gray-400 text-center mt-3">
+              🔒 Secure • Authenticated
+            </p>
+          </>
+        )}
         
         {process.env.NODE_ENV === 'development' && (
           <p className="text-xs text-gray-400 text-center mt-2 font-mono">

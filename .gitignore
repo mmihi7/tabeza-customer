@@ -216,3 +216,4 @@ start
 
 # Cleanup script (generated)
 cleanup-workspace-files.bat
+node_modules

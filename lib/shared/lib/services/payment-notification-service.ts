@@ -655,7 +655,7 @@ export class PaymentNotificationService {
     });
 
     // In a real implementation, this would use Supabase real-time channels:
-    // await this.supabase.channel(channelName).send({
+    // await this.supabaseClient.channel(channelName).send({
     //   type: 'broadcast',
     //   event: 'payment_notification',
     //   payload: payload

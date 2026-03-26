@@ -88,7 +88,7 @@ export class AIContextEnhancer {
     constraints.push({
       type: 'performance',
       description: 'Database queries should use Supabase client with proper indexing',
-      scope: ['**/lib/supabase.ts', '**/database/**'],
+      scope: ['**/lib/supabaseClient.ts', '**/database/**'],
       enforcement: 'moderate'
     });
 
@@ -200,8 +200,8 @@ export class AIContextEnhancer {
       name: 'Supabase Client Usage',
       description: 'Standard pattern for initializing and using Supabase client',
       category: 'database',
-      pattern: 'createClient(url, key); supabase.from(table).select()',
-      examples: ['packages/shared/lib/supabase.ts']
+      pattern: 'createClient(url, key); supabaseClient.from(table).select()',
+      examples: ['packages/shared/lib/supabaseClient.ts']
     });
 
     // API route pattern

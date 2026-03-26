@@ -950,7 +950,7 @@ const saveQRCode = async (barId: string, qrDataUrl: string): Promise<string> => 
   
   // Upload to Supabase Storage
   const fileName = `qr-codes/${barId}.png`;
-  const { data, error } = await supabase.storage
+  const { data, error } = await supabaseClient.storage
     .from('venue-assets')
     .upload(fileName, blob, {
       contentType: 'image/png',
@@ -960,7 +960,7 @@ const saveQRCode = async (barId: string, qrDataUrl: string): Promise<string> => 
   if (error) throw error;
   
   // Get public URL
-  const { data: { publicUrl } } = supabase.storage
+  const { data: { publicUrl } } = supabaseClient.storage
     .from('venue-assets')
     .getPublicUrl(fileName);
     

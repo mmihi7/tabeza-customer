@@ -11,20 +11,15 @@ import { useVibrate } from '@/hooks/useVibrate';
 import { useSound } from '@/hooks/useSound';
 import { telegramMessageQueries } from '@/lib/telegram-queries';
 import { MessageAlert, InitiatedBy } from '@/lib/shared/types';
-import { TokensService } from '@/lib/shared/tokens-service';
+// import { TokensService } from '@/lib/shared/tokens-service';
 import { useRealtimeSubscription } from '@/lib/shared/hooks/useRealtimeSubscription';
 import { ConnectionStatusIndicator } from '@/lib/shared/components/ConnectionStatus';
-import { calculateResponseTime, formatResponseTime, type ResponseTimeResult } from '@/lib/shared';
+import { calculateResponseTime, formatResponseTime, type ResponseTimeResult, validateMpesaPhoneNumber, formatPhoneNumberInput } from '@/lib/shared';
 import { useToast } from '@/components/ui/Toast';
-import { 
-  validateMpesaPhoneNumber, 
-  formatPhoneNumberInput
-} from '@/lib/shared';
 import { validatePaymentContext, logPaymentDebugInfo } from '@/lib/payment-debug';
 import { TokenNotifications, useTokenNotifications } from '../../components/TokenNotifications';
 import PWAInstallPrompt from '../../components/PWAInstallPrompt';
 import PWAUpdateManager from '../../components/PWAUpdateManager';
-import PDFViewer from '../../../../components/PDFViewer'; 
 import MessagePanel from './MessagePanel';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
@@ -67,7 +62,7 @@ interface Tab {
   id: string;
   status: string;
   bar_id: string;
-  tab_number?: string;
+  tab_number?: number; // DB returns number, not string
   notes?: string;
   // Added notification columns
   notifications_enabled?: boolean;
@@ -146,10 +141,10 @@ export default function MenuPage() {
   const [loadingPaymentSettings, setLoadingPaymentSettings] = useState(true);
   const { showToast } = useToast();
   
-  // Token service instance
-  const tokensService = supabase ? new TokensService(supabase) : null;
+  // Token service instance - DISABLED
+  // const tokensService = supabase ? new TokensService(supabase) : null;
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
-  const { showNotification } = useTokenNotifications();
+  // const { showNotification } = useTokenNotifications();
 
   // Balance change handlers
   const handleBalanceChange = (newBalance: number, previousBalance: number) => {
@@ -376,22 +371,12 @@ export default function MenuPage() {
     }
   }, []);
 
-  // Load user's token balance
+  // Load user's token balance - DISABLED
   useEffect(() => {
     const loadTokenBalance = async () => {
-      console.log('🪙 Loading token balance...');
-      if (!supabase) return;
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && tokensService) {
-        console.log('👤 User found for token balance:', user.id);
-        const balance = await tokensService.getBalance(user.id);
-        console.log('💰 Token balance result:', balance);
-        setCurrentBalance(balance?.balance || 0);
-        console.log('🪙 Set token balance to:', balance?.balance || 0);
-      } else {
-        console.log('❌ No user found for token balance');
-      }
+      console.log('🪙 Token balance loading disabled');
+      // Token balance loading disabled to prevent database errors
+      setCurrentBalance(null);
     };
 
     loadTokenBalance();
@@ -450,74 +435,39 @@ export default function MenuPage() {
     vibrationEnabled: true
   });
 
-  // Load notification preferences when tab loads - FIXED VERSION
-  // Load notification preferences when tab loads - FIXED VERSION
+  // Load notification preferences when tab loads - reads from already-loaded tab state
+  // to avoid a redundant Supabase query that would be blocked by RLS.
   const loadNotificationPrefs = async () => {
-    if (!tab || !supabase) return;
-    
+    if (!tab) return;
+
     try {
-      // Only query columns that exist in the database
-      const { data, error } = await supabase
-        .from('tabs')
-        .select('sound_enabled, vibration_enabled, notes')
-        .eq('id', tab.id)
-        .single();
-      
-      if (error) {
-        console.error('Error loading notification preferences:', error);
-        // Use defaults on error
-        setNotificationPrefs({
-          notificationsEnabled: true,
-          soundEnabled: true,
-          vibrationEnabled: true
-        });
-        return;
-      }
-      
-      // Type assertion to handle the data
-      const tabData = data as {
+      // Use the tab already in state — it was fetched via the service role API route
+      // so all fields are available. No need for a second DB query.
+      const tabData = tab as {
         sound_enabled?: boolean;
         vibration_enabled?: boolean;
         notes?: string;
       };
-      
-      if (!tabData) {
-        // Use defaults if no data
-        setNotificationPrefs({
-          notificationsEnabled: true,
-          soundEnabled: true,
-          vibrationEnabled: true
-        });
-        return;
-      }
-      
-      // Extract values from database columns
+
       const soundEnabled = tabData.sound_enabled ?? true;
       const vibrationEnabled = tabData.vibration_enabled ?? true;
-      
-      // For notifications_enabled, we need to check if both sound AND vibration are enabled
-      // or check in notes, or default to true
+
       let notificationsEnabled = true;
-      
       if (tabData.notes) {
         try {
           const notes = JSON.parse(tabData.notes);
-          // Check if notifications_enabled exists in notes (legacy storage)
           if (typeof notes.notifications_enabled !== 'undefined') {
             notificationsEnabled = notes.notifications_enabled;
           } else {
-            // If not in notes, determine based on sound and vibration
             notificationsEnabled = soundEnabled || vibrationEnabled;
           }
         } catch (e) {
-          // If JSON parse fails, determine based on sound and vibration
           notificationsEnabled = soundEnabled || vibrationEnabled;
         }
       } else {
-        // No notes, determine based on sound and vibration
         notificationsEnabled = soundEnabled || vibrationEnabled;
       }
-      
+
       setNotificationPrefs({
         notificationsEnabled,
         soundEnabled,
@@ -1308,20 +1258,20 @@ export default function MenuPage() {
       return;
     }
     try {
-      console.log('🔍 Menu page: Fetching full tab data from Supabase...');
-      if (!supabase) {
-        throw new Error('Supabase client not available');
-      }
-      const { data: fullTab, error: tabError } = await supabase
-        .from('tabs')
-        .select('*, bar:bars(id, name, location)')
-        .eq('id', currentTab.id)
-        .maybeSingle();
+      console.log('🔍 Menu page: Fetching full tab data via API...');
 
-      if (tabError) {
-        console.error('❌ Menu page: Error fetching tab:', tabError);
-        throw tabError;
+      // Fetch tab via API route which uses the service role client to bypass RLS.
+      // Direct client-side Supabase queries are blocked by RLS when set_bar_context
+      // is not defined or not yet applied in the database.
+      const tabResponse = await fetch(`/api/tabs/${currentTab.id}`);
+      const tabBody = await tabResponse.json().catch(() => ({}));
+
+      if (!tabResponse.ok && tabResponse.status !== 404) {
+        throw new Error(tabBody.error || 'Failed to fetch tab');
       }
+
+      const fullTab = tabResponse.ok ? (tabBody.tab ?? null) : null;
+
       if (!fullTab) {
         console.error('❌ Menu page: Tab not found in database');
         sessionStorage.removeItem('currentTab');
@@ -2287,7 +2237,9 @@ export default function MenuPage() {
       }
       
       // Use the database function first
-      const { data, error: functionError } = await supabase.rpc(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Note: create_telegram_message is not yet in generated types/supabase.ts — cast to any until types are regenerated
+      const { data, error: functionError } = await (supabase as any).rpc(
         'create_telegram_message',
         {
           p_tab_id: tab.id,

@@ -29,7 +29,7 @@ import { withDatabaseErrorHandling } from './database-error-handler';
 const result = await withDatabaseErrorHandling(
   async () => {
     // Your database operation here
-    return await supabase.from('bars').update(data).eq('id', barId);
+    return await supabaseClient.from('bars').update(data).eq('id', barId);
   },
   {
     operationName: 'update_venue_config',

@@ -66,7 +66,7 @@ interface DigitalReceipt {
 import { createDigitalReceiptDeliveryService } from '@tabeza/shared/lib/services/digital-receipt-delivery';
 
 const deliveryService = createDigitalReceiptDeliveryService(
-  'https://your-project.supabase.co',
+  'https://your-project.supabaseClient.co',
   'your-supabase-key'
 );
 ```

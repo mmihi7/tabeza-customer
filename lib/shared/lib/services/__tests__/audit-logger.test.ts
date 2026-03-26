@@ -58,8 +58,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingCompletion(onboardingData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'onboarding_completed',
           bar_id: 'test-bar-123',
@@ -99,8 +99,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingCompletion(minimalData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'onboarding_completed',
           bar_id: 'test-bar-123',
@@ -148,8 +148,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logConfigurationChange(changeData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_changed',
           bar_id: 'test-bar-123',
@@ -190,7 +190,7 @@ describe('AuditLogger', () => {
 
       await auditLogger.logConfigurationChange(destructiveChangeData);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       expect(insertCall.details.impact_assessment).toBe('High - Destructive change that may affect existing data');
     });
   });
@@ -222,8 +222,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logValidationFailure(validationData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_validation_failed',
           bar_id: 'test-bar-123',
@@ -257,7 +257,7 @@ describe('AuditLogger', () => {
 
       await auditLogger.logValidationFailure(lowSeverityData);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       expect(insertCall.details.failure_severity).toBe('low');
     });
   });
@@ -280,8 +280,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingFailure(failureData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'onboarding_failed',
           bar_id: 'test-bar-123',
@@ -321,8 +321,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logMigrationEvent('configuration_migration_started', migrationData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_migration_started',
           bar_id: 'test-bar-123',
@@ -349,8 +349,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logMigrationEvent('configuration_migration_completed', migrationData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_migration_completed',
           bar_id: 'test-bar-123',
@@ -374,8 +374,8 @@ describe('AuditLogger', () => {
 
       await auditLogger.logMigrationEvent('configuration_migration_failed', migrationData);
 
-      expect(mockSupabase.from).toHaveBeenCalledWith('audit_logs');
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.from).toHaveBeenCalledWith('audit_logs');
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_migration_failed',
           bar_id: 'test-bar-123',
@@ -401,7 +401,7 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingCompletion(dataWithEmail);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       expect(insertCall.details.user_email).toBe('t*******r@example.com');
     });
 
@@ -415,7 +415,7 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingCompletion(dataWithShortEmail);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       expect(insertCall.details.user_email).toBe('*@b.com');
     });
 
@@ -429,14 +429,14 @@ describe('AuditLogger', () => {
 
       await auditLogger.logOnboardingCompletion(dataWithInvalidEmail);
 
-      const insertCall = mockSupabase.insert.mock.calls[0][0];
+      const insertCall = mocksupabaseClient.insert.mock.calls[0][0];
       expect(insertCall.details.user_email).toBe('[MASKED_EMAIL]');
     });
   });
 
   describe('Error Handling', () => {
     it('should handle database insertion errors gracefully', async () => {
-      mockSupabase.insert.mockResolvedValueOnce({ error: { message: 'Database error' } });
+      mocksupabaseClient.insert.mockResolvedValueOnce({ error: { message: 'Database error' } });
       
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
@@ -462,7 +462,7 @@ describe('AuditLogger', () => {
     });
 
     it('should handle unexpected errors during logging', async () => {
-      mockSupabase.insert.mockRejectedValueOnce(new Error('Unexpected error'));
+      mocksupabaseClient.insert.mockRejectedValueOnce(new Error('Unexpected error'));
       
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
@@ -506,7 +506,7 @@ describe('AuditLogger', () => {
       };
 
       await logOnboardingCompletion(onboardingData);
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'onboarding_completed'
         })
@@ -519,7 +519,7 @@ describe('AuditLogger', () => {
       };
 
       await logConfigurationChange(changeData);
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_changed'
         })
@@ -533,7 +533,7 @@ describe('AuditLogger', () => {
       };
 
       await logValidationFailure(validationData);
-      expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect(mocksupabaseClient.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'configuration_validation_failed'
         })

@@ -414,7 +414,7 @@ export class EnvironmentValidator {
   private getExampleValue(variable: EnvironmentVariable): string | undefined {
     switch (variable.name) {
       case 'NEXT_PUBLIC_SUPABASE_URL':
-        return 'https://your-project.supabase.co';
+        return 'https://your-project.supabaseClient.co';
       case 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY':
         return 'sb_publishable_xxxxxxxxxxxxxxxx';
       case 'SUPABASE_SECRET_KEY':
