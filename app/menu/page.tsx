@@ -610,18 +610,28 @@ export default function MenuPage() {
       console.error('❌ [REALTIME] Error handling order update:', error);
       // Fallback: refetch orders data
       console.log('🔄 [REALTIME] Falling back to refetch...');
-      if (supabase && tab?.id) {
-        supabase
-          .from('tab_orders')
-          .select('*')
-          .eq('tab_id', tab.id)
-          .order('created_at', { ascending: false })
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setOrders(data as TabOrder[]);
-              console.log('✅ [REALTIME] Orders refetched successfully');
-            }
-          });
+      if (tab?.id) {
+        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
+        // Original direct query (NON-DESTRUCTIVE — kept for reference):
+        // supabase
+        //   .from('tab_orders')
+        //   .select('*')
+        //   .eq('tab_id', tab.id)
+        //   .order('created_at', { ascending: false })
+        //   .then(({ data, error }) => {
+        //     if (!error && data) {
+        //       setOrders(data as TabOrder[]);
+        //       console.log('✅ [REALTIME] Orders refetched successfully');
+        //     }
+        //   });
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
+          .then(res => res.ok ? res.json() : Promise.reject(res.status))
+          .then(({ orders }) => {
+            setOrders(orders || []);
+            console.log('✅ [REALTIME] Orders refetched successfully via API route');
+          })
+          .catch(err => console.error('❌ [REALTIME] Fallback refetch failed:', err));
       }
     }
   }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast, setShowRejectModal, setAcceptanceModal]);
@@ -686,18 +696,28 @@ export default function MenuPage() {
       console.error('❌ [REALTIME] Error handling order insert:', error);
       // Fallback: refetch orders data
       console.log('🔄 [REALTIME] Falling back to refetch...');
-      if (supabase && tab?.id) {
-        supabase
-          .from('tab_orders')
-          .select('*')
-          .eq('tab_id', tab.id)
-          .order('created_at', { ascending: false })
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setOrders(data as TabOrder[]);
-              console.log('✅ [REALTIME] Orders refetched successfully');
-            }
-          });
+      if (tab?.id) {
+        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
+        // Original direct query (NON-DESTRUCTIVE — kept for reference):
+        // supabase
+        //   .from('tab_orders')
+        //   .select('*')
+        //   .eq('tab_id', tab.id)
+        //   .order('created_at', { ascending: false })
+        //   .then(({ data, error }) => {
+        //     if (!error && data) {
+        //       setOrders(data as TabOrder[]);
+        //       console.log('✅ [REALTIME] Orders refetched successfully');
+        //     }
+        //   });
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
+          .then(res => res.ok ? res.json() : Promise.reject(res.status))
+          .then(({ orders }) => {
+            setOrders(orders || []);
+            console.log('✅ [REALTIME] Orders refetched successfully via API route');
+          })
+          .catch(err => console.error('❌ [REALTIME] Fallback refetch failed:', err));
       }
     }
   }, [tab?.id, buzz, playAcceptanceSound, showToast]);
@@ -739,18 +759,28 @@ export default function MenuPage() {
       console.error('❌ [REALTIME] Error handling order delete:', error);
       // Fallback: refetch orders data
       console.log('🔄 [REALTIME] Falling back to refetch...');
-      if (supabase && tab?.id) {
-        supabase
-          .from('tab_orders')
-          .select('*')
-          .eq('tab_id', tab.id)
-          .order('created_at', { ascending: false })
-          .then(({ data, error }) => {
-            if (!error && data) {
-              setOrders(data as TabOrder[]);
-              console.log('✅ [REALTIME] Orders refetched successfully');
-            }
-          });
+      if (tab?.id) {
+        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
+        // Original direct query (NON-DESTRUCTIVE — kept for reference):
+        // supabase
+        //   .from('tab_orders')
+        //   .select('*')
+        //   .eq('tab_id', tab.id)
+        //   .order('created_at', { ascending: false })
+        //   .then(({ data, error }) => {
+        //     if (!error && data) {
+        //       setOrders(data as TabOrder[]);
+        //       console.log('✅ [REALTIME] Orders refetched successfully');
+        //     }
+        //   });
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
+          .then(res => res.ok ? res.json() : Promise.reject(res.status))
+          .then(({ orders }) => {
+            setOrders(orders || []);
+            console.log('✅ [REALTIME] Orders refetched successfully via API route');
+          })
+          .catch(err => console.error('❌ [REALTIME] Fallback refetch failed:', err));
       }
     }
   }, [tab?.id]);
@@ -1401,26 +1431,17 @@ export default function MenuPage() {
                 }
               }
               
-              // Show table selection modal if no table assigned (with delay)
-              if (!hasTableAssigned) {
-                console.log('⏰ Setting up table selection modal with delay...');
-                // Show a gentle notification first
-                const notificationTimeout = setTimeout(() => {
-                  showToast({
-                    type: 'info',
-                    title: 'Table Selection',
-                    message: 'We\'ll ask for your table number in a moment...'
-                  });
-                }, 2000);
-                
-                // Then show the modal after 3 seconds total
+              // Show table selection modal only for new tabs (just_created_tab flag).
+              // Returning users already have a table assigned or chose not to select one.
+              // They can change their table from within the menu if needed.
+              const isNewTab = sessionStorage.getItem('just_created_tab') === 'true';
+              if (!hasTableAssigned && isNewTab) {
+                console.log('⏰ New tab — setting up table selection modal with delay...');
                 const modalTimeout = setTimeout(() => {
                   console.log('🪑 Showing table selection modal');
                   setShowTableModal(true);
-                }, 3000);
-                
-                // Store timeouts for cleanup
-                (window as any).tableSelectionTimeouts = [notificationTimeout, modalTimeout];
+                }, 2000);
+                (window as any).tableSelectionTimeouts = [modalTimeout];
               }
             } else {
               console.log('❌ Table setup not enabled or no tables configured');
@@ -1433,12 +1454,25 @@ export default function MenuPage() {
         }
       }
       try {
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('tab_orders')
-          .select('*')
-          .eq('tab_id', currentTab.id)
-          .order('created_at', { ascending: false });
-        if (!ordersError) setOrders(ordersData || []);
+        // BUG FIX (menu-orders-not-visible): The direct client-side query below is blocked by RLS
+        // when using the publishable key, causing staff-initiated orders to be invisible.
+        // Replaced with a server-side API route that uses the service role client to bypass RLS.
+        // Original direct query (NON-DESTRUCTIVE — kept for reference):
+        // const { data: ordersData, error: ordersError } = await supabase
+        //   .from('tab_orders')
+        //   .select('*')
+        //   .eq('tab_id', currentTab.id)
+        //   .order('created_at', { ascending: false });
+        // if (!ordersError) setOrders(ordersData || []);
+
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const ordersResponse = await fetch(`${baseUrl}/api/tabs/${currentTab.id}/orders`);
+        if (ordersResponse.ok) {
+          const { orders } = await ordersResponse.json();
+          setOrders(orders || []);
+        } else {
+          console.error('Error loading orders via API route:', ordersResponse.status);
+        }
       } catch (error) {
         console.error('Error loading orders:', error);
       }
@@ -1562,35 +1596,19 @@ export default function MenuPage() {
     }
     
     try {
-      // Update tab notes with table number
-      let currentNotes = {};
-      if (tab.notes) {
-        try {
-          currentNotes = JSON.parse(tab.notes);
-          console.log('📝 Current notes:', currentNotes);
-        } catch (e) {
-          console.log('❌ Error parsing current notes:', e);
-        }
-      }
-      
-      const updatedNotes = {
-        ...currentNotes,
-        table_number: tableNumber
-      };
-      
-      console.log('📝 Updating notes to:', updatedNotes);
-      
-      if (!supabase) {
-        throw new Error('Supabase client not available');
-      }
-      
-      const { error } = await supabase
-        .from('tabs')
-        .update({ notes: JSON.stringify(updatedNotes) })
-        .eq('id', tab.id);
-      
-      if (error) {
-        console.error('❌ Error updating table number:', error);
+      // Update tab notes via API route (service role, bypasses RLS)
+      const response = await fetch('/api/tabs/update-notes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tabId: tab.id,
+          notes: { table_number: tableNumber }
+        })
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        console.error('❌ Error updating table number:', body);
         showToast({
           type: 'error',
           title: 'Error',
@@ -1598,6 +1616,8 @@ export default function MenuPage() {
         });
         return;
       }
+
+      const { notes: updatedNotes } = await response.json();
       
       console.log('✅ Table number updated successfully');
       setSelectedTable(tableNumber);
@@ -1606,7 +1626,9 @@ export default function MenuPage() {
       // Update local tab state
       setTab(prev => prev ? { ...prev, notes: JSON.stringify(updatedNotes) } : null);
       
-      // Show success message
+      // Clear new tab flag so modal won't show again on refresh
+      sessionStorage.removeItem('just_created_tab');
+      
       const tableText = tableNumber ? `Table ${tableNumber}` : 'No specific table';
       showToast({
         type: 'success',

@@ -322,19 +322,24 @@ function ConsentContent() {
       // Check if bar is currently open for business BEFORE showing consent form
       try {
         // First check if user has existing tabs for this bar.
-        // Now that customers are always authenticated, we use customer_id (= user.id)
-        // as the deduplication key instead of the legacy device-based owner_identifier.
-        // This is more reliable and survives device changes.
+        // Use the API route (service role) to bypass RLS — direct client queries are blocked.
         const deviceId = await getDeviceId(); // still needed for new tab creation below
-        const { data: existingTabs } = await (supabase as any)
-          .from('tabs')
-          .select('id, tab_number, status, opened_at, notes')
-          .eq('bar_id', bar.id)
-          .eq('customer_id', user?.id)
-          .in('status', ['open', 'overdue']);
+        let existingTabs: any[] = [];
+
+        if (user?.id) {
+          try {
+            const res = await fetch(`/api/tabs/by-customer?customerId=${user.id}&barId=${bar.id}`);
+            if (res.ok) {
+              const body = await res.json();
+              if (body.tab) existingTabs = [body.tab];
+            }
+          } catch (e) {
+            console.warn('⚠️ Could not check existing tab via API:', e);
+          }
+        }
 
         // Allow access if user has existing tabs (open or overdue) - they need to pay!
-        const hasExistingTab = existingTabs && existingTabs.length > 0;
+        const hasExistingTab = existingTabs.length > 0;
         
         if (hasExistingTab) {
           console.log('✅ User has existing tab, redirecting directly to menu');

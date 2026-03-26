@@ -133,20 +133,40 @@ function LandingContent() {
       }
 
       console.log('✅ Bar found:', bar.name);
-      const { hasTab, tab } = await hasOpenTabAtBar(bar.id, supabase as any);
-
-      if (hasTab && tab) {
-        console.log('✅ EXISTING TAB FOUND!');
-        let displayName = `Tab ${tab.tab_number}`;
+      
+      // Check for existing open/overdue tab using customer_id (auth-based deduplication).
+      // hasOpenTabAtBar uses the legacy owner_identifier pattern which no longer applies.
+      // Query via the API route to bypass RLS.
+      let hasTab = false;
+      let existingTab: any = null;
+      
+      if (user?.id) {
         try {
-          const notes = JSON.parse(tab.notes || '{}');
+          const res = await fetch(`/api/tabs/by-customer?customerId=${user.id}&barId=${bar.id}`);
+          if (res.ok) {
+            const body = await res.json();
+            if (body.tab) {
+              hasTab = true;
+              existingTab = body.tab;
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not check existing tab:', e);
+        }
+      }
+
+      if (hasTab && existingTab) {
+        console.log('✅ EXISTING TAB FOUND!');
+        let displayName = `Tab ${existingTab.tab_number}`;
+        try {
+          const notes = JSON.parse(existingTab.notes || '{}');
           displayName = notes.display_name || displayName;
         } catch (e) {
           console.warn('Failed to parse tab notes:', e);
         }
 
-        storeActiveTab(bar.id, tab);
-        sessionStorage.setItem('currentTab', JSON.stringify(tab));
+        storeActiveTab(bar.id, existingTab);
+        sessionStorage.setItem('currentTab', JSON.stringify(existingTab));
         sessionStorage.setItem('displayName', displayName);
         sessionStorage.setItem('barName', bar.name);
         sessionStorage.removeItem('just_created_tab');
@@ -179,6 +199,7 @@ function LandingContent() {
       });
 
       setCheckingTab(false);
+      setIsInitializing(false);
       setTimeout(() => {
         router.replace(`/start?bar=${barSlug}`);
       }, 300);
