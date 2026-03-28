@@ -61,7 +61,7 @@ All changes are confined to `app/menu/page.tsx`. The plan adds the `spendTier` s
     - Mount component with a valid `customer_id`; trigger multiple re-renders; assert fetch called exactly once.
     - Tag: `// Feature: unified-menu-loyalty-pricing, Property 7: Spend tier fetch fires exactly once`
 
-- [-] 5. Replace FOOD/DRINKS carousel sections with the Unified Grid
+- [x] 5. Replace FOOD/DRINKS carousel sections with the Unified Grid
   - Locate the JSX blocks that render the separate FOOD section (horizontal scroll carousel + category filter tabs) and the DRINKS section (horizontal scroll carousel + category filter tabs).
   - Remove those two JSX blocks and replace them with the Unified Grid JSX in the same position.
   - Do NOT remove any other JSX sections (cart, payment, orders, messages, tab header, connection status).
@@ -126,7 +126,7 @@ All changes are confined to `app/menu/page.tsx`. The plan adds the `spendTier` s
     - Generate `BarProduct`; apply loyalty layer at render time; assert `sale_price` on the state object is unchanged after render.
     - Tag: `// Feature: unified-menu-loyalty-pricing, Property 10: sale_price is not mutated`
 
-- [ ] 6. Checkpoint — Ensure all tests pass
+- [x] 6. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Write unit tests for edge cases

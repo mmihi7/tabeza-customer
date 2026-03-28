@@ -2926,6 +2926,15 @@ const loadNotificationPrefs = async () => {
           </div>
         </div>
       ) : (
+        <>
+        {spendTier && (
+          <div className="mx-4 mt-4 mb-1 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-xs text-orange-700 font-medium">
+              🥉 Bronze prices — yours alone.{' '}
+              <span className="text-orange-500 font-normal">Visit more, pay less.</span>
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 px-4 pb-6 mt-4">
           {sortedProducts.map(bp => {
             const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
@@ -2937,28 +2946,28 @@ const loadNotificationPrefs = async () => {
               <button
                 key={bp.id}
                 onClick={() => addToCart(bp, displayPrice)}
-                className="flex flex-col rounded-xl overflow-hidden bg-white/10 active:scale-95 transition-transform"
+                className="flex flex-col rounded-xl overflow-hidden bg-white border border-orange-100 shadow-sm active:scale-95 transition-transform"
               >
                 {/* Image area */}
-                <div className="w-full aspect-square bg-white/5 flex items-center justify-center overflow-hidden">
+                <div className="w-full aspect-square bg-orange-50 flex items-center justify-center overflow-hidden">
                   {imageUrl ? (
                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                   ) : (
-                    <IconComponent className="w-10 h-10 text-white/50" />
+                    <IconComponent className="w-10 h-10 text-orange-400" />
                   )}
                 </div>
                 {/* Name + price */}
                 <div className="p-2 flex flex-col gap-0.5">
-                  <span className="text-white text-sm font-medium leading-tight line-clamp-2">
+                  <span className="text-gray-900 text-sm font-medium leading-tight line-clamp-2">
                     {bp.product?.name}
                   </span>
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     {showStrikethrough && (
-                      <span className="text-white/40 text-xs line-through">
+                      <span className="text-gray-400 text-xs line-through">
                         {tempFormatCurrency(bp.sale_price)}
                       </span>
                     )}
-                    <span className="text-white text-sm font-semibold">
+                    <span className="text-orange-600 text-sm font-semibold">
                       {tempFormatCurrency(displayPrice)}
                     </span>
                   </div>
@@ -2967,6 +2976,7 @@ const loadNotificationPrefs = async () => {
             );
           })}
         </div>
+        </>
       )}
 
       {/* Cart Section - Only show when cart has items */}
@@ -3108,12 +3118,12 @@ const loadNotificationPrefs = async () => {
         </button>
       )}
 
-      {/* PROMO Section - Always Visible */}
+      {/* UPCOMING EVENTS Section - Always Visible */}
       <div className="bg-gray-50 px-4">
         <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
           <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50">
             <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PROMO</h2>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">UPCOMING EVENTS</h2>
             </div>
           </div>
           
