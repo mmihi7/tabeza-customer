@@ -165,8 +165,8 @@ export class ConfigurationHistoryService {
       }
 
       // Format entries for display
-      const formattedEntries = (data || []).map(entry => 
-        this.formatHistoryEntry(entry as ConfigurationHistoryEntry)
+      const formattedEntries = (data || []).map((entry: ConfigurationHistoryEntry) => 
+        this.formatHistoryEntry(entry)
       );
 
       return {

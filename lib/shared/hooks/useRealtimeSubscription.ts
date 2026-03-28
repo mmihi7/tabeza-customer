@@ -74,7 +74,7 @@ export const useRealtimeSubscription = (
     setConnectionStatus('connecting')
 
     const channelName = configs[0]?.channelName || `realtime-${Date.now()}`
-    const channel = supabaseClient.channel(channelName)
+    const channel = supabase.channel(channelName)
 
     // Add all event handlers
     configs.forEach(config => {

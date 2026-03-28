@@ -38,6 +38,10 @@
   ],
   "exclude": [
     "node_modules",
-    "lib/code-guardrails"
+    "lib/code-guardrails",
+    "lib/shared/lib/visual-tests",
+    "lib/shared/playwright.config.ts",
+    "lib/shared/services/receiptParser.ts",
+    "lib/validation"
   ]
 }

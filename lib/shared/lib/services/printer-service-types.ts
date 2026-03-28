@@ -48,6 +48,12 @@ export interface DriverStatus {
   version?: string;
   compatible: boolean;
   error?: string;
+  driverInfo?: {
+    serviceName: string;
+    status: string;
+    printerName: string;
+    lastSeen?: string;
+  };
 }
 
 // ============================================================================

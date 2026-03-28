@@ -461,7 +461,7 @@ export async function resolveCustomerIdentifier(): Promise<CustomerIdentifierFro
           
           return {
             success: true,
-            customerIdentifier: tab.owner_identifier,
+            customerIdentifier: tab.owner_identifier ?? undefined,
             barId: tab.bar_id,
             tabNumber: tab.tab_number,
             tabId: tab.id

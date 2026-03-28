@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import ReactDOM from 'react-dom/client';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   // Food & Drink Icons
-  Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid } from 'lucide-react';
+  Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid,
+  // Loyalty tier icons (same as staff app)
+  Crown, Shield, Circle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -64,6 +66,7 @@ interface Tab {
   bar_id: string;
   tab_number?: number; // DB returns number, not string
   notes?: string;
+  customer_id?: string;
   // Added notification columns
   notifications_enabled?: boolean;
   sound_enabled?: boolean;
@@ -212,7 +215,22 @@ export default function MenuPage() {
   const [responseTimeLoading, setResponseTimeLoading] = useState(false);
 
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
-  
+
+  // Loyalty tier state
+  const [loyaltyData, setLoyaltyData] = useState<{
+    visitTier: 'new' | 'bronze' | 'silver' | 'gold';
+    spendTier: 'low' | 'medium' | 'high';
+    totalVisits: number;
+    totalSpend: number;
+  } | null>(null);
+
+  // Customer notification preferences
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    notificationsEnabled: true,
+    soundEnabled: true,
+    vibrationEnabled: true
+  });
+
   // Table selection state
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
@@ -421,25 +439,146 @@ export default function MenuPage() {
     }
   };
   
-  // Load average response time when tab is loaded
-  useEffect(() => {
-    if (tab?.bar_id) {
-      calculateAverageResponseTime(tab.bar_id);
+// Function to load loyalty data
+const loadLoyaltyData = async () => {
+  if (!tab?.customer_id) return;
+
+  try {
+    console.log('🔍 Loading loyalty data for customer:', tab.customer_id);
+    
+    // Get customer's visit and spend data
+    const [visitsResponse, spendResponse] = await Promise.all([
+      fetch(`/api/loyalty/visits/${tab.customer_id}`).then(r => {
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        }
+        return r.json();
+      }),
+      fetch(`/api/loyalty/spend-tiers/${tab.customer_id}`).then(r => {
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        }
+        return r.json();
+      })
+    ]);
+
+    console.log('📊 Loyalty API responses:', { visitsResponse, spendResponse });
+
+    // Check for API errors in response body
+    if (visitsResponse.error || spendResponse.error) {
+      console.error('❌ API Error loading loyalty data:', visitsResponse.error || spendResponse.error);
+      return;
     }
-  }, [tab?.bar_id]);
 
-  // Customer notification preferences
-  const [notificationPrefs, setNotificationPrefs] = useState({
-    notificationsEnabled: true,
-    soundEnabled: true,
-    vibrationEnabled: true
-  });
+    const visitsData = visitsResponse;
+    const spendData = spendResponse;
 
-  // Load notification preferences when tab loads - reads from already-loaded tab state
-  // to avoid a redundant Supabase query that would be blocked by RLS.
-  const loadNotificationPrefs = async () => {
-    if (!tab) return;
+    // Determine visit tier based on weekly visits (same logic as staff app)
+    let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
+    const weeklyVisits = visitsData.weeklyVisits || visitsData.totalVisits || 0;
 
+    if (weeklyVisits >= 3) {
+      visitTier = 'gold';
+    } else if (weeklyVisits >= 2) {
+      visitTier = 'silver';
+    } else if (weeklyVisits >= 1) {
+      visitTier = 'bronze';
+    }
+
+    // Determine spend tier based on weekly spend (same logic as staff app)
+    let spendTier: 'low' | 'medium' | 'high' = 'low';
+    const weeklySpend = spendData.weeklySpend || spendData.totalSpend || 0;
+
+    if (weeklySpend >= 15000) {
+      spendTier = 'high';
+    } else if (weeklySpend >= 3000) {
+      spendTier = 'medium';
+    }
+
+    console.log('🏆 Calculated loyalty tiers:', { visitTier, spendTier, weeklyVisits, weeklySpend });
+
+    setLoyaltyData({
+      visitTier,
+      spendTier,
+      totalVisits: weeklyVisits,
+      totalSpend: weeklySpend
+    });
+
+  } catch (error) {
+    console.error('❌ Error loading loyalty data:', error);
+    // Don't set loyaltyData on error, keep previous state or null
+  }
+};
+
+// Function to render loyalty tier icons
+const renderLoyaltyIcons = () => {
+  console.log('🏆 Rendering loyalty icons, loyaltyData:', loyaltyData);
+  
+  if (!loyaltyData) {
+    console.log('❌ No loyalty data available, not rendering icons');
+    return null;
+  }
+  
+  const { visitTier, spendTier } = loyaltyData;
+  console.log('🏆 Loyalty data available:', { visitTier, spendTier });
+  
+  // Determine icon count based on visit tier
+  let iconCount = 0;
+  if (visitTier === 'bronze') iconCount = 1;
+  else if (visitTier === 'silver') iconCount = 2;
+  else if (visitTier === 'gold') iconCount = 3;
+  
+  // Determine which icon to use based on spend tier
+  let IconComponent = Circle; // Default (Bronze)
+  if (spendTier === 'high') IconComponent = Crown;   // Gold
+  else if (spendTier === 'medium') IconComponent = Shield; // Silver
+  
+  console.log('🏆 Icon configuration:', { iconCount, iconType: IconComponent.name });
+  
+  const icons = [];
+  for (let i = 0; i < iconCount; i++) {
+    icons.push(
+      <IconComponent 
+        key={i}
+        className="w-4 h-4 text-white" 
+        size={12}
+      />
+    );
+  }
+  
+  console.log('🏆 Rendering', iconCount, 'loyalty icons:', icons.length);
+  
+  return (
+    <div className="flex gap-1">
+      {icons}
+    </div>
+  );
+};
+
+// Load average response time and loyalty data when tab is loaded (run once per bar_id change)
+useEffect(() => {
+  if (!tab?.bar_id) return;
+  calculateAverageResponseTime(tab.bar_id);
+  loadLoyaltyData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [tab?.bar_id]);
+
+// Load notification preferences when tab loads - reads from already-loaded tab state
+// to avoid a redundant Supabase query that would be blocked by RLS.
+const loadNotificationPrefs = async () => {
+  if (!tab) return;
+
+  try {
+    // Use the tab already in state — it was fetched via the service role API route
+    // so all fields are available. No need for a second DB query.
+    const tabData = tab as {
+      sound_enabled?: boolean;
+      vibration_enabled?: boolean;
+      notes?: string;
+    };
+
+    const soundEnabled = tabData.sound_enabled ?? true;
+    const vibrationEnabled = tabData.vibration_enabled ?? true;
     try {
       // Use the tab already in state — it was fetched via the service role API route
       // so all fields are available. No need for a second DB query.
@@ -489,7 +628,16 @@ export default function MenuPage() {
         vibrationEnabled: true
       });
     }
-  };
+  } catch (error) {
+    console.error('Error loading notification preferences:', error);
+    // Use defaults on error
+    setNotificationPrefs({
+      notificationsEnabled: true,
+      soundEnabled: true,
+      vibrationEnabled: true
+    });
+  }
+};
 
   // Load notification preferences when tab loads
   useEffect(() => {
@@ -1629,7 +1777,7 @@ export default function MenuPage() {
       // Clear new tab flag so modal won't show again on refresh
       sessionStorage.removeItem('just_created_tab');
       
-      const tableText = tableNumber ? `Table ${tableNumber}` : 'No specific table';
+      const tableText = tableNumber ? `Table ${tableNumber}` : 'No table selected';
       showToast({
         type: 'success',
         title: 'Table Selected',
@@ -2449,7 +2597,11 @@ export default function MenuPage() {
         <div className="px-4 py-3 border-b border-white border-opacity-20">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold">{displayName}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold">{displayName}</h1>
+                {/* Loyalty Tier Icons */}
+                {renderLoyaltyIcons()}
+              </div>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-white text-opacity-90">{barName}</p>
                 {selectedTable && (
@@ -2463,17 +2615,7 @@ export default function MenuPage() {
                     </button>
                   </>
                 )}
-                {selectedTable === null && tableSelectionRequired && (
-                  <>
-                    <span className="text-xs text-white text-opacity-60">•</span>
-                    <button
-                      onClick={() => setShowTableModal(true)}
-                      className="text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full hover:bg-opacity-30 transition-colors"
-                    >
-                      Outside/Takeaway
-                    </button>
-                  </>
-                )}
+
                 {!selectedTable && selectedTable !== null && tableSelectionRequired && (
                   <>
                     <span className="text-xs text-white text-opacity-60">•</span>
@@ -3960,17 +4102,6 @@ export default function MenuPage() {
                 </button>
               ))}
             </div>
-            
-            {/* None Option */}
-            <button
-              onClick={() => {
-                console.log('🪑 NONE button clicked');
-                selectTable(null);
-              }}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium transition-colors mb-4"
-            >
-              NONE (Outside/Takeaway)
-            </button>
             
             {/* Skip for now (if needed) */}
             <button

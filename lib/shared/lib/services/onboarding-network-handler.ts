@@ -130,7 +130,7 @@ export class NetworkAwareOnboardingManager {
         data: result.data,
         error: result.error,
         networkStatus: networkState,
-        canRetry: !result.success && result.canRetry
+        canRetry: !result.success && (result.canRetry ?? false)
       };
     } catch (error: any) {
       const isNetworkError = this.isNetworkError(error);
@@ -209,7 +209,7 @@ export class NetworkAwareOnboardingManager {
         data: result.data,
         error: result.error,
         networkStatus: networkState,
-        canRetry: !result.success && result.canRetry
+        canRetry: !result.success && (result.canRetry ?? false)
       };
     } catch (error: any) {
       const isNetworkError = this.isNetworkError(error);
@@ -300,7 +300,7 @@ export class NetworkAwareOnboardingManager {
         data: result.data,
         error: result.error,
         networkStatus: networkState,
-        canRetry: !result.success && result.canRetry
+        canRetry: !result.success && (result.canRetry ?? false)
       };
     } catch (error: any) {
       const isNetworkError = this.isNetworkError(error);
@@ -385,7 +385,7 @@ export class NetworkAwareOnboardingManager {
         data: result.data,
         error: result.error,
         networkStatus: networkState,
-        canRetry: !result.success && result.canRetry
+        canRetry: !result.success && (result.canRetry ?? false)
       };
     } catch (error: any) {
       const isNetworkError = this.isNetworkError(error);
