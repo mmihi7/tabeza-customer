@@ -224,3 +224,29 @@ start
 cleanup-workspace-files.bat
 node_modules
 .vercel
+
+# Additional Next.js and build artifacts
+.next/cache/
+.next/static/
+.next/server/
+.next/static/chunks/
+.next/static/webpack/
+.next/turbo/
+
+# Vercel deployment artifacts
+.vercel/output/
+.vercel/.cache/
+
+# Large development artifacts
+*.log
+*.tgz
+*.tar.gz
+
+# Test coverage and reports
+coverage/
+.nyc_output/
+test-results/
+
+# Temporary build files
+.tmp/
+.temp/
