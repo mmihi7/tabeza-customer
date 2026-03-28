@@ -93,6 +93,20 @@ interface MessageResponseData {
   initiated_by: string;
 }
 
+const TIER_DISCOUNTS: Record<'low' | 'medium' | 'high', number> = {
+  low: 1.5,
+  medium: 3,
+  high: 5,
+};
+
+/**
+ * Returns the discounted price rounded to the nearest whole KES.
+ * Does NOT mutate the source price.
+ */
+function applyDiscount(price: number, tier: 'low' | 'medium' | 'high'): number {
+  return Math.round(price * (1 - TIER_DISCOUNTS[tier] / 100));
+}
+
 export default function MenuPage() {
   const router = useRouter();
   const { buzz } = useVibrate(); 
@@ -223,6 +237,8 @@ export default function MenuPage() {
     totalVisits: number;
     totalSpend: number;
   } | null>(null);
+  // Spend tier for pricing only (separate from loyaltyData which drives the icon display)
+  const [spendTier, setSpendTier] = useState<'low' | 'medium' | 'high' | null>(null);
 
   // Customer notification preferences
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -562,6 +578,31 @@ useEffect(() => {
   loadLoyaltyData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [tab?.bar_id]);
+
+// Fetch spend tier for pricing once per customer_id (Requirements 2.1, 2.2, 2.3, 2.4, 2.5)
+useEffect(() => {
+  if (!tab?.customer_id) return;
+
+  let cancelled = false;
+  fetch(`/api/loyalty/spend-tiers/${tab.customer_id}`)
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then(data => {
+      if (cancelled) return;
+      const tier = data?.spendTier ?? null;
+      if (tier === 'low' || tier === 'medium' || tier === 'high') {
+        setSpendTier(tier);
+      }
+      // null / unknown → leave spendTier as null (New Customer)
+    })
+    .catch(() => {
+      // Silent failure — New Customer treatment
+    });
+
+  return () => { cancelled = true; };
+}, [tab?.customer_id]);
 
 // Load notification preferences when tab loads - reads from already-loaded tab state
 // to avoid a redundant Supabase query that would be blocked by RLS.
@@ -2111,7 +2152,12 @@ const loadNotificationPrefs = async () => {
     return nameA.localeCompare(nameB);
   });
 
-  const addToCart = (barProduct: BarProduct) => {
+  // Derived value: all bar products sorted alphabetically by name (used by Unified Grid)
+  const sortedProducts = [...barProducts].sort((a, b) =>
+    (a.product?.name ?? '').localeCompare(b.product?.name ?? '')
+  );
+
+  const addToCart = (barProduct: BarProduct, priceOverride?: number) => {
     const product = barProduct.product;
     if (!product) return;
     
@@ -2120,7 +2166,7 @@ const loadNotificationPrefs = async () => {
       bar_product_id: barProduct.id,
       product_id: barProduct.product_id,
       name: product.name,
-      price: barProduct.sale_price,
+      price: priceOverride ?? barProduct.sale_price,
       category: product.category,
       image_url: product.image_url,
       quantity: 1
@@ -2861,254 +2907,67 @@ const loadNotificationPrefs = async () => {
         </div>
       </div>
 
-      {/* FOOD Menu Section - Always Visible */}
-      <div className="bg-gray-50 px-4 mt-4">
-        <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">FOOD</h2>
-            </div>
-          </div>
-          
-          <div className="relative overflow-hidden">
-            <div ref={foodMenuRef} className="relative overflow-hidden">
-              <div className="p-4 border-b">
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
-                  {['All Food', ...new Set(
-                    barProducts
-                      .filter(bp => isFoodProduct(bp.product))
-                      .map(bp => bp.product?.category)
-                      .filter((cat): cat is string => cat !== undefined && cat !== null && cat.trim() !== '')
-                  )].map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category === 'All Food' ? 'All' : category)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transform transition-all duration-200 hover:scale-105 ${
-                        (selectedCategory === 'All' && category === 'All Food') || selectedCategory === category
-                          ? 'bg-green-500 text-white scale-105 shadow-lg'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-                {/* Search Field */}
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search food..."
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="relative">
-                <div className="overflow-x-auto scrollbar-hide px-4 pb-4">
-                  <div className="flex gap-4 pb-4" style={{ paddingLeft: '16px' }}>
-                    {barProducts
-                      .filter(bp => isFoodProduct(bp.product))
-                      .filter(bp => {
-                        if (selectedCategory === 'All') return true;
-                        return bp.product?.category === selectedCategory;
-                      })
-                      .filter(bp => {
-                        if (!searchQuery.trim()) return true;
-                        return bp.product?.name.toLowerCase().includes(searchQuery.toLowerCase());
-                      })
-                      .sort((a, b) => {
-                        const nameA = a.product?.name || '';
-                        const nameB = b.product?.name || '';
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((barProduct, index) => {
-                      const product = barProduct.product;
-                      if (!product) return null;
-                      const displayImage = product ? getDisplayImage(product) : null;
-                      return (
-                        <div
-                          key={barProduct.id}
-                          className="flex-shrink-0 flex-grow-0 transform transition-all duration-300 hover:scale-105 mt-4"
-                          style={{ 
-                            width: '240px',
-                            minWidth: '240px',
-                            maxWidth: '240px',
-                            animationDelay: `${index * 50}ms`
-                          }}
-                        >
-                          <div
-                            className="bg-white overflow-hidden rounded-lg cursor-pointer flex flex-col shadow-md hover:shadow-xl transition-all duration-300"
-                            style={{
-                              height: '180px',
-                              width: '240px',
-                              minWidth: '240px',
-                              maxWidth: '240px'
-                            }}
-                            onClick={() => addToCart(barProduct)}
-                          >
-                            <div className="w-full h-32 relative bg-gray-100">
-                              {displayImage ? (
-                                <img
-                                  src={displayImage}
-                                  alt={product.name || 'Product'}
-                                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-300"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                      const Icon = getCategoryIcon(product.category || 'Uncategorized');
-                                      parent.innerHTML = '';
-                                      const iconContainer = document.createElement('div');
-                                      parent.appendChild(iconContainer);
-                                      ReactDOM.createRoot(iconContainer).render(<Icon size={32} className="text-2xl text-gray-400 font-semibold" />);
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                                  {(() => {
-                                    const Icon = getCategoryIcon(product.category || 'Uncategorized');
-                                    return <Icon size={32} className="text-gray-400" />;
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 p-1 flex flex-col justify-center">
-                              <h3 className={`text-xs font-medium text-gray-900 text-left leading-tight break-words overflow-hidden ${product.name && product.name.length > 20 ? 'text-xs' : ''}`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{product.name || 'Product'}</h3>
-                              <p className="text-xs text-gray-600 text-left break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{tempFormatCurrency(barProduct.sale_price)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+      {/* Unified 2-column product grid — replaces FOOD and DRINKS carousel sections */}
+      {loading ? (
+        <div className="px-4 mt-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-3"></div>
+              <p className="text-gray-500 text-sm">Loading menu...</p>
             </div>
           </div>
         </div>
-      </div>
+      ) : sortedProducts.length === 0 ? (
+        <div className="px-4 mt-4">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <p className="text-gray-500 text-sm">No products available</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 px-4 pb-6 mt-4">
+          {sortedProducts.map(bp => {
+            const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
+            const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
+            const imageUrl = getDisplayImage(bp.product);
+            const IconComponent = getCategoryIcon(bp.product?.category || '');
 
-      {/* DRINKS Menu Section - Always Visible */}
-      <div className="bg-gray-50 px-4 mt-4">
-        <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50">
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">DRINKS</h2>
-            </div>
-          </div>
-          
-          <div className="relative overflow-hidden">
-            <div ref={drinksMenuRef} className="relative overflow-hidden">
-              <div className="p-4 border-b">
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
-                  {['All Drinks', ...new Set(
-                    barProducts
-                      .filter(bp => isDrinkProduct(bp.product))
-                      .map(bp => bp.product?.category)
-                      .filter((cat): cat is string => cat !== undefined && cat !== null && cat.trim() !== '')
-                  )].map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category === 'All Drinks' ? 'All' : category)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transform transition-all duration-200 hover:scale-105 ${
-                        (selectedCategory === 'All' && category === 'All Drinks') || selectedCategory === category
-                          ? 'bg-blue-500 text-white scale-105 shadow-lg'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
+            return (
+              <button
+                key={bp.id}
+                onClick={() => addToCart(bp, displayPrice)}
+                className="flex flex-col rounded-xl overflow-hidden bg-white/10 active:scale-95 transition-transform"
+              >
+                {/* Image area */}
+                <div className="w-full aspect-square bg-white/5 flex items-center justify-center overflow-hidden">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <IconComponent className="w-10 h-10 text-white/50" />
+                  )}
                 </div>
-                {/* Search Field */}
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search drinks..."
-                    className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              <div className="relative">
-                <div className="overflow-x-auto scrollbar-hide px-4 pb-4">
-                  <div className="flex gap-4 pb-4" style={{ paddingLeft: '16px' }}>
-                    {barProducts
-                      .filter(bp => isDrinkProduct(bp.product))
-                      .filter(bp => {
-                        if (selectedCategory === 'All') return true;
-                        return bp.product?.category === selectedCategory;
-                      })
-                      .filter(bp => {
-                        if (!searchQuery.trim()) return true;
-                        return bp.product?.name.toLowerCase().includes(searchQuery.toLowerCase());
-                      })
-                      .sort((a, b) => {
-                        const nameA = a.product?.name || '';
-                        const nameB = b.product?.name || '';
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((barProduct, index) => {
-                      const product = barProduct.product;
-                      if (!product) return null;
-                      const displayImage = product ? getDisplayImage(product) : null;
-                      return (
-                        <div
-                          key={barProduct.id}
-                          className="flex-shrink-0 flex-grow-0 w-32 transform transition-all duration-300 hover:scale-105"
-                          style={{ 
-                            animationDelay: `${index * 50}ms`
-                          }}
-                        >
-                          <div
-                            className="bg-white overflow-hidden rounded-lg cursor-pointer flex flex-col shadow-md hover:shadow-xl transition-all duration-300 h-40 w-32"
-                            onClick={() => addToCart(barProduct)}
-                          >
-                            <div className="w-full h-24 relative bg-gray-100">
-                              {displayImage ? (
-                                <img
-                                  src={displayImage}
-                                  alt={product.name || 'Product'}
-                                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-300"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                      const Icon = getCategoryIcon(product.category || 'Uncategorized');
-                                      parent.innerHTML = '';
-                                      const iconContainer = document.createElement('div');
-                                      parent.appendChild(iconContainer);
-                                      ReactDOM.createRoot(iconContainer).render(<Icon size={32} className="text-2xl text-gray-400 font-semibold" />);
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                                  {(() => {
-                                    const Icon = getCategoryIcon(product.category || 'Uncategorized');
-                                    return <Icon size={32} className="text-gray-400" />;
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 p-3 flex flex-col justify-between">
-                              <h3 className={`text-sm font-medium text-gray-900 text-left leading-tight ${product.name && product.name.length > 20 ? 'text-xs' : ''}`}>{product.name || 'Product'}</h3>
-                              <p className="text-sm text-gray-600 mt-2 text-left">{tempFormatCurrency(barProduct.sale_price)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                {/* Name + price */}
+                <div className="p-2 flex flex-col gap-0.5">
+                  <span className="text-white text-sm font-medium leading-tight line-clamp-2">
+                    {bp.product?.name}
+                  </span>
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    {showStrikethrough && (
+                      <span className="text-white/40 text-xs line-through">
+                        {tempFormatCurrency(bp.sale_price)}
+                      </span>
+                    )}
+                    <span className="text-white text-sm font-semibold">
+                      {tempFormatCurrency(displayPrice)}
+                    </span>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      )}
 
       {/* Cart Section - Only show when cart has items */}
       {cart.length > 0 && (

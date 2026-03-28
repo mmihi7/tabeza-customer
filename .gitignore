@@ -4,9 +4,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Binary files
-*.node
+# Build artifacts
+.next/cache/
+.next/static/chunks/
+node_modules/.pnpm/
+
+# Large binaries
+*.pack
 *.exe
+*.node
 
 # Build outputs
 dist/
