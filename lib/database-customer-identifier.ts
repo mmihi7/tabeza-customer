@@ -163,7 +163,7 @@ export async function getCustomerIdentifierFromDatabase(deviceId: string): Promi
     return {
       success: true,
       customerIdentifier,
-      barId: tab.bar_id,
+      barId: tab.bar_id ?? undefined,
       tabNumber: tab.tab_number,
       tabId: tab.id
     };
@@ -367,8 +367,8 @@ export async function resolveCustomerIdentifier(): Promise<CustomerIdentifierFro
         
         return {
           success: true,
-          customerIdentifier: tab.owner_identifier,
-          barId: tab.bar_id,
+          customerIdentifier: tab.owner_identifier ?? undefined,
+          barId: tab.bar_id ?? undefined,
           tabNumber: tab.tab_number,
           tabId: tab.id
         };

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
 
     const { error } = await supabase
-      .from('push_subscriptions')
+      .from('push_subscriptions' as any)
       .upsert({
         device_id: deviceId,
         endpoint: subscription.endpoint,

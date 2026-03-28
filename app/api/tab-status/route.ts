@@ -46,7 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<TabStatus
 
     return NextResponse.json({
       exists: true,
-      status: tab.status,
+      status: tab.status ?? undefined,
       tabNumber: tab.tab_number,
       barId: tab.bar_id
     });

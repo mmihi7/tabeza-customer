@@ -4,7 +4,7 @@
  * Addresses the "Tab not found" error with systematic recovery
  */
 
-import { createServiceRoleClient } from '@/lib/supabase';
+import { createServiceRoleClient } from '../supabase';
 
 export interface Tab {
   id: string;

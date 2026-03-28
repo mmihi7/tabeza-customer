@@ -5,6 +5,9 @@
 
 import { supabase } from './supabase';
 
+// Cast to any to bypass generated type constraints for tables not yet in the schema types
+const db = supabase as any;
+
 export interface Customer {
   id: string;
   user_id: string;
@@ -21,7 +24,7 @@ export interface Customer {
 export async function getOrCreateCustomer(userId: string): Promise<Customer> {
   try {
     // First try to get existing customer
-    const { data: existingCustomer, error: fetchError } = await supabase
+    const { data: existingCustomer, error: fetchError } = await db
       .from('customers')
       .select('*')
       .eq('user_id', userId)
@@ -40,10 +43,10 @@ export async function getOrCreateCustomer(userId: string): Promise<Customer> {
 
     // Create new customer record
     console.log('👤 Creating new customer for user:', userId);
-    const { data: newCustomer, error: createError } = await supabase
+    const { data: newCustomer, error: createError } = await db
       .from('customers')
       .insert({
-        id: userId, // Set id to the user's UUID since it references auth.users(id)
+        id: userId,
         user_id: userId
       })
       .select('*')

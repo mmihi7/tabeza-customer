@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Get bar payment settings using service role key
     const { data: barData, error: barError } = await supabase
       .from('bars')
-      .select('id, name, mpesa_enabled')
+      .select('id, name')
       .eq('id', barId)
       .single();
 
@@ -38,9 +38,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // M-Pesa is available if mpesa_enabled is true
-    // The staff app should sync this field when M-Pesa is enabled/disabled
-    const mpesaAvailable = barData.mpesa_enabled === true;
+    // Fetch mpesa_enabled separately with type cast to avoid schema type mismatch
+    const { data: mpesaData } = await supabase
+      .from('bars')
+      .select('mpesa_enabled' as any)
+      .eq('id', barId)
+      .single();
+
+    const mpesaAvailable = (mpesaData as any)?.mpesa_enabled === true;
 
     return NextResponse.json({
       success: true,

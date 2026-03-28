@@ -120,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .eq('tab_id', payment.tab_id)
             .single();
 
-          if (!balanceError && balanceData && balanceData.balance <= 0) {
+          if (!balanceError && balanceData && (balanceData.balance ?? 1) <= 0) {
             await supabase
               .from('tabs')
               .update({

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     console.log('🔗 Linking device', deviceId.substring(0, 12), 'to user', userId.substring(0, 8));
 
     // Ensure user profile exists (create if not)
-    const { error: profileError } = await serviceClient
+    const { error: profileError } = await (serviceClient as any)
       .from('user_profiles')
       .upsert({
         user_id: userId,
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Link device to user (upsert)
-    const { error: deviceError } = await serviceClient
+    const { error: deviceError } = await (serviceClient as any)
       .from('user_devices')
       .upsert({
         user_id: userId,

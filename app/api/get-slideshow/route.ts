@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     let images: SlideRow[] | null = null;
     let imagesError: any = null;
 
-    let res = await supabase
+    let res = await (supabase as any)
       .from('slideshow_images')
       .select('image_url, display_order')
       .eq('bar_id', barId)
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     if (imagesError) {
       const msg = (imagesError?.message || '').toLowerCase();
       if (msg.includes('column "display_order"') || msg.includes("could not find the 'display_order'") || msg.includes('unknown column') || msg.includes('column "order"')) {
-        const res2 = await supabase
+        const res2 = await (supabase as any)
           .from('slideshow_images')
           .select('image_url, "order"')
           .eq('bar_id', barId)
@@ -48,12 +48,12 @@ export async function GET(req: NextRequest) {
 
     const { data: barData } = await supabase
       .from('bars')
-      .select('slideshow_settings')
+      .select('slideshow_settings' as any)
       .eq('id', barId)
       .single();
 
     const imageUrls = images?.map((img: SlideRow) => img.image_url) || [];
-    const settings = barData?.slideshow_settings || { transitionSpeed: 3000 };
+    const settings = (barData as any)?.slideshow_settings || { transitionSpeed: 3000 };
 
     return NextResponse.json({ images: imageUrls, settings });
   } catch (error: any) {

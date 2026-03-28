@@ -237,7 +237,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         mpesa_consumer_key_encrypted,
         mpesa_consumer_secret_encrypted,
         mpesa_passkey_encrypted
-      `)
+      ` as any)
       .eq('id', tab.bar_id)
       .single();
 
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
     }
 
     // Load M-Pesa configuration for this bar
-    const barMpesaData = barData as BarMpesaData;
+    const barMpesaData = barData as unknown as BarMpesaData;
     let mpesaConfig;
     
     // Check if mock mode is enabled BEFORE trying to load real config
@@ -345,7 +345,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
             checkout_request_id: mockCheckoutRequestId,
             status: 'stk_sent', // Update to 'stk_sent' status
             metadata: {
-              ...payment.metadata,
+              ...(payment.metadata as Record<string, unknown> ?? {}),
               stk_sent_at: new Date().toISOString(),
               mock_mode: true
             },
@@ -466,7 +466,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
           checkout_request_id: stkResponse.CheckoutRequestID,
           status: 'stk_sent', // Update to 'stk_sent' status
           metadata: {
-            ...payment.metadata,
+            ...(payment.metadata as Record<string, unknown> ?? {}),
             merchant_request_id: stkResponse.MerchantRequestID,
             stk_sent_at: new Date().toISOString()
           },

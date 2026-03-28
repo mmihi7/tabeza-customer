@@ -4,7 +4,7 @@
  * Requirements: 1.2, 5.1
  */
 
-import { createServiceRoleClient } from '@/lib/supabase';
+import { createServiceRoleClient } from '../supabase';
 import { resolveTabForPayment, type Tab } from './tab-resolution';
 
 export interface PaymentValidationResult {

@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
     try {
       const { error: rpcError } = await supabase.rpc('close_tab', {
         p_tab_id: tabId,
-        p_write_off_amount: null,
+        p_write_off_amount: undefined,
         p_closed_by: 'customer'
       });
 

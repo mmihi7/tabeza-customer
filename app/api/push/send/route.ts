@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Get subscriptions for the specified devices
     const { data: subscriptions, error } = await supabase
-      .from('push_subscriptions')
+      .from('push_subscriptions' as any)
       .select('endpoint, p256dh, auth')
       .in('device_id', deviceIds);
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Send push notifications to all specified devices
     const results = await Promise.allSettled(
-      subscriptions.map(async (subscription) => {
+      (subscriptions as any[]).map(async (subscription) => {
         try {
           const response = await fetch('https://fcm.googleapis.com/fcm/send', {
             method: 'POST',

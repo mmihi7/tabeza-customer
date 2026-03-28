@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: images, error: imgErr } = await supabase
-      .from('slideshow_images')
-      .select('id, image_url, display_order, active, created_at')
+      .from('slideshow_images' as any)
+      .select('id, image_url, display_order, active, created_at' as any)
       .eq('bar_id', barId)
       .order('display_order', { ascending: true });
 
@@ -32,9 +32,9 @@ export async function GET(req: NextRequest) {
 
     // HEAD check for first image reachability
     let firstImageStatus: number | null = null;
-    if (Array.isArray(images) && images.length > 0 && images[0].image_url) {
+    if (Array.isArray(images) && images.length > 0 && (images as any)[0].image_url) {
       try {
-        const headResp = await fetch(images[0].image_url, { method: 'HEAD' });
+        const headResp = await fetch((images as any)[0].image_url, { method: 'HEAD' });
         firstImageStatus = headResp.status;
       } catch (err) {
         firstImageStatus = null;

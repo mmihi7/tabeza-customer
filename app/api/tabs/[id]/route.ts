@@ -15,10 +15,10 @@ import { createServiceRoleClient } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tabId = params.id;
+    const { id: tabId } = await params;
 
     if (!tabId || typeof tabId !== 'string') {
       return NextResponse.json({ error: 'Invalid tab ID' }, { status: 400 });

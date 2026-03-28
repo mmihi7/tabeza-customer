@@ -22,12 +22,15 @@ export const supabase = (() => {
 
 // Server-side client using secret key for API routes
 export const createServiceRoleClient = () => {
-  const secretKey = process.env.SUPABASE_SECRET_KEY
+  // Support both legacy JWT service_role key and new sb_secret_ format
+  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SERVICE_ROLE_KEY
   if (!secretKey) {
     throw new Error('SUPABASE_SECRET_KEY is not configured')
   }
-  
-  return createClient<Database>(supabaseUrl, secretKey, {
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+
+  return createClient<Database>(url, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
