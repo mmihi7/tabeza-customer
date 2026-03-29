@@ -43,11 +43,18 @@ export const useRealtimeSubscription = (
   const channelRef = useRef<any>(null)
   const debouncedHandlersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const retryTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  // Keep a live ref to configs so handlers always call the latest version
+  // even after the channel is subscribed (avoids stale closure issues).
+  const configsRef = useRef(configs)
+  useEffect(() => {
+    configsRef.current = configs
+  })
 
   // Debounced handler to prevent rapid updates
-  const createDebouncedHandler = useCallback((config: RealtimeSubscriptionConfig) => {
+  const createDebouncedHandler = useCallback((config: RealtimeSubscriptionConfig, index: number) => {
     return (payload: any) => {
-      const key = `${config.table}-${config.event || '*'}`
+      // Use index to make the key unique per subscription so handlers don't stomp each other
+      const key = `${config.channelName}-${config.table}-${config.event || '*'}-${index}`
       
       // Clear existing timeout
       const existingTimeout = debouncedHandlersRef.current.get(key)
@@ -55,9 +62,13 @@ export const useRealtimeSubscription = (
         clearTimeout(existingTimeout)
       }
 
-      // Set new timeout
+      // Set new timeout — call through configsRef so we always use the latest handler,
+      // not the one captured at subscription time (avoids stale closure).
       const timeout = setTimeout(() => {
-        config.handler(payload)
+        const liveConfig = configsRef.current[index]
+        if (liveConfig) {
+          liveConfig.handler(payload)
+        }
         debouncedHandlersRef.current.delete(key)
       }, debounceMs)
 
@@ -73,12 +84,12 @@ export const useRealtimeSubscription = (
 
     setConnectionStatus('connecting')
 
-    const channelName = configs[0]?.channelName || `realtime-${Date.now()}`
+    const channelName = configsRef.current[0]?.channelName || `realtime-${Date.now()}`
     const channel = supabase.channel(channelName)
 
-    // Add all event handlers
-    configs.forEach(config => {
-      const debouncedHandler = createDebouncedHandler(config)
+    // Add all event handlers — use configsRef so we register against the live config list
+    configsRef.current.forEach((config, index) => {
+      const debouncedHandler = createDebouncedHandler(config, index)
       
       channel.on('postgres_changes' as any, {
         event: config.event || '*',
@@ -122,7 +133,7 @@ export const useRealtimeSubscription = (
 
     channelRef.current = channel
     return channel
-  }, [configs, retryCount, maxRetries, retryDelay, createDebouncedHandler, onConnectionChange])
+  }, [retryCount, maxRetries, retryDelay, createDebouncedHandler, onConnectionChange])
 
   // Initialize subscription
   useEffect(() => {

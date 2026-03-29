@@ -1260,76 +1260,58 @@ const loadNotificationPrefs = async () => {
           new: payload.new,
           old: payload.old
         });
-        
-        // Refresh messages
-        if (!supabase) return;
-        const { data: messages, error } = await supabase
-          .from('tab_telegram_messages')
-          .select(`
-            *,
-            tab:tabs(
-              bar_id,
-              bars(
-                id,
-                name
-              )
-            )
-          `)
-          .eq('tab_id', tab?.id || '')
-          .order('created_at', { ascending: false });
-        
-        if (!error && messages) {
-          // Add bar name to messages for staff messages
-          const messagesWithBarName = messages.map((msg: any) => ({
-            ...msg,
-            bar_name: msg.tab?.bars?.name || null
-          }));
-          setTelegramMessages(messagesWithBarName);
-          
-          // Calculate and update unread messages count
-          const unreadCount = messages.filter((msg: any) => 
-            msg.initiated_by === 'staff' && 
-            msg.status === 'pending'
-          ).length;
-          setUnreadMessagesCount(unreadCount);
-          
-          // Show notification for new messages (when staff responds)
-          if (payload.new?.initiated_by === 'staff' && 
-              payload.eventType === 'INSERT') {
-            
-            // FIXED: Use the imported playCustomerNotification function
-            playCustomerNotification(notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled);
-            
-            setNewMessageAlert({
-              type: 'acknowledged',
-              message: 'Staff responded to your message',
-              timestamp: new Date().toISOString(),
-              messageContent: payload.new.message
-            });
-            
-            setTimeout(() => {
-              setNewMessageAlert(null);
-            }, 5000);
+
+        // Refresh messages via service-role API route to bypass RLS.
+        // Direct anon-key queries are blocked, causing the badge/panel to stay stale.
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        try {
+          const res = await fetch(`${baseUrl}/api/tabs/${tab?.id}/messages`);
+          if (!res.ok) return;
+          const { messages } = await res.json();
+          if (messages) {
+            const messagesWithBarName = messages.map((msg: any) => ({
+              ...msg,
+              bar_name: msg.tab?.bars?.name || null
+            }));
+            setTelegramMessages(messagesWithBarName);
+
+            const unreadCount = messages.filter((msg: any) => {
+              if (msg.initiated_by !== 'staff') return false;
+              const lastRead = sessionStorage.getItem('messages_last_read');
+              if (!lastRead) return true;
+              return new Date(msg.created_at) > new Date(lastRead);
+            }).length;
+            setUnreadMessagesCount(unreadCount);
           }
-          
-          // Show notification for staff acknowledgments
-          if (payload.new?.status === 'acknowledged' && 
-              payload.old?.status === 'pending' &&
-              payload.new?.staff_acknowledged_at) {
-            
-            buzz([200, 100, 200]);
-            playAcceptanceSound();
-            
-            setNewMessageAlert({
-              type: 'acknowledged',
-              message: 'Staff has acknowledged your message',
-              timestamp: new Date().toISOString()
-            });
-            
-            setTimeout(() => {
-              setNewMessageAlert(null);
-            }, 5000);
-          }
+        } catch (err) {
+          console.error('❌ Error refreshing messages after realtime event:', err);
+        }
+
+        // Show notification for new messages (when staff responds)
+        if (payload.new?.initiated_by === 'staff' && 
+            payload.eventType === 'INSERT') {
+          playCustomerNotification(notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled);
+          setNewMessageAlert({
+            type: 'acknowledged',
+            message: 'Staff responded to your message',
+            timestamp: new Date().toISOString(),
+            messageContent: payload.new.message
+          });
+          setTimeout(() => setNewMessageAlert(null), 5000);
+        }
+
+        // Show notification for staff acknowledgments
+        if (payload.new?.status === 'acknowledged' && 
+            payload.old?.status === 'pending' &&
+            payload.new?.staff_acknowledged_at) {
+          buzz([200, 100, 200]);
+          playAcceptanceSound();
+          setNewMessageAlert({
+            type: 'acknowledged',
+            message: 'Staff has acknowledged your message',
+            timestamp: new Date().toISOString()
+          });
+          setTimeout(() => setNewMessageAlert(null), 5000);
         }
       }
     }
@@ -1337,7 +1319,11 @@ const loadNotificationPrefs = async () => {
 
   const { connectionStatus, retryCount, reconnect, isConnected } = supabase ? useRealtimeSubscription(
     realtimeConfigs,
-    [tab?.id, router, processedOrders, handleOrderUpdate, handleOrderInsert, handleOrderDelete],
+    // Only re-subscribe when the tab ID changes — not on every render.
+    // processedOrders (a Set) and callback refs change every render and would
+    // constantly tear down and rebuild the channel, causing missed events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tab?.id],
     {
       maxRetries: 10,
       retryDelay: [1000, 2000, 5000, 10000, 30000, 60000],
@@ -2566,26 +2552,32 @@ const loadNotificationPrefs = async () => {
 
   const loadTelegramMessages = async () => {
     if (!tab) return;
-    
-    if (!supabase) return;
-    
+
     try {
-      const telegram = telegramMessageQueries(supabase);
-      const { data, error } = await telegram.getTabMessages(tab.id);
-      
-      if (!error && data) {
-        // Add bar name to messages for staff messages
-        const messagesWithBarName = data.map((msg: any) => ({
+      // Use service-role API route to bypass RLS — same pattern as orders.
+      // Direct anon-key queries on tab_telegram_messages are blocked by RLS,
+      // causing staff messages to be invisible until the customer refreshes.
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch(`${baseUrl}/api/tabs/${tab.id}/messages`);
+      if (!res.ok) {
+        console.error('Error loading messages via API route:', res.status);
+        return;
+      }
+      const { messages } = await res.json();
+      if (messages) {
+        const messagesWithBarName = messages.map((msg: any) => ({
           ...msg,
           bar_name: msg.tab?.bars?.name || null
         }));
         setTelegramMessages(messagesWithBarName);
-        
-        // Calculate unread messages count
-        const unreadCount = data.filter(msg => 
-          msg.initiated_by === 'staff' && 
-          msg.status === 'pending'
-        ).length;
+
+        const unreadCount = messages.filter((msg: any) => {
+          if (msg.initiated_by !== 'staff') return false;
+          // Only count messages newer than the last time the customer opened the panel
+          const lastRead = sessionStorage.getItem('messages_last_read');
+          if (!lastRead) return true;
+          return new Date(msg.created_at) > new Date(lastRead);
+        }).length;
         setUnreadMessagesCount(unreadCount);
       }
     } catch (error) {
@@ -2758,9 +2750,17 @@ const loadNotificationPrefs = async () => {
             </button>
             <button 
               onClick={() => ordersRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
             >
               Orders
+              {/* App-icon style badge */}
+              {(pendingStaffOrders > 0 || pendingOrderTime !== null) && (
+                <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold leading-none shadow ${
+                  pendingStaffOrders > 0 ? 'bg-yellow-400 text-gray-900' : 'bg-white text-red-600'
+                }`}>
+                  {pendingStaffOrders > 0 ? pendingStaffOrders : '!'}
+                </span>
+              )}
             </button>
             <button 
               onClick={() => paymentRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -2769,12 +2769,16 @@ const loadNotificationPrefs = async () => {
               Pay
             </button>
             <button 
-              onClick={() => setShowMessagePanel(true)}
+              onClick={() => { 
+                setShowMessagePanel(true); 
+                setUnreadMessagesCount(0);
+                sessionStorage.setItem('messages_last_read', new Date().toISOString());
+              }}
               className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
             >
               Messages
               {unreadMessagesCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-yellow-400 text-orange-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold leading-none shadow bg-yellow-400 text-gray-900">
                   {unreadMessagesCount}
                 </span>
               )}
@@ -2782,75 +2786,6 @@ const loadNotificationPrefs = async () => {
           </div>
         </div>
       </div>
-
-      {/* Pending Order Timer */}
-      {pendingOrderTime && (
-        <div className="bg-gradient-to-r from-orange-600 to-red-700 text-white p-3 border-b border-orange-500">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock size={20} className="text-orange-200" />
-              <div>
-                <p className="text-sm font-medium">Order pending</p>
-                <p className="text-xs text-orange-100">Waiting for staff confirmation</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold">{formatTime(pendingOrderTime.elapsed)}</p>
-              <p className="text-xs text-orange-100">elapsed</p>
-            </div>
-          </div>
-          
-          {/* Circular Timer */}
-          <div className="flex items-center justify-center mt-3">
-            <div className="relative w-20 h-20">
-              <svg className="w-20 h-20 transform -rotate-90">
-                {/* Background circle */}
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  stroke="rgba(255,255,255,0.2)"
-                  strokeWidth="4"
-                  fill="transparent"
-                />
-                {/* Progress circle */}
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  stroke="#fdba74"
-                  strokeWidth="4"
-                  fill="transparent"
-                  strokeLinecap="round"
-                  strokeDasharray={226.08} // 2 * π * 36
-                  strokeDashoffset={226.08 * (1 - Math.min(pendingOrderTime.elapsed * 0.5 / 100, 1))}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-lg font-bold">{formatTime(pendingOrderTime.elapsed)}</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Linear progress bar (optional backup) */}
-          <div className="w-full bg-orange-900 bg-opacity-30 rounded-full h-2 mt-3">
-            <div 
-              className="bg-orange-300 h-2 rounded-full transition-all duration-1000" 
-              style={{ width: `${Math.min(pendingOrderTime.elapsed * 0.5, 100)}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
-      {/* Pending Staff Orders Alert */}
-      {pendingStaffOrders > 0 && (
-        <div className="bg-yellow-400 border-b-2 border-yellow-500 p-3 animate-pulse">
-          <div className="flex items-center gap-2">
-            <UserCog size={20} className="text-yellow-900" />
-            <span className="text-yellow-900 font-medium">{pendingStaffOrders} staff order{pendingStaffOrders > 1 ? 's' : ''} pending</span>
-          </div>
-        </div>
-      )}
 
       {/* Unified 2-column product grid — replaces FOOD and DRINKS carousel sections */}
       {loading ? (
