@@ -25,7 +25,7 @@ export async function persistConsentRecord({
   decision: 'agreed' | 'skipped'
   appVersion: string
 }): Promise<ConsentRecord> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('consent_records')
     .upsert(
       {
@@ -49,7 +49,7 @@ export async function persistConsentRecord({
  * Throws on unexpected Supabase errors.
  */
 export async function getConsentRecord(userId: string): Promise<ConsentRecord | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('consent_records')
     .select('*')
     .eq('user_id', userId)
@@ -65,7 +65,7 @@ export async function getConsentRecord(userId: string): Promise<ConsentRecord | 
  * Throws on Supabase errors.
  */
 export async function withdrawConsent(userId: string): Promise<ConsentRecord> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('consent_records')
     .update({
       decision: 'withdrawn',
