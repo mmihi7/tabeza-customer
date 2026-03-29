@@ -1,0 +1,416 @@
+
+<style>
+.fw{display:grid;grid-template-columns:1fr 1fr;gap:2rem;padding:1rem 0 2rem;}
+.fc{display:flex;flex-direction:column;}
+.fl{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:.4rem;}
+.fs{font-size:12px;color:var(--color-text-secondary);margin-bottom:1.1rem;line-height:1.5;}
+.phone{background:var(--color-background-secondary);border-radius:16px;border:.5px solid var(--color-border-tertiary);padding:6px;width:100%;max-width:260px;margin:0 auto;}
+.ps{background:var(--color-background-primary);border-radius:12px;border:.5px solid var(--color-border-tertiary);overflow:hidden;min-height:510px;display:flex;flex-direction:column;}
+.notch{height:20px;display:flex;align-items:center;justify-content:center;border-bottom:.5px solid var(--color-border-tertiary);}
+.nd{width:48px;height:4px;background:var(--color-border-secondary);border-radius:2px;}
+.sc{display:none;flex-direction:column;flex:1;}
+.sc.active{display:flex;}
+.snav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0;}
+.dots{display:flex;gap:5px;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--color-border-secondary);}
+.dot.on{background:#BA7517;}
+.bk{font-size:11px;color:var(--color-text-tertiary);cursor:pointer;border:none;background:none;padding:0;}
+.bk:hover{color:var(--color-text-secondary);}
+.sb{padding:14px 16px;display:flex;flex-direction:column;flex:1;}
+.si{width:40px;height:40px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0;}
+.st{font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;line-height:1.25;}
+.sd{font-size:12px;color:var(--color-text-secondary);line-height:1.55;margin-bottom:14px;}
+.fl2{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;}
+.mi{height:34px;border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:0 10px;display:flex;align-items:center;font-size:12px;margin-bottom:10px;background:var(--color-background-primary);}
+.mi.f{color:var(--color-text-primary);}
+.mi.p{color:var(--color-text-tertiary);}
+.mi.pw{letter-spacing:3px;color:var(--color-text-primary);}
+.div{height:.5px;background:var(--color-border-tertiary);margin:10px 0;}
+.slbl{font-size:10px;color:var(--color-text-tertiary);margin-bottom:8px;}
+.pb{width:100%;padding:10px;border-radius:var(--border-radius-md);background:#BA7517;border:none;color:white;font-size:12px;font-weight:500;cursor:pointer;margin-top:auto;transition:opacity .15s;}
+.pb:hover{opacity:.88;}
+.gb{width:100%;padding:9px;border-radius:var(--border-radius-md);background:transparent;border:.5px solid var(--color-border-secondary);color:var(--color-text-secondary);font-size:12px;cursor:pointer;margin-top:6px;transition:border-color .15s;}
+.gb:hover{border-color:var(--color-border-primary);color:var(--color-text-primary);}
+.cp{display:flex;gap:6px;margin-bottom:6px;}
+.cp-p{flex:1;border:.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 4px;display:flex;align-items:center;justify-content:center;gap:4px;opacity:.45;}
+.cp-l{font-size:11px;color:var(--color-text-secondary);}
+.or-r{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.or-l{flex:1;height:.5px;background:var(--color-border-tertiary);}
+.or-t{font-size:11px;color:var(--color-text-tertiary);}
+.ci{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:.5px solid var(--color-border-tertiary);}
+.ci:last-child{border-bottom:none;}
+.cc{width:14px;height:14px;border-radius:3px;background:#1D9E75;border:.5px solid #1D9E75;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;}
+.cm{color:white;font-size:9px;line-height:1;}
+.ct{font-size:11px;color:var(--color-text-secondary);line-height:1.5;}
+.cl{color:#BA7517;text-decoration:none;}
+.sr{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
+.copt{border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:8px;}
+.copt:hover{border-color:#BA7517;background:#FAEEDA;}
+.copt.sel{border-color:#BA7517;background:#FAEEDA;}
+.co-i{width:28px;height:28px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.co-t{font-size:12px;font-weight:500;color:var(--color-text-primary);}
+.co-d{font-size:11px;color:var(--color-text-secondary);margin-top:1px;}
+.vc{border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .18s,background .18s;}
+.vc:hover{border-color:#BA7517;background:#FAEEDA;}
+.vc.sel{border-color:#BA7517;background:#FAEEDA;}
+.vav{width:32px;height:32px;border-radius:var(--border-radius-md);background:#FAEEDA;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.vi{flex:1;min-width:0;}
+.vn{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.vm{font-size:11px;color:var(--color-text-secondary);margin-top:1px;}
+.vb{font-size:10px;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+
+.tier-row{display:flex;gap:6px;margin-bottom:12px;}
+.tp{flex:1;padding:7px 4px;border-radius:var(--border-radius-md);text-align:center;}
+.tp-l{font-size:10px;font-weight:500;display:block;}
+.tp-s{font-size:9px;display:block;margin-top:2px;}
+
+.icon-row{display:flex;gap:3px;align-items:center;}
+.v-icon{width:8px;height:8px;border-radius:50%;}
+.v-icon.filled{background:#BA7517;}
+.v-icon.empty{background:var(--color-border-secondary);}
+
+.stk{display:flex;align-items:center;gap:0;margin:.5rem 0 1.4rem;}
+.ss{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.sn{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;}
+.sn.done{background:#EAF3DE;color:#27500A;}
+.sn.active{background:#FAEEDA;color:#633806;}
+.sn.idle{background:var(--color-background-secondary);color:var(--color-text-tertiary);}
+.sl{font-size:10px;color:var(--color-text-tertiary);text-align:center;}
+.sl.active{color:#633806;}
+.stl{flex:1;height:.5px;background:var(--color-border-tertiary);margin-bottom:16px;}
+
+.anon-toggle{border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:11px 12px;display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .15s;}
+.anon-toggle.sel{border-color:var(--color-border-secondary);background:var(--color-background-secondary);}
+.radio{width:16px;height:16px;border-radius:50%;border:.5px solid var(--color-border-secondary);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:border-color .15s;}
+.radio.on{border-color:#BA7517;background:#BA7517;}
+.radio-dot{width:6px;height:6px;border-radius:50%;background:white;}
+.anon-title{font-size:12px;font-weight:500;color:var(--color-text-primary);}
+.anon-desc{font-size:11px;color:var(--color-text-secondary);line-height:1.5;margin-top:2px;}
+
+.warn-box{background:var(--color-background-warning);border:.5px solid var(--color-border-warning);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--color-text-warning);line-height:1.6;}
+
+@media(max-width:600px){.fw{grid-template-columns:1fr;}}
+</style>
+
+<div class="fw">
+
+  <div class="fc">
+    <div class="fl">New user — email signup</div>
+    <div class="fs">Register · verify · consent · connect</div>
+    <div class="stk">
+      <div class="ss"><div class="sn" id="n1">1</div><div class="sl" id="nl1">Account</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="n2">2</div><div class="sl" id="nl2">Profile</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="n3">3</div><div class="sl" id="nl3">Verify</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="n4">4</div><div class="sl" id="nl4">Consent</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="n5">5</div><div class="sl" id="nl5">Connect</div></div>
+    </div>
+    <div class="phone"><div class="ps">
+      <div class="notch"><div class="nd"></div></div>
+
+      <div class="sc active" id="ns1">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span></span></div>
+        <div class="sb">
+          <div class="si" style="background:#FAEEDA;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <div class="st">Create your account</div>
+          <div class="sd">Sign up with your email to get started.</div>
+          <div class="fl2">Email address</div>
+          <div class="mi f">amara@example.com</div>
+          <div class="fl2">Password</div>
+          <div class="mi pw" style="position:relative;">••••••••</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px;">At least 8 characters.</div>
+          <div class="or-r"><div class="or-l"></div><div class="or-t">or sign up with</div><div class="or-l"></div></div>
+          <div class="cp">
+            <div class="cp-p"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary)"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63 19.79 19.79 0 01.12 1c-.01-.53.2-1.04.57-1.41"/></svg><span class="cp-l">Phone</span></div>
+            <div class="cp-p"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary)"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span class="cp-l">Google</span></div>
+            <div class="cp-p"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-tertiary)"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/></svg><span class="cp-l">Apple</span></div>
+          </div>
+          <div style="font-size:10px;color:var(--color-text-tertiary);text-align:center;margin-bottom:10px;">Phone · Google · Apple coming soon</div>
+          <button class="pb" onclick="nGo(2)">Create account →</button>
+          <div style="font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-top:10px;">Already have an account? <span style="color:#BA7517;cursor:pointer;">Sign in</span></div>
+        </div>
+      </div>
+
+      <div class="sc" id="ns2">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><button class="bk" onclick="nGo(1)">← back</button></div>
+        <div class="sb">
+          <div class="si" style="background:#E6F1FB;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="st">Your name</div>
+          <div class="sd">This is how venues will know you.</div>
+          <div class="fl2">First name</div>
+          <div class="mi f">Amara</div>
+          <div class="fl2">Last name <span style="color:var(--color-text-tertiary)">(optional)</span></div>
+          <div class="mi p">e.g. Wanjiku</div>
+          <div class="fl2">Mobile number <span style="color:var(--color-text-tertiary)">(optional — for M-Pesa)</span></div>
+          <div class="mi p">+254 7XX XXX XXX</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:14px;">You can add your number later. Used only for M-Pesa payment prompts.</div>
+          <button class="pb" onclick="nGo(3)">Continue →</button>
+        </div>
+      </div>
+
+      <div class="sc" id="ns3">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div><button class="bk" onclick="nGo(2)">← back</button></div>
+        <div class="sb">
+          <div class="si" style="background:#EAF3DE;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <div class="st">Check your inbox</div>
+          <div class="sd">We sent a link to<br><strong style="color:var(--color-text-primary);">amara@example.com</strong></div>
+          <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;text-align:center;margin-bottom:14px;">
+            <div style="font-size:26px;margin-bottom:6px;">✉</div>
+            <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;">Click the link in your email to verify your address. Link expires in 24 hours.</div>
+          </div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:14px;">Nothing arrived? Check spam or <span style="color:#BA7517;cursor:pointer;">resend the email</span>.</div>
+          <button class="pb" onclick="nGo(4)">I've verified my email →</button>
+        </div>
+      </div>
+
+      <div class="sc" id="ns4">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div></div><button class="bk" onclick="nGo(3)">← back</button></div>
+        <div class="sb">
+          <div class="si" style="background:#FAEEDA;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div class="st">Quick &amp; honest</div>
+          <div class="sd">Here's what Tabeza uses to make your experience better.</div>
+          <div style="margin-bottom:10px;">
+            <div class="ci"><div class="cc"><div class="cm">✓</div></div><div class="ct">How often you visit a venue — shown as visit icons on your profile</div></div>
+            <div class="ci"><div class="cc"><div class="cm">✓</div></div><div class="ct">What you spend per visit — used to determine your tier at each venue</div></div>
+            <div class="ci"><div class="cc"><div class="cm">✓</div></div><div class="ct">Orders &amp; payments — to run your tab and close it securely</div></div>
+          </div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);line-height:1.55;margin-bottom:12px;">Your data is never sold. Full <a class="cl" href="#">Terms</a> &amp; <a class="cl" href="#">Privacy Policy</a> at tabeza.co.ke/legal</div>
+          <button class="pb" onclick="nGo(5)">I agree — let's go →</button>
+          <button class="gb">Not now</button>
+        </div>
+      </div>
+
+      <div class="sc" id="ns5">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div></div><span></span></div>
+        <div class="sb" style="align-items:center;text-align:center;">
+          <div class="sr" style="background:#EAF3DE;margin-top:12px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="st" style="margin-bottom:4px;">You're all set, Amara!</div>
+          <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:16px;">Open your first tab at any Tabeza venue.</div>
+          <div style="width:100%;text-align:left;">
+            <div class="copt sel"><div class="co-i" style="background:#FAEEDA;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/></svg></div><div><div class="co-t">Scan QR code</div><div class="co-d">Point camera at the table code</div></div></div>
+            <div class="copt"><div class="co-i" style="background:var(--color-background-secondary);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div><div><div class="co-t">Enter venue code</div><div class="co-d">Short code on your table card</div></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div></div>
+  </div>
+
+  <div class="fc">
+    <div class="fl">Returning user — connecting</div>
+    <div class="fs">Tap a recent venue · or connect somewhere new</div>
+    <div class="stk">
+      <div class="ss"><div class="sn" id="r1">1</div><div class="sl" id="rl1">Home</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="r2">2</div><div class="sl" id="rl2">Identity</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="r3">3</div><div class="sl" id="rl3">Confirm</div></div><div class="stl"></div>
+      <div class="ss"><div class="sn" id="r4">4</div><div class="sl" id="rl4">Tab open</div></div>
+    </div>
+    <div class="phone"><div class="ps">
+      <div class="notch"><div class="nd"></div></div>
+
+      <div class="sc active" id="rs1">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span></span></div>
+        <div class="sb">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:#FAEEDA;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#633806;flex-shrink:0;">AW</div>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:14px;font-weight:500;color:var(--color-text-primary);">Amara W.</span>
+                <div class="icon-row"><div class="v-icon filled"></div><div class="v-icon filled"></div><div class="v-icon empty"></div></div>
+              </div>
+              <div style="font-size:11px;color:var(--color-text-secondary);">Silver · KES 4,200 this week</div>
+            </div>
+          </div>
+          <div class="div"></div>
+          <div class="slbl">Recent venues — tap to connect</div>
+          <div class="vc" id="vc-w" onclick="pickVenue('w')">
+            <div class="vav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+            <div class="vi"><div class="vn">Westlands Lounge</div><div class="vm">3 days ago · Table 4</div></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+              <span class="vb" style="background:#FAEEDA;color:#633806;">Silver</span>
+              <div class="icon-row"><div class="v-icon filled"></div><div class="v-icon filled"></div><div class="v-icon empty"></div></div>
+            </div>
+          </div>
+          <div class="vc" id="vc-p" onclick="pickVenue('p')">
+            <div class="vav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+            <div class="vi"><div class="vn">Popos Bar</div><div class="vm">1 week ago · Table 7</div></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+              <span class="vb" style="background:#EAF3DE;color:#27500A;">Bronze</span>
+              <div class="icon-row"><div class="v-icon filled"></div><div class="v-icon empty"></div><div class="v-icon empty"></div></div>
+            </div>
+          </div>
+          <div class="vc" id="vc-f" onclick="pickVenue('f')">
+            <div class="vav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+            <div class="vi"><div class="vn">Forty Thieves</div><div class="vm">3 weeks ago · Table 2</div></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+              <span class="vb" style="background:#EEEDFE;color:#3C3489;">Gold</span>
+              <div class="icon-row"><div class="v-icon filled"></div><div class="v-icon filled"></div><div class="v-icon filled"></div></div>
+            </div>
+          </div>
+          <div class="div"></div>
+          <button class="pb" style="margin-top:0;" onclick="pickVenue('new')">Scan QR / enter code →</button>
+        </div>
+      </div>
+
+      <div class="sc" id="rs2">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div><button class="bk" onclick="rGo(1)">← back</button></div>
+        <div class="sb">
+          <div class="st" style="margin-bottom:4px;">How do you want to appear?</div>
+          <div class="sd" id="r2-heading">At Popos Bar</div>
+          <div class="anon-toggle" id="opt-named" onclick="selIdentity('named')">
+            <div class="radio on" id="radio-named"><div class="radio-dot"></div></div>
+            <div>
+              <div class="anon-title">As yourself — Amara W.</div>
+              <div class="anon-desc">Your visit counts towards your tier and unlocks personalised pricing and offers at this venue.</div>
+            </div>
+          </div>
+          <div class="anon-toggle" id="opt-nick" onclick="selIdentity('nick')">
+            <div class="radio" id="radio-nick"><div class="radio-dot"></div></div>
+            <div>
+              <div class="anon-title">Use a nickname</div>
+              <div class="anon-desc">Staff see your nickname. Your spend still earns your tier at this venue.</div>
+            </div>
+          </div>
+          <div id="nick-input" style="display:none;margin-bottom:8px;">
+            <div class="fl2">Your nickname</div>
+            <div class="mi f">The Phantom</div>
+          </div>
+          <div class="anon-toggle" id="opt-anon" onclick="selIdentity('anon')">
+            <div class="radio" id="radio-anon"><div class="radio-dot"></div></div>
+            <div>
+              <div class="anon-title">Stay anonymous</div>
+              <div class="anon-desc">No name shown. This visit won't count towards your tier or unlock any venue perks.</div>
+            </div>
+          </div>
+          <div class="warn-box" id="anon-warn" style="display:none;">Visiting anonymously means this venue won't be able to offer you their member pricing or special offers. You'll still enjoy a great experience — just as a walk-in guest.</div>
+          <button class="pb" onclick="rGo(3)">Continue →</button>
+        </div>
+      </div>
+
+      <div class="sc" id="rs3">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div></div><button class="bk" onclick="rGo(2)">← back</button></div>
+        <div class="sb">
+          <div class="st" style="margin-bottom:8px;">Connecting to</div>
+          <div class="vc" style="cursor:default;margin-bottom:12px;">
+            <div class="vav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+            <div class="vi"><div class="vn" id="r3-vn">Popos Bar</div><div class="vm" id="r3-vm">Table 7 · Nairobi CBD</div></div>
+            <span class="vb" id="r3-badge" style="background:#EAF3DE;color:#27500A;">Bronze</span>
+          </div>
+          <div class="div"></div>
+          <div class="slbl">Spend tiers at this venue</div>
+          <div class="tier-row" id="r3-tiers"></div>
+          <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:10px;" id="r3-desc"></div>
+          <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;" id="r3-icons-label"></div>
+          <div class="icon-row" id="r3-icons" style="margin-bottom:12px;gap:5px;"></div>
+          <div class="div"></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px;">Appearing as: <strong id="r3-identity" style="color:var(--color-text-primary);">Amara W.</strong> · <a class="cl" href="#" onclick="rGo(2);return false;">change</a></div>
+          <button class="pb" onclick="rGo(4)">Open my tab</button>
+          <button class="gb" onclick="rGo(1)">Choose a different venue</button>
+        </div>
+      </div>
+
+      <div class="sc" id="rs4">
+        <div class="snav"><div class="dots"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div></div><span></span></div>
+        <div class="sb" style="align-items:center;text-align:center;">
+          <div class="sr" style="background:#EAF3DE;margin-top:16px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="st" style="margin-bottom:4px;">Tab is open</div>
+          <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:16px;" id="r4-meta">Popos Bar · Table 7</div>
+          <div style="width:100%;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:left;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;color:var(--color-text-secondary);">Tab ID</span><span style="font-size:11px;font-weight:500;color:var(--color-text-primary);">#TAB-88291</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;color:var(--color-text-secondary);">Venue</span><span style="font-size:11px;font-weight:500;color:var(--color-text-primary);" id="r4-vn">Popos Bar</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;color:var(--color-text-secondary);">Appearing as</span><span style="font-size:11px;font-weight:500;color:var(--color-text-primary);" id="r4-as">Amara W.</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;color:var(--color-text-secondary);">Spend tier</span><span style="font-size:11px;font-weight:500;" id="r4-tier">Bronze</span></div>
+            <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--color-text-secondary);">Payment</span><span style="font-size:11px;color:var(--color-text-secondary);">M-Pesa on close</span></div>
+          </div>
+          <button class="pb" style="margin-top:0;">View menu</button>
+        </div>
+      </div>
+
+    </div></div>
+  </div>
+
+</div>
+
+<script>
+const V = {
+  w:{ name:'Westlands Lounge', meta:'Table 4 · Westlands', badge:'Silver', bbg:'#FAEEDA', bc:'#633806',
+      tiers:[{l:'Bronze',s:'< 3k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Silver',s:'3–5k',bg:'#FAEEDA',lc:'#633806',sc:'#854F0B',here:true},{l:'Gold',s:'15k+',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'}],
+      desc:'You\'re Silver here — great standing. Keep enjoying your regular visits.',
+      visits:2, maxVisits:3 },
+  p:{ name:'Popos Bar',         meta:'Table 7 · CBD',       badge:'Bronze', bbg:'#EAF3DE', bc:'#27500A',
+      tiers:[{l:'Bronze',s:'< 3k',bg:'#FAEEDA',lc:'#633806',sc:'#854F0B',here:true},{l:'Silver',s:'3–5k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Gold',s:'15k+',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'}],
+      desc:'You\'re Bronze here. Spend more per visit to move up and unlock member pricing.',
+      visits:1, maxVisits:3 },
+  f:{ name:'Forty Thieves',     meta:'Table 2 · Mombasa Rd', badge:'Gold', bbg:'#EEEDFE', bc:'#3C3489',
+      tiers:[{l:'Bronze',s:'< 3k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Silver',s:'3–5k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Gold',s:'15k+',bg:'#EEEDFE',lc:'#3C3489',sc:'#534AB7',here:true}],
+      desc:'You\'re Gold here — the best experience this venue has to offer is yours.',
+      visits:3, maxVisits:3 },
+  new:{ name:'New Venue', meta:'Scanned / code entry', badge:'New', bbg:'var(--color-background-secondary)', bc:'var(--color-text-secondary)',
+      tiers:[{l:'Bronze',s:'< 3k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Silver',s:'3–5k',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'},{l:'Gold',s:'15k+',bg:'var(--color-background-secondary)',lc:'var(--color-text-secondary)',sc:'var(--color-text-tertiary)'}],
+      desc:'First visit here — your tier will be set based on your spend.',
+      visits:0, maxVisits:3 }
+};
+
+let curV = 'p', curId = 'named';
+
+function pickVenue(k) {
+  curV = k;
+  ['w','p','f'].forEach(x=>{ const el=document.getElementById('vc-'+x); if(el) el.classList.toggle('sel',x===k); });
+  const v = V[k];
+  document.getElementById('r2-heading').textContent = 'At ' + v.name;
+  document.getElementById('r3-vn').textContent = v.name;
+  document.getElementById('r3-vm').textContent = v.meta;
+  const b = document.getElementById('r3-badge');
+  b.textContent = v.badge; b.style.background = v.bbg; b.style.color = v.bc;
+  const tc = document.getElementById('r3-tiers');
+  tc.innerHTML = v.tiers.map(t=>'<div class="tp" style="background:'+t.bg+';"><span class="tp-l" style="color:'+t.lc+';">'+t.l+'</span><span class="tp-s" style="color:'+t.sc+';">'+(t.here?'You are here':t.s)+'</span></div>').join('');
+  document.getElementById('r3-desc').textContent = v.desc;
+  const il = document.getElementById('r3-icons-label');
+  const ic = document.getElementById('r3-icons');
+  if(v.visits>0){
+    il.textContent='Visit frequency this month';
+    ic.innerHTML='';
+    for(let i=0;i<v.maxVisits;i++){const d=document.createElement('div');d.className='v-icon '+(i<v.visits?'filled':'empty');d.style.width='10px';d.style.height='10px';ic.appendChild(d);}
+  } else { il.textContent=''; ic.innerHTML=''; }
+  document.getElementById('r4-vn').textContent = v.name;
+  document.getElementById('r4-meta').textContent = v.name + ' · ' + v.meta;
+  document.getElementById('r4-tier').textContent = v.badge;
+  document.getElementById('r4-tier').style.color = v.bc;
+  rGo(k==='new'?2:2);
+}
+
+function selIdentity(type) {
+  curId = type;
+  ['named','nick','anon'].forEach(t=>{
+    const r=document.getElementById('radio-'+t);
+    r.classList.toggle('on',t===type);
+    document.getElementById('opt-'+t).classList.toggle('sel',t===type);
+  });
+  document.getElementById('nick-input').style.display = type==='nick'?'block':'none';
+  document.getElementById('anon-warn').style.display = type==='anon'?'block':'none';
+  const nameMap = {named:'Amara W.', nick:'The Phantom', anon:'Anonymous'};
+  document.getElementById('r3-identity').textContent = nameMap[type];
+  document.getElementById('r4-as').textContent = nameMap[type];
+}
+
+function nGo(s) {
+  for(let i=1;i<=5;i++){
+    document.getElementById('ns'+i).classList.toggle('active',i===s);
+    const n=document.getElementById('n'+i),nl=document.getElementById('nl'+i);
+    if(i<s){n.className='sn done';n.textContent='✓';nl.className='sl';}
+    else if(i===s){n.className='sn active';n.textContent=i;nl.className='sl active';}
+    else{n.className='sn idle';n.textContent=i;nl.className='sl';}
+  }
+}
+
+function rGo(s) {
+  for(let i=1;i<=4;i++){
+    document.getElementById('rs'+i).classList.toggle('active',i===s);
+    const n=document.getElementById('r'+i),nl=document.getElementById('rl'+i);
+    if(i<s){n.className='sn done';n.textContent='✓';nl.className='sl';}
+    else if(i===s){n.className='sn active';n.textContent=i;nl.className='sl active';}
+    else{n.className='sn idle';n.textContent=i;nl.className='sl';}
+  }
+}
+
+nGo(1); rGo(1); pickVenue('p');
+</script>

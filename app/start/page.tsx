@@ -23,6 +23,7 @@ import { requestSystemPermissions, checkPermissions } from '@/lib/permissions';
 import { isWithinBusinessHours } from '@/lib/business-hours';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
+import StepHome from './StepHome';
 
 function ConsentContent() {
   const router = useRouter();
@@ -76,6 +77,20 @@ function ConsentContent() {
   const [showOverdueModal, setShowOverdueModal] = useState(false);
   const [showOverduePaymentModal, setShowOverduePaymentModal] = useState(false);
   const [overdueTab, setOverdueTab] = useState<any>(null);
+
+  // ── Wizard step state (additive — does not replace existing logic) ──────────
+  // Requirements: 7.1–7.7, 11.1
+  const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3>(0)
+  const [selectedVenue, setSelectedVenue] = useState<{
+    id: string
+    slug: string
+    name: string
+    category?: string
+  } | null>(null)
+  const [identityMode, setIdentityMode] = useState<'named' | 'nickname' | 'anonymous'>('named')
+  // Note: `nickname` already exists above for the existing consent form.
+  // `wizardNickname` is the wizard's identity nickname to avoid collision.
+  const [wizardNickname, setWizardNickname] = useState('')
 
   // IMPROVED QR CODE EXTRACTION
   const extractSlugFromQRCode = (qrCode: string): string | null => {
@@ -204,6 +219,13 @@ function ConsentContent() {
     // Turn off scanner mode and load bar info
     setIsScannerMode(false);
     loadBarInfo(extractedSlug);
+
+    // ── Wizard step advancement (additive — does not affect existing loadBarInfo logic) ──
+    // Requirements: 7.1–7.7, 11.1
+    // barId may not be set yet at this point (loadBarInfo is async), so we use
+    // a placeholder id here; task 5.2 will wire the resolved barId from loadBarInfo.
+    setSelectedVenue({ id: barId ?? '', slug: extractedSlug, name: barName })
+    setWizardStep(1)
   };
 
   useEffect(() => {
@@ -274,8 +296,12 @@ function ConsentContent() {
       }
 
       if (!slug) {
-        console.log('❌ No slug found, redirecting to landing');
-        router.replace('/');
+        // No slug found — show the Home Screen (wizardStep 0) instead of
+        // redirecting to landing. The user can pick a recent venue or scan.
+        // Requirements: 7.1–7.7
+        console.log('ℹ️ No slug found — showing Home Screen (wizardStep 0)');
+        setWizardStep(0);
+        setLoading(false);
         return;
       }
 
@@ -896,6 +922,55 @@ function ConsentContent() {
           businessHours={barClosedInfo.businessHours}
         />
       </div>
+    );
+  }
+
+  // ── wizardStep 0: Home Screen ─────────────────────────────────────────────
+  // Requirements: 7.1–7.7, 11.1–11.10
+  // Shown when the user opens /start with no bar slug (no QR scan yet).
+  // Existing loading/error/barClosed gates above still apply when a slug IS present.
+  if (!loading && !redirecting && !error && !showBarClosed && wizardStep === 0 && !barSlug) {
+    return (
+      <>
+        {/* Overdue modals are preserved even on the home screen */}
+        {showOverdueModal && overdueTab && (
+          <OverdueTabModal
+            tab={overdueTab}
+            barName={barName}
+            onReopen={handleOverdueReopen}
+            onPayNow={() => {
+              setShowOverdueModal(false);
+              setShowOverduePaymentModal(true);
+            }}
+            onClose={() => setShowOverdueModal(false)}
+          />
+        )}
+        {showOverduePaymentModal && overdueTab && (
+          <OverduePaymentModal
+            tab={overdueTab}
+            barName={barName}
+            onSuccess={handleOverduePaymentSuccess}
+            onClose={() => setShowOverduePaymentModal(false)}
+          />
+        )}
+        <StepHome
+          user={user}
+          onVenueSelected={(venue) => {
+            // Tapping a recent venue: set venue state and advance to Identity step
+            // Requirements: 7.4
+            setSelectedVenue(venue);
+            setBarSlug(venue.slug);
+            setBarId(venue.id);
+            setBarName(venue.name);
+            setWizardStep(1);
+          }}
+          onScanOrEnter={() => {
+            // Triggers existing QR scanner / code-entry path
+            // Requirements: 7.6, 7.7
+            setIsScannerMode(true);
+          }}
+        />
+      </>
     );
   }
 
