@@ -34,7 +34,7 @@ export interface StepAccountProps {
   password: string
   onEmailChange: (v: string) => void
   onPasswordChange: (v: string) => void
-  onNext: () => void
+  onNext: (userId: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -63,27 +63,32 @@ export default function StepAccount({
 
     setLoading(true)
     try {
-      const { error: signUpError } = await supabase.auth.signUp({ email, password })
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
 
       if (signUpError) {
-        // Requirements: 2.4 — "User already registered" → inline message, no auto-sign-in
         const msg = signUpError.message?.toLowerCase() ?? ''
         if (
           msg.includes('already registered') ||
           msg.includes('user already exists') ||
           msg.includes('already been registered')
         ) {
-          setError(
-            'An account with this email already exists. Sign in instead.'
-          )
+          setError('An account with this email already exists. Sign in instead.')
         } else {
           setError(signUpError.message || 'Failed to create account.')
         }
         return
       }
 
-      // Success — Requirements: 2.5
-      onNext()
+      // Supabase returns success with no session for repeated signups (security behaviour).
+      // Detect this: a real new signup returns a user with an identities array.
+      // A repeated signup returns a user with an empty identities array.
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        setError('An account with this email already exists. Sign in instead.')
+        return
+      }
+
+      // Success — pass the new user's ID up so the wizard can use it at consent step
+      onNext(data.user?.id ?? '')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Connection error — please try again'
       setError(message)

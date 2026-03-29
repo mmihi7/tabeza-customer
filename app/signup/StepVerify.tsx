@@ -52,6 +52,15 @@ export default function StepVerify({ email, onVerified }: StepVerifyProps) {
   useEffect(() => {
     let cancelled = false
 
+    // Check immediately on mount — if email confirmations are disabled in Supabase,
+    // the user is already confirmed right after signUp and we can skip this step.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled && canAdvanceFromVerify(data.session)) {
+        onVerifiedRef.current()
+        return
+      }
+    })
+
     // Poll every 3 seconds — Requirements: 4.4
     const intervalId = setInterval(async () => {
       if (cancelled) return

@@ -82,7 +82,10 @@ export default function SignupPage() {
             password={password}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}
-            onNext={() => setStep(1)}
+            onNext={(newUserId) => {
+              if (newUserId) setUserId(newUserId)
+              setStep(1)
+            }}
           />
         )
       case 1:
