@@ -2047,20 +2047,20 @@ const loadNotificationPrefs = async () => {
   };
 
   const handleApproveOrder = async (orderId: string) => {
-    if (!supabase) return;
-    
+    if (!tab?.id) return;
+
     setApprovingOrder(orderId);
     try {
-      const { error } = await supabase
-        .from('tab_orders')
-        .update({ 
-          status: 'confirmed', 
-          confirmed_at: new Date().toISOString() 
-        })
-        .eq('id', orderId);
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const response = await fetch(`${baseUrl}/api/tabs/${tab.id}/orders`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: 'confirmed' }),
+      });
 
-      if (error) {
-        console.error('Error approving order:', error);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        console.error('Error approving order:', body.error);
         showToast({
           type: 'error',
           title: 'Failed to Approve Order',
@@ -2068,17 +2068,16 @@ const loadNotificationPrefs = async () => {
         });
         return;
       }
-      
-      // Success - show toast and reload data
+
       showToast({
         type: 'success',
         title: 'Order Approved!',
         message: 'Staff order has been approved'
       });
-      
-      // Reload tab data to reflect the change
+
+      // Reload orders so the approval button disappears and totals update
       await loadTabData();
-      
+
     } catch (error) {
       console.error('Error in handleApproveOrder:', error);
       showToast({
@@ -2116,40 +2115,39 @@ const loadNotificationPrefs = async () => {
       return;
     }
 
-    if (!supabase) return;
-    
+    if (!tab?.id) return;
+
     setApprovingOrder(rejectingOrderId);
     try {
-      const { error } = await supabase
-        .from('tab_orders')
-        .update({ 
-          status: 'cancelled', 
-          cancelled_at: new Date().toISOString(),
-          rejection_reason: selectedRejectionReason,
-          cancelled_by: 'customer'
-        })
-        .eq('id', rejectingOrderId);
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const response = await fetch(`${baseUrl}/api/tabs/${tab.id}/orders`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: rejectingOrderId,
+          status: 'cancelled',
+          rejectionReason: selectedRejectionReason,
+        }),
+      });
 
-      if (error) throw error;
-    
-      // Show success message
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to reject order');
+      }
+
       showToast({
         type: 'success',
         title: 'Order Rejected',
         message: 'The staff order has been rejected'
       });
-      
-      // Close modal immediately
+
       setShowRejectModal(false);
       setRejectingOrderId(null);
       setSelectedRejectionReason('');
-      
-      // Mark this order as processed
       setProcessedOrders(prev => new Set([...prev, rejectingOrderId]));
-      
-      // Reload data
+
       await loadTabData();
-      
+
     } catch (error) {
       console.error('Error in confirmRejectOrder:', error);
       showToast({
@@ -2186,10 +2184,13 @@ const loadNotificationPrefs = async () => {
     return nameA.localeCompare(nameB);
   });
 
-  // Derived value: all bar products sorted alphabetically by name (used by Unified Grid)
-  const sortedProducts = [...barProducts].sort((a, b) =>
-    (a.product?.name ?? '').localeCompare(b.product?.name ?? '')
-  );
+  // Derived value: food items first (alphabetical), then drinks (alphabetical)
+  const sortedProducts = [...barProducts].sort((a, b) => {
+    const aIsDrink = isDrinkProduct(a.product);
+    const bIsDrink = isDrinkProduct(b.product);
+    if (aIsDrink !== bIsDrink) return aIsDrink ? 1 : -1; // food before drinks
+    return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
+  });
 
   const addToCart = (barProduct: BarProduct, priceOverride?: number) => {
     const product = barProduct.product;
@@ -2231,8 +2232,8 @@ const loadNotificationPrefs = async () => {
   };
 
   const confirmOrder = async () => {
-    if (cart.length === 0 || !supabase) return;
-    
+    if (cart.length === 0 || !tab?.id) return;
+
     setSubmittingOrder(true);
     try {
       const orderItems = cart.map((item, index) => ({
@@ -2244,27 +2245,28 @@ const loadNotificationPrefs = async () => {
         category: item.category,
         ...(isDrinkItem(item) && notColdPreferences[`cart-item-${index}`] && { not_cold: true })
       }));
-      const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const orderTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const orderSubmissionTime = new Date().toISOString();
-      
-      // ✅ DO NOT SET order_number - let database trigger handle it
-      const { error } = await supabase
-        .from('tab_orders')
-        .insert({
-          tab_id: tab!.id,
-          items: orderItems,
-          total: cartTotal,
-          status: 'pending',
-          initiated_by: 'customer'
-        });
-      if (error) throw error;
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const response = await fetch(`${baseUrl}/api/tabs/${tab.id}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: orderItems, total: orderTotal, initiated_by: 'customer' }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to create order');
+      }
+
       sessionStorage.setItem('oldestPendingCustomerOrderTime', orderSubmissionTime);
       sessionStorage.removeItem('cart');
       setCart([]);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
       console.error('Error creating order:', error);
-      alert(`Failed to create order: KSh ${error.message}`);
+      alert(`Failed to create order: ${error.message}`);
     } finally {
       setSubmittingOrder(false);
     }
@@ -2972,21 +2974,54 @@ const loadNotificationPrefs = async () => {
             )}
           </div>
 
-          {/* Product grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {sortedProducts.map(bp => {
+          {/* Product grid with inline ad banners after every row.
+              Ad images come from slideshowImages (slideshow) or staticMenuUrl (single image), capped at 5.
+              One ad is placed after each row (every 2 items); ads stop when the image list is exhausted. */}
+          {(() => {
+            // Build the ordered list of ad image URLs (max 5)
+            const adImages: string[] = slideshowImages.length > 0
+              ? slideshowImages.slice(0, 5)
+              : staticMenuUrl
+              ? [staticMenuUrl]
+              : [];
+
+            const nodes: React.ReactNode[] = [];
+            let adIndex = 0;
+            let drinkDividerInserted = false;
+
+            // Divider between food and drinks (only if there are food items)
+            const hasFoodItems = sortedProducts.some(bp => !isDrinkProduct(bp.product));
+            if (hasFoodItems) {
+              nodes.push(
+                <div key="divider-food" className="col-span-2 mb-1" />
+              );
+            }
+
+            sortedProducts.forEach((bp, idx) => {
               const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
               const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
               const imageUrl = getDisplayImage(bp.product);
               const IconComponent = getCategoryIcon(bp.product?.category || '');
+              const isThisDrink = isDrinkProduct(bp.product);
 
-              return (
+              // Insert food/drinks divider before the first drink item
+              if (isThisDrink && !drinkDividerInserted) {
+                drinkDividerInserted = true;
+                // If we're mid-row (odd index), pad with an empty cell first
+                if (idx % 2 !== 0) {
+                  nodes.push(<div key="pad-before-divider" />);
+                }
+                nodes.push(
+                  <div key="divider-drinks" className="col-span-2 mt-4" />
+                );
+              }
+
+              nodes.push(
                 <button
                   key={bp.id}
                   onClick={() => addToCart(bp, displayPrice)}
                   className="flex flex-col rounded-lg overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
                 >
-                  {/* Image area */}
                   <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
                     {imageUrl ? (
                       <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
@@ -2994,7 +3029,6 @@ const loadNotificationPrefs = async () => {
                       <IconComponent className="w-10 h-10 text-gray-300" />
                     )}
                   </div>
-                  {/* Name + price */}
                   <div className="p-2 flex flex-col gap-0.5">
                     <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
                       {bp.product?.name}
@@ -3012,8 +3046,30 @@ const loadNotificationPrefs = async () => {
                   </div>
                 </button>
               );
-            })}
-          </div>
+
+              // After every 2nd item (end of a row), inject the next ad image if available
+              const isEndOfRow = (idx + 1) % 2 === 0;
+              if (isEndOfRow && adIndex < adImages.length) {
+                const src = adImages[adIndex];
+                nodes.push(
+                  <div
+                    key={`ad-${adIndex}`}
+                    className="col-span-2 flex justify-center"
+                    aria-label="Advertisement"
+                  >
+                    <img
+                      src={src}
+                      alt="Ad"
+                      style={{ width: 320, height: 50, objectFit: 'contain', display: 'block' }}
+                    />
+                  </div>
+                );
+                adIndex++;
+              }
+            });
+
+            return <div className="grid grid-cols-2 gap-3">{nodes}</div>;
+          })()}
         </div>
         </>
       )}
@@ -3156,148 +3212,6 @@ const loadNotificationPrefs = async () => {
           </div>
         </button>
       )}
-
-      {/* UPCOMING EVENTS Section - Always Visible */}
-      <div className="bg-gray-50 px-4">
-        <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
-          <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50">
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">UPCOMING EVENTS</h2>
-            </div>
-          </div>
-          
-          <div className="relative overflow-hidden">
-            {(staticMenuUrl || staticMenuType === 'slideshow') ? (
-              <div className="relative z-10 bg-gray-900 bg-opacity-95 flex flex-col h-[70vh] min-h-[400px]">
-                {/* Content */}
-                <div className="flex-1 overflow-hidden">
-                  {/* PDF viewer temporarily disabled - only show images */}
-                  {staticMenuType === 'pdf' ? (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <div className="text-center text-gray-600 p-8">
-                        <FileText size={48} className="mx-auto mb-4 text-gray-400" />
-                        <h3 className="text-lg font-semibold mb-2">PDF Viewer Temporarily Disabled</h3>
-                        <p className="text-sm">PDF menu viewing is currently unavailable. Please ask staff for assistance or use the interactive menu.</p>
-                      </div>
-                    </div>
-                  ) : staticMenuType === 'slideshow' ? (
-                    // Slideshow viewer - MANUAL ONLY (no auto-play)
-                    <div className="w-full h-full bg-gray-100 flex flex-col overflow-hidden">
-                      <div className="flex-1 overflow-hidden flex items-center justify-center p-4 relative">
-                        {slideshowImages.length === 0 ? (
-                          <div className="text-center text-gray-500">No slideshow images available</div>
-                        ) : (
-                          <>
-                            <div className="aspect-[4/5] max-w-[900px] w-full rounded-lg overflow-hidden shadow-lg transition-all duration-300">
-                              <img
-                                src={slideshowImages[currentSlideIndex]}
-                                alt={`Slide ${currentSlideIndex + 1}`}
-                                className="w-full h-full object-cover"
-                                style={{ transform: `scale(${imageScale})`, transformOrigin: 'center' }}
-                              />
-                            </div>
-
-                            {slideshowImages.length > 1 && (
-                              <>
-                                <button
-                                  onClick={() => setCurrentSlideIndex((idx) => (idx - 1 + slideshowImages.length) % slideshowImages.length)}
-                                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 rounded-full p-2 shadow"
-                                >
-                                  ‹
-                                </button>
-                                <button
-                                  onClick={() => setCurrentSlideIndex((idx) => (idx + 1) % slideshowImages.length)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 rounded-full p-2 shadow"
-                                >
-                                  ›
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Footer: indicators & controls */}
-                      <div className="bg-white border-t border-gray-200 p-2 flex items-center justify-between gap-2 shrink-0">
-                        <div className="flex items-center gap-2">
-                          {slideshowImages.map((_, i) => (
-                            <button
-                              key={i}
-                              onClick={() => setCurrentSlideIndex(i)}
-                              className={`w-2 h-2 rounded-full ${i === currentSlideIndex ? 'bg-orange-500' : 'bg-gray-300'}`}
-                              title={`Go to slide ${i + 1}`}
-                            />
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Play/Pause button removed since slideshow is manual only */}
-                          <button
-                            onClick={handleImageFitWidth}
-                            className="p-1 hover:bg-gray-100 rounded text-gray-600"
-                            title="Fit to width"
-                          >
-                            <Maximize2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // Image viewer with zoom
-                    <div className="w-full h-full bg-gray-100 flex flex-col overflow-hidden">
-                      {/* Image Content */}
-                      <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-                        <img 
-                          src={staticMenuUrl ?? undefined} 
-                          alt="Menu" 
-                          className="max-w-full max-h-full object-contain rounded-lg shadow-lg transition-all duration-300"
-                          style={{ 
-                            transform: `scale(${imageScale})`, 
-                            transformOrigin: 'center'
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Image Zoom Controls */}
-                      <div className="bg-white border-t border-gray-200 p-2 flex items-center justify-center gap-2 shrink-0">
-                        <button
-                          onClick={handleImageZoomOut}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-600 transform transition-all duration-200 hover:scale-110"
-                          title="Zoom out"
-                        >
-                          <ZoomOut size={14} />
-                        </button>
-                        <span className="text-xs text-gray-600 min-w-[40px] text-center">
-                          {Math.round(imageScale * 100)}%
-                        </span>
-                        <button
-                          onClick={handleImageZoomIn}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-600 transform transition-all duration-200 hover:scale-110"
-                          title="Zoom in"
-                        >
-                          <ZoomIn size={14} />
-                        </button>
-                        <button
-                          onClick={handleImageFitWidth}
-                          className="p-1 hover:bg-gray-100 rounded text-gray-600 transform transition-all duration-200 hover:scale-110"
-                          title="Fit to width"
-                        >
-                          <Maximize2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4">
-                <div className="text-center py-8 text-gray-500">
-                  <p>No promotional content available</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       <div ref={ordersRef} className="p-4">
         {/* Section Header - NEW */}

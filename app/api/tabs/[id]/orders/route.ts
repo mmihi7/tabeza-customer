@@ -45,3 +45,102 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+/**
+ * POST /api/tabs/[id]/orders
+ * Body: { items: OrderItem[], total: number, initiated_by?: string }
+ *
+ * Creates a new order for a tab using the service-role client to bypass RLS.
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: tabId } = await params;
+    const body = await request.json();
+    const { items, total, initiated_by = 'customer' } = body;
+
+    if (!tabId || !items || total === undefined) {
+      return NextResponse.json({ error: 'tabId, items and total are required' }, { status: 400 });
+    }
+
+    const supabase = createServiceRoleClient();
+
+    const { data: order, error } = await supabase
+      .from('tab_orders')
+      .insert({
+        tab_id: tabId,
+        items,
+        total,
+        status: 'pending',
+        initiated_by,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating order:', error);
+      return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+    }
+
+    return NextResponse.json({ order }, { status: 201 });
+  } catch (error) {
+    console.error('❌ Unhandled error in order create:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/tabs/[id]/orders
+ * Body: { orderId: string, status: 'confirmed' | 'cancelled', rejectionReason?: string }
+ *
+ * Updates a single order's status using the service-role client to bypass RLS.
+ * Used by the customer to approve or reject staff-initiated orders.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: tabId } = await params;
+    const body = await request.json();
+    const { orderId, status, rejectionReason } = body;
+
+    if (!orderId || !status) {
+      return NextResponse.json({ error: 'orderId and status are required' }, { status: 400 });
+    }
+
+    if (!['confirmed', 'cancelled'].includes(status)) {
+      return NextResponse.json({ error: 'status must be confirmed or cancelled' }, { status: 400 });
+    }
+
+    const supabase = createServiceRoleClient();
+
+    const updates: Record<string, any> = { status };
+    if (status === 'confirmed') {
+      updates.confirmed_at = new Date().toISOString();
+    }
+    if (status === 'cancelled' && rejectionReason) {
+      updates.rejection_reason = rejectionReason;
+    }
+
+    const { data: updatedOrder, error } = await supabase
+      .from('tab_orders')
+      .update(updates)
+      .eq('id', orderId)
+      .eq('tab_id', tabId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating order:', error);
+      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+    }
+
+    return NextResponse.json({ order: updatedOrder });
+  } catch (error) {
+    console.error('❌ Unhandled error in order update:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
