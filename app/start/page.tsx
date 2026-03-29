@@ -24,6 +24,7 @@ import { isWithinBusinessHours } from '@/lib/business-hours';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import StepHome from './StepHome';
+import StepIdentity from './StepIdentity';
 
 function ConsentContent() {
   const router = useRouter();
@@ -972,6 +973,24 @@ function ConsentContent() {
         />
       </>
     );
+  }
+
+  // ── wizardStep 1: Identity Step ──────────────────────────────────────────
+  // Requirements: 8.1–8.5, 11.1–11.7
+  // Shown after a venue is selected (via recent-venue tap or QR/code scan).
+  if (wizardStep === 1 && selectedVenue) {
+    return (
+      <StepIdentity
+        venueName={selectedVenue.name}
+        userName={user?.user_metadata?.first_name || user?.email || 'You'}
+        identityMode={identityMode}
+        nickname={wizardNickname}
+        onIdentityModeChange={setIdentityMode}
+        onNicknameChange={setWizardNickname}
+        onConfirm={() => setWizardStep(2)}
+        onBack={() => setWizardStep(0)}
+      />
+    )
   }
 
   // Main consent form

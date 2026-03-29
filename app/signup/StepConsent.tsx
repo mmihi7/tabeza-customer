@@ -16,7 +16,7 @@ const DATA_CATEGORIES = [
     id: 'visits',
     title: 'Visits',
     description:
-      'We remember which venues you've been to, so you get a warm welcome every time you return.',
+      "We remember which venues you've been to, so you get a warm welcome every time you return.",
   },
   {
     id: 'spend',

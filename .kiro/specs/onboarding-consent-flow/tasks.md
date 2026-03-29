@@ -165,7 +165,7 @@ Flow B extends `app/start/page.tsx` with a step state machine around the existin
     - **Property 16: Home screen never renders a numeric spend figure** — for any user data, rendered output does not match `/KES\s*[\d,]+/` or `/[\d,]+\s*KES/`
     - Test file: `__tests__/flows/connect-wizard.test.tsx`
 
-  - [-] 5.4 Implement `StepIdentity` (wizardStep 1)
+  - [x] 5.4 Implement `StepIdentity` (wizardStep 1)
     - Heading: "How do you want to appear?" followed by venue name
     - Three options: "As yourself" (user's registered name), "Use a nickname" (text input, maxLength 30), "Stay anonymous"
     - When "Stay anonymous" selected: show warning that anonymous visits do not count toward loyalty tier
