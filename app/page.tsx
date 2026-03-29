@@ -12,6 +12,9 @@ import { getAllOpenTabs, hasOpenTabAtBar, validateDeviceIntegrity, storeActiveTa
 import { useAuth } from '@/hooks/useAuth';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import AnonymousToggle from '@/components/anonymous/AnonymousToggle';
+import { isWithinBusinessHours } from '@/lib/business-hours';
+import { OverdueTabModal } from '@/components/OverdueTabModal';
+import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 
 export default function LandingPage() {
   return (
@@ -41,6 +44,12 @@ function LandingContent() {
   const [showExistingTabsModal, setShowExistingTabsModal] = useState(false);
   const [existingTabs, setExistingTabs] = useState<any[]>([]);
   const [debugDeviceId, setDebugDeviceId] = useState('');
+
+  // Overdue tab resolution state (req 2.1, 2.2, 2.2.1, 2.2.2, 2.3, 2.6)
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [showOverduePaymentModal, setShowOverduePaymentModal] = useState(false);
+  const [overdueTab, setOverdueTab] = useState<any>(null);
+  const [overdueBarData, setOverdueBarData] = useState<any>(null);
 
   useEffect(() => {
     initializeLanding();
@@ -157,6 +166,23 @@ function LandingContent() {
 
       if (hasTab && existingTab) {
         console.log('✅ EXISTING TAB FOUND!');
+
+        // Overdue tab interception — req 2.1, 2.2, 2.2.1, 2.2.2, 2.3, 2.6
+        // Must be checked BEFORE the open-tab redirect block below.
+        if (existingTab.status === 'overdue') {
+          setOverdueTab(existingTab);
+          setOverdueBarData(bar);
+          if (isWithinBusinessHours(bar)) {
+            setShowOverdueModal(true);
+          } else {
+            setShowOverduePaymentModal(true);
+          }
+          setCheckingTab(false);
+          setIsInitializing(false);
+          return;
+        }
+
+        // Existing open-tab redirect code — unchanged (req 3.1)
         let displayName = `Tab ${existingTab.tab_number}`;
         try {
           const notes = JSON.parse(existingTab.notes || '{}');
@@ -306,6 +332,42 @@ function LandingContent() {
         router.push('/start');
       }, 2000);
     }
+  };
+
+  // Overdue tab handlers — req 2.2.1, 2.2.2, 2.4
+  const handleOverdueReopen = async () => {
+    if (!overdueTab?.id) return;
+    try {
+      const res = await fetch(`/api/tabs/${overdueTab.id}/reopen`, { method: 'PATCH' });
+      if (!res.ok) throw new Error('Failed to reopen tab');
+      const data = await res.json();
+      const updatedTab = data.tab ?? overdueTab;
+      storeActiveTab(overdueBarData.id, updatedTab);
+      sessionStorage.setItem('currentTab', JSON.stringify(updatedTab));
+      sessionStorage.setItem('barName', overdueBarData.name);
+      let displayName = `Tab ${updatedTab.tab_number}`;
+      try {
+        const notes = JSON.parse(updatedTab.notes || '{}');
+        displayName = notes.display_name || displayName;
+      } catch (e) {}
+      sessionStorage.setItem('displayName', displayName);
+      sessionStorage.removeItem('just_created_tab');
+      setShowOverdueModal(false);
+      router.replace('/menu');
+    } catch (err) {
+      console.error('❌ Failed to reopen overdue tab:', err);
+      showToast({ type: 'error', title: 'Error', message: 'Failed to reopen tab. Please try again.' });
+    }
+  };
+
+  const handleOverduePayNow = () => {
+    setShowOverdueModal(false);
+    setShowOverduePaymentModal(true);
+  };
+
+  const handleOverduePaymentSuccess = () => {
+    setShowOverduePaymentModal(false);
+    router.replace('/');
   };
 
   const handleContinueToExistingTab = (tab: any) => {
@@ -586,6 +648,26 @@ function LandingContent() {
       
       {/* PWA Update Manager */}
       <PWAUpdateManager />
+
+      {/* Overdue tab resolution modals — req 2.1, 2.2, 2.2.1, 2.2.2, 2.3, 2.6 */}
+      {showOverdueModal && overdueTab && overdueBarData && (
+        <OverdueTabModal
+          tab={overdueTab}
+          barName={overdueBarData.name}
+          onReopen={handleOverdueReopen}
+          onPayNow={handleOverduePayNow}
+          onClose={() => setShowOverdueModal(false)}
+        />
+      )}
+
+      {showOverduePaymentModal && overdueTab && overdueBarData && (
+        <OverduePaymentModal
+          tab={overdueTab}
+          barName={overdueBarData.name}
+          onSuccess={handleOverduePaymentSuccess}
+          onClose={() => setShowOverduePaymentModal(false)}
+        />
+      )}
     </div>
   );
 }

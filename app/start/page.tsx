@@ -20,6 +20,9 @@ import QrScanner from 'qr-scanner';
 import { BarClosedSlideIn } from '../../components/BarClosedSlideIn';
 import { playCustomerNotification, requestVibrationPermission, isVibrationSupported } from '@/lib/notifications';
 import { requestSystemPermissions, checkPermissions } from '@/lib/permissions';
+import { isWithinBusinessHours } from '@/lib/business-hours';
+import { OverdueTabModal } from '@/components/OverdueTabModal';
+import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 
 function ConsentContent() {
   const router = useRouter();
@@ -68,6 +71,11 @@ function ConsentContent() {
     nextOpenTime: '',
     businessHours: undefined
   });
+
+  // Overdue tab resolution state (requirements 2.1, 2.2)
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [showOverduePaymentModal, setShowOverduePaymentModal] = useState(false);
+  const [overdueTab, setOverdueTab] = useState<any>(null);
 
   // IMPROVED QR CODE EXTRACTION
   const extractSlugFromQRCode = (qrCode: string): string | null => {
@@ -345,11 +353,25 @@ function ConsentContent() {
           console.log('✅ User has existing tab, redirecting directly to menu');
           console.log('📊 Existing tab data:', existingTabs[0]);
           
+          const existingTab = existingTabs[0];
+
+          // Overdue status branch — intercept before the open-tab redirect (requirements 2.1, 2.2)
+          if (existingTab.status === 'overdue') {
+            setOverdueTab(existingTab);
+            if (isWithinBusinessHours(bar)) {
+              setShowOverdueModal(true);
+            } else {
+              setShowOverduePaymentModal(true);
+            }
+            setLoading(false);
+            return;
+          }
+          // existing open-tab redirect block preserved intact below
+
           // Set redirecting state to prevent showing consent form
           setRedirecting(true);
           
           // Store the existing tab data and redirect to menu
-          const existingTab = existingTabs[0];
           storeActiveTab(bar.id, existingTab);
           sessionStorage.setItem('currentTab', JSON.stringify(existingTab));
           sessionStorage.setItem('barName', bar.name);
@@ -383,6 +405,7 @@ function ConsentContent() {
           return; // Don't show consent form and don't call setLoading(false)
         } else {
           // Check business hours only for new customers
+          // Shared version extracted to lib/business-hours.ts — this inline copy is preserved per non-destructive rule
           const isWithinBusinessHours = (barData: any) => {
             try {
               // Handle 24 hours mode
@@ -507,6 +530,30 @@ function ConsentContent() {
       setError('Error loading bar information. Please try again.');
       setLoading(false);
     }
+  };
+
+  // Overdue tab handlers (requirements 2.2.1, 2.4)
+  const handleOverdueReopen = async () => {
+    if (!overdueTab?.id) return;
+    try {
+      const res = await fetch(`/api/tabs/${overdueTab.id}/reopen`, { method: 'PATCH' });
+      if (!res.ok) {
+        const body = await res.json();
+        showToast({ type: 'error', title: 'Reopen Failed', message: body.error || 'Could not reopen tab.' });
+        return;
+      }
+      const { tab: updatedTab } = await res.json();
+      storeActiveTab(updatedTab.bar_id, updatedTab);
+      sessionStorage.setItem('currentTab', JSON.stringify(updatedTab));
+      if (barName) sessionStorage.setItem('barName', barName);
+      router.replace('/menu');
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Reopen Failed', message: err.message || 'Could not reopen tab.' });
+    }
+  };
+
+  const handleOverduePaymentSuccess = () => {
+    router.replace('/');
   };
 
   const handleStartTab = async () => {
@@ -855,6 +902,27 @@ function ConsentContent() {
   // Main consent form
   return (
     <>
+      {/* Overdue tab modals — rendered above the consent form (requirements 2.1, 2.2) */}
+      {showOverdueModal && overdueTab && (
+        <OverdueTabModal
+          tab={overdueTab}
+          barName={barName}
+          onReopen={handleOverdueReopen}
+          onPayNow={() => {
+            setShowOverdueModal(false);
+            setShowOverduePaymentModal(true);
+          }}
+          onClose={() => setShowOverdueModal(false)}
+        />
+      )}
+      {showOverduePaymentModal && overdueTab && (
+        <OverduePaymentModal
+          tab={overdueTab}
+          barName={barName}
+          onSuccess={handleOverduePaymentSuccess}
+          onClose={() => setShowOverduePaymentModal(false)}
+        />
+      )}
       <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center p-4 relative">
         {/* Back arrow button */}
         <button

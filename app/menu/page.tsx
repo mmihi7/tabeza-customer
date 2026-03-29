@@ -457,28 +457,30 @@ export default function MenuPage() {
   
 // Function to load loyalty data
 const loadLoyaltyData = async () => {
-  if (!tab?.customer_id) return;
+  if (!tab?.customer_id || !tab?.bar_id) return;
 
   try {
-    console.log('🔍 Loading loyalty data for customer:', tab.customer_id);
-    
-    // Get customer's visit and spend data
-    const [visitsResponse, spendResponse] = await Promise.all([
-      fetch(`/api/loyalty/visits/${tab.customer_id}`).then(r => {
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
+    console.log('🔍 Loading loyalty data for customer:', tab.customer_id, 'at bar:', tab.bar_id);
+
+    // Fetch venue thresholds, visit data, and spend tier in parallel.
+    // Visits API requires bar_id so tier is scoped to this venue.
+    const [venueResult, visitsResponse, spendResponse] = await Promise.all([
+      supabase
+        .from('bars')
+        .select('bronze_threshold, silver_threshold, gold_threshold')
+        .eq('id', tab.bar_id)
+        .single(),
+      fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
       }),
       fetch(`/api/loyalty/spend-tiers/${tab.customer_id}`).then(r => {
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
-      })
+      }),
     ]);
 
-    console.log('📊 Loyalty API responses:', { visitsResponse, spendResponse });
+    console.log('📊 Loyalty API responses:', { venueResult, visitsResponse, spendResponse });
 
     // Check for API errors in response body
     if (visitsResponse.error || spendResponse.error) {
@@ -486,38 +488,64 @@ const loadLoyaltyData = async () => {
       return;
     }
 
-    const visitsData = visitsResponse;
-    const spendData = spendResponse;
+    // Read venue thresholds — fall back to defaults if the columns don't exist yet
+    const venueData = venueResult.data as {
+      bronze_threshold?: number | null;
+      silver_threshold?: number | null;
+      gold_threshold?: number | null;
+    } | null;
+    const bronzeThreshold = venueData?.bronze_threshold ?? 3000;
+    const silverThreshold = venueData?.silver_threshold ?? 5000;
+    const goldThreshold   = venueData?.gold_threshold   ?? 15000;
 
-    // Determine visit tier based on weekly visits (same logic as staff app)
+    // --- 2-visit minimum gate (Bug fix 3.1) ---
+    // A tab is only counted when it has been fully closed (closed_at IS NOT NULL),
+    // which is only possible after a successful payment — overdue tabs cannot be closed.
+    const completedVisits: number = visitsResponse.completedVisits ?? 0;
+    const averageSpend: number    = visitsResponse.averageSpend    ?? 0;
+
     let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
-    const weeklyVisits = visitsData.weeklyVisits || visitsData.totalVisits || 0;
 
-    if (weeklyVisits >= 3) {
-      visitTier = 'gold';
-    } else if (weeklyVisits >= 2) {
-      visitTier = 'silver';
-    } else if (weeklyVisits >= 1) {
-      visitTier = 'bronze';
+    if (completedVisits < 2) {
+      // Ineligible — fewer than 2 completed visits at this venue
+      visitTier = 'new';
+    } else {
+      // --- Average-spend classification against venue thresholds (Bug fix 3.2 & 3.3) ---
+      if (averageSpend >= goldThreshold) {
+        visitTier = 'gold';
+      } else if (averageSpend >= silverThreshold) {
+        visitTier = 'silver';
+      } else if (averageSpend >= bronzeThreshold) {
+        visitTier = 'bronze';
+      } else {
+        visitTier = 'new';
+      }
     }
 
-    // Determine spend tier based on weekly spend (same logic as staff app)
-    let spendTier: 'low' | 'medium' | 'high' = 'low';
-    const weeklySpend = spendData.weeklySpend || spendData.totalSpend || 0;
-
+    // Determine spend tier based on weekly spend (drives menu pricing — unchanged)
+    let spendTierValue: 'low' | 'medium' | 'high' = 'low';
+    const weeklySpend = spendResponse.weeklySpend || spendResponse.totalSpend || 0;
     if (weeklySpend >= 15000) {
-      spendTier = 'high';
+      spendTierValue = 'high';
     } else if (weeklySpend >= 3000) {
-      spendTier = 'medium';
+      spendTierValue = 'medium';
     }
 
-    console.log('🏆 Calculated loyalty tiers:', { visitTier, spendTier, weeklyVisits, weeklySpend });
+    console.log('🏆 Calculated loyalty tiers:', {
+      visitTier,
+      spendTier: spendTierValue,
+      completedVisits,
+      averageSpend,
+      bronzeThreshold,
+      silverThreshold,
+      goldThreshold,
+    });
 
     setLoyaltyData({
       visitTier,
-      spendTier,
-      totalVisits: weeklyVisits,
-      totalSpend: weeklySpend
+      spendTier: spendTierValue,
+      totalVisits: completedVisits,
+      totalSpend: averageSpend * completedVisits,
     });
 
   } catch (error) {
@@ -532,6 +560,12 @@ const renderLoyaltyIcons = () => {
   
   if (!loyaltyData) {
     console.log('❌ No loyalty data available, not rendering icons');
+    return null;
+  }
+
+  // Bug fix 4: no icons for ineligible guests (< 2 visits or spend below bronze threshold)
+  if (loyaltyData.visitTier === 'new') {
+    console.log('❌ visitTier is new — guest not yet eligible, not rendering icons');
     return null;
   }
   
@@ -2589,9 +2623,9 @@ const loadNotificationPrefs = async () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--ink)' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--amber)' }}></div>
           <p className="text-gray-600">Loading your tab...</p>
         </div>
       </div>
@@ -2636,7 +2670,7 @@ const loadNotificationPrefs = async () => {
           🧪 M-Pesa Mock Mode Active - Payments will be simulated
         </div>
       )}
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen" style={{ background: 'var(--ink)' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white sticky top-0 z-20 shadow-lg">
         {/* Top Row: Restaurant Name & Tab Info */}
@@ -2927,54 +2961,59 @@ const loadNotificationPrefs = async () => {
         </div>
       ) : (
         <>
-        {spendTier && (
-          <div className="mx-4 mt-4 mb-1 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-            <p className="text-xs text-orange-700 font-medium">
-              🥉 Bronze prices — yours alone.{' '}
-              <span className="text-orange-500 font-normal">Visit more, pay less.</span>
-            </p>
+        <div className="px-4 mt-4 mb-4">
+          {/* Section header — matches app-wide pattern */}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
+            {spendTier && (
+              <span className="text-xs text-gray-500">
+                🥉 Your prices · <span className="text-orange-500 font-medium">visit more, pay less</span>
+              </span>
+            )}
           </div>
-        )}
-        <div className="grid grid-cols-2 gap-3 px-4 pb-6 mt-4">
-          {sortedProducts.map(bp => {
-            const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
-            const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
-            const imageUrl = getDisplayImage(bp.product);
-            const IconComponent = getCategoryIcon(bp.product?.category || '');
 
-            return (
-              <button
-                key={bp.id}
-                onClick={() => addToCart(bp, displayPrice)}
-                className="flex flex-col rounded-xl overflow-hidden bg-white border border-orange-100 shadow-sm active:scale-95 transition-transform"
-              >
-                {/* Image area */}
-                <div className="w-full aspect-square bg-orange-50 flex items-center justify-center overflow-hidden">
-                  {imageUrl ? (
-                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <IconComponent className="w-10 h-10 text-orange-400" />
-                  )}
-                </div>
-                {/* Name + price */}
-                <div className="p-2 flex flex-col gap-0.5">
-                  <span className="text-gray-900 text-sm font-medium leading-tight line-clamp-2">
-                    {bp.product?.name}
-                  </span>
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    {showStrikethrough && (
-                      <span className="text-gray-400 text-xs line-through">
-                        {tempFormatCurrency(bp.sale_price)}
-                      </span>
+          {/* Product grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {sortedProducts.map(bp => {
+              const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
+              const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
+              const imageUrl = getDisplayImage(bp.product);
+              const IconComponent = getCategoryIcon(bp.product?.category || '');
+
+              return (
+                <button
+                  key={bp.id}
+                  onClick={() => addToCart(bp, displayPrice)}
+                  className="flex flex-col rounded-lg overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
+                >
+                  {/* Image area */}
+                  <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <IconComponent className="w-10 h-10 text-gray-300" />
                     )}
-                    <span className="text-orange-600 text-sm font-semibold">
-                      {tempFormatCurrency(displayPrice)}
-                    </span>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                  {/* Name + price */}
+                  <div className="p-2 flex flex-col gap-0.5">
+                    <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
+                      {bp.product?.name}
+                    </span>
+                    <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+                      {showStrikethrough && (
+                        <span className="text-gray-400 text-xs line-through">
+                          {tempFormatCurrency(bp.sale_price)}
+                        </span>
+                      )}
+                      <span className="text-orange-500 text-sm font-semibold">
+                        {tempFormatCurrency(displayPrice)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
         </>
       )}
