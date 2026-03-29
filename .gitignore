@@ -213,9 +213,9 @@ build-inno.bat.txt
 build.log
 run.log
 
-# Query and start files
-query
-start
+# Query and start files (root-level only, not app directories)
+/query
+/start
 
 # Old Word docs
 *.docx
