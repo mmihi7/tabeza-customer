@@ -2751,16 +2751,10 @@ const loadNotificationPrefs = async () => {
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <button 
-              onClick={() => foodMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+              onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
               className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
             >
-              Food
-            </button>
-            <button 
-              onClick={() => drinksMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            >
-              Drinks
+              Menu
             </button>
             <button 
               onClick={() => ordersRef.current?.scrollIntoView({ behavior: 'smooth' })} 
@@ -2858,91 +2852,6 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
 
-      {/* Message Section */}
-      <div className="p-4">
-        {/* Section Header */}
-        <div className="mb-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MESSAGES</h2>
-        </div>
-        
-        <div className="bg-white border border-gray-100 overflow-hidden rounded-lg">
-          <div className="p-4">
-            {/* Message Stats */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                  <span className="text-gray-600">{telegramMessages.filter(m => m.status === 'pending').length} Pending</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span className="text-gray-600">{telegramMessages.filter(m => m.status === 'acknowledged').length} Acknowledged</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Recent Messages Preview */}
-            {telegramMessages.slice(0, 2).map((msg) => (
-              <div
-                key={msg.id} 
-                className={`p-3 rounded-lg mb-2 ${
-                  msg.initiated_by === 'customer' 
-                    ? 'bg-orange-100 border border-orange-200' 
-                    : 'bg-blue-100 border border-blue-200'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-800">{msg.message}</p>
-                    <p className={`text-xs mt-1 ${
-                      msg.initiated_by === 'customer' ? 'text-orange-700' : 'text-blue-700'
-                    }`}>
-                      {timeAgo(msg.created_at)} • 
-                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                        msg.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        msg.status === 'acknowledged' ? 'bg-blue-100 text-blue-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {msg.status}
-                      </span>
-                    </p>
-                  </div>
-                  {msg.status === 'pending' && (
-                    <Clock size={16} className="text-yellow-500 flex-shrink-0" />
-                  )}
-                  {msg.status === 'acknowledged' && (
-                    <CheckCircle size={16} className="text-blue-500 flex-shrink-0" />
-                  )}
-                  {msg.status === 'completed' && (
-                    <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {/* "View All Messages" Button */}
-            {telegramMessages.length > 0 && (
-              <button
-                onClick={() => setShowMessagePanel(true)}
-                className="w-full text-center text-sm text-blue-600 py-3 hover:text-blue-700 font-medium flex items-center justify-center gap-2 border-t border-gray-100 mt-3"
-              >
-                <MessageCircle size={16} />
-                View all {telegramMessages.length} messages
-              </button>
-            )}
-            
-            {/* New Message Button */}
-            <button
-              onClick={() => setShowMessagePanel(true)}
-              className="w-full mt-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 flex items-center justify-center gap-2"
-            >
-              <Send size={16} />
-              Send New Message
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Unified 2-column product grid — replaces FOOD and DRINKS carousel sections */}
       {loading ? (
         <div className="px-4 mt-4">
@@ -2963,7 +2872,7 @@ const loadNotificationPrefs = async () => {
         </div>
       ) : (
         <>
-        <div className="px-4 mt-4 mb-4">
+        <div ref={menuRef} className="px-4 mt-4 mb-4">
           {/* Section header — matches app-wide pattern */}
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
