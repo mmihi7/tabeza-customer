@@ -178,7 +178,7 @@ Flow B extends `app/start/page.tsx` with a step state machine around the existin
     - Unit: anonymous warning shown when anonymous selected; nickname input shown with `maxLength=30` when nickname selected
     - Test file: `__tests__/flows/connect-wizard.test.tsx`
 
-  - [~] 5.6 Implement `StepConfirm` (wizardStep 2)
+  - [ ] 5.6 Implement `StepConfirm` (wizardStep 2)
     - Venue card: venue name and category
     - `SpendTierBreakdown` with Bronze/Silver/Gold thresholds and "You are here" marker
     - `VisitFrequencyDots` for this venue
@@ -195,18 +195,18 @@ Flow B extends `app/start/page.tsx` with a step state machine around the existin
     - Unit: no consent form present; "Choose a different venue" CTA present; no "pay at the bar" CTA; `PrivacyPromiseStrip` present
     - Test file: `__tests__/flows/connect-wizard.test.tsx`
 
-  - [~] 5.8 Implement `StepTabOpen` (wizardStep 3)
+  - [ ] 5.8 Implement `StepTabOpen` (wizardStep 3)
     - Display tab ID, venue name, identity the user is appearing as, current spend tier, payment method on file
     - "View menu" button navigating to `/menu`
     - `fadeIn` entrance animation (`animate-fade-in` class from `globals.css`)
     - Confirmation indicator uses `--success` colour token
     - _Requirements: 10.1–10.4, 11.1–11.10_
 
-- [~] 6. Checkpoint — Connect flow complete
+- [ ] 6. Checkpoint — Connect flow complete
   - Ensure all 4 steps render, existing `handleStartTab` / `loadBarInfo` / QR scanner / overdue modals / `BarClosedSlideIn` all still work, and the tab-open screen shows correct data. Ask the user if questions arise.
 
 - [ ] 7. Consent withdrawal UI
-  - [~] 7.1 Add withdrawal UI to the account settings screen
+  - [ ] 7.1 Add withdrawal UI to the account settings screen
     - Locate or create the account settings page; add a "Withdraw data consent" section
     - Plain-language explanation of what withdrawal means (personalised pricing and offers will no longer apply)
     - Confirm button calls `withdrawConsent(userId)` from `lib/consent-records.ts`
@@ -218,7 +218,7 @@ Flow B extends `app/start/page.tsx` with a step state machine around the existin
     - **Property 19: Consent withdrawal updates record to withdrawn** — for any `userId` with an existing row, `withdrawConsent` updates `decision` to `'withdrawn'` and sets a non-null ISO 8601 `withdrawn_at`, without deleting the row
     - Test file: `__tests__/lib/consent-records.test.ts`
 
-- [~] 8. Final checkpoint — Full integration
+- [ ] 8. Final checkpoint — Full integration
   - Ensure all tests pass, both flows are navigable end-to-end, design tokens are consistent across all screens, and no existing functionality in `app/start/page.tsx` has been broken. Ask the user if questions arise.
 
 ---
