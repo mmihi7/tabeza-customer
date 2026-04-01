@@ -49,9 +49,20 @@ export async function GET(
 
     const averageSpend = completedVisits > 0 ? totalSpend / completedVisits : 0;
 
+    // Count visits in the past 7 days for visit frequency bonus
+    const { data: recentTabs, error: recentError } = await supabaseAdmin
+      .from('tabs')
+      .select('id, opened_at')
+      .eq('customer_id', customer_id)
+      .eq('bar_id', bar_id)
+      .gte('opened_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+    const weeklyVisits = recentError ? 0 : (recentTabs?.length ?? 0);
+
     return NextResponse.json({
       completedVisits,
       averageSpend,
+      weeklyVisits,
       customer_id,
     });
   } catch (error) {

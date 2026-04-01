@@ -251,9 +251,16 @@ export default function MenuPage() {
     spendTier: SpendTierLabel | null;
     totalVisits: number;
     totalSpend: number;
+    weeklyVisits: number;
   } | null>(null);
   // Venue discount percentages — loaded once per bar
   const [venueDiscounts, setVenueDiscounts] = useState<Record<SpendTierLabel, number>>(DEFAULT_TIER_DISCOUNTS);
+  // Venue visit frequency bonuses — loaded once per bar
+  const [visitBonuses, setVisitBonuses] = useState<Record<string, number>>({
+    once_per_week: 1.0,
+    twice_per_week: 2.0,
+    thrice_per_week: 3.0,
+  });
   // Active spend tier label for pricing (null = new customer, no discount)
   const [spendTier, setSpendTier] = useState<SpendTierLabel | null>(null);
   // Spend prompt shown after an order
@@ -491,11 +498,15 @@ const loadLoyaltyData = async () => {
     if (discountsData?.spend_tiers) {
       setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
     }
+    if (discountsData?.visit_bonuses) {
+      setVisitBonuses(discountsData.visit_bonuses);
+    }
 
     if (!visitsData || visitsData.error) return;
 
     const completedVisits: number = visitsData.completedVisits ?? 0;
     const averageSpend: number    = visitsData.averageSpend    ?? 0;
+    const weeklyVisits: number    = visitsData.weeklyVisits    ?? 0;
 
     // Visit tier — badge count (1/2/3 icons shown in header)
     // Requires at least 1 completed visit to earn any tier
@@ -516,6 +527,7 @@ const loadLoyaltyData = async () => {
       spendTier: earnedSpendTier,
       totalVisits: completedVisits,
       totalSpend: averageSpend * completedVisits,
+      weeklyVisits,
     });
 
     if (earnedSpendTier) {
@@ -2786,8 +2798,26 @@ const loadNotificationPrefs = async () => {
             }
 
             sortedProducts.forEach((bp, idx) => {
-              const displayPrice = spendTier ? applyDiscount(bp.sale_price, venueDiscounts[spendTier]) : bp.sale_price;
-              const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
+              // Total discount = badge % + visit frequency bonus %
+              // No badge = 0% (normal pricing)
+              let totalDiscountPct = 0;
+              if (spendTier) {
+                const badgePct = venueDiscounts[spendTier] ?? 0;
+                // Visit frequency bonus: 1x/week, 2x/week, 3x+/week
+                const weekly = loyaltyData?.weeklyVisits ?? 0;
+                const bonusPct = weekly >= 3
+                  ? (visitBonuses.thrice_per_week ?? 0)
+                  : weekly >= 2
+                  ? (visitBonuses.twice_per_week ?? 0)
+                  : weekly >= 1
+                  ? (visitBonuses.once_per_week ?? 0)
+                  : 0;
+                totalDiscountPct = badgePct + bonusPct;
+              }
+              const displayPrice = totalDiscountPct > 0
+                ? applyDiscount(bp.sale_price, totalDiscountPct)
+                : bp.sale_price;
+              const showStrikethrough = totalDiscountPct > 0 && displayPrice !== bp.sale_price;
               const imageUrl = getDisplayImage(bp.product);
               const IconComponent = getCategoryIcon(bp.product?.category || '');
               const isThisDrink = isDrinkProduct(bp.product);
