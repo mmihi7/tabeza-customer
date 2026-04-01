@@ -537,7 +537,7 @@ async function handleSuccessfulPayment(
 
           // Award badge based on tab payment when tab is fully closed
           if (tabData.customer_id) {
-            await awardBadgeForTabClosure(supabase, processingResult.tabId, tabData.customer_id);
+            await awardBadgeForTabClosure(supabase, processingResult.tabId, tabData.customer_id!);
           }
         }
       }
