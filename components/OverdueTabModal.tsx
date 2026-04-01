@@ -45,7 +45,7 @@ export const OverdueTabModal: React.FC<OverdueTabModalProps> = ({
     }, 300);
   };
 
-  const balance = tab?.balance ?? 0;
+  const balance = tab?.balance ?? tab?.tab_balances?.balance ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

@@ -72,80 +72,228 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center p-4">
-      <div className="absolute top-8 left-0 right-0 flex justify-center">
-        <Logo size="lg" className="text-white" />
+    <div 
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        backgroundColor: 'var(--ink)',
+        position: 'relative'
+      }}
+    >
+      <div style={{ position: 'absolute', top: 32, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+        <Logo size="lg" />
       </div>
 
-      <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to your account</p>
+      <div 
+        style={{
+          background: 'var(--ink2)',
+          border: '1px solid var(--border)',
+          borderRadius: 16,
+          padding: 32,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          maxWidth: 400,
+          width: '100%'
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h1 
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: '2rem',
+              fontWeight: 600,
+              color: 'var(--cream)',
+              marginBottom: 8
+            }}
+          >
+            Welcome Back
+          </h1>
+          <p 
+            style={{
+              fontFamily: 'Lato, sans-serif',
+              fontSize: '0.875rem',
+              color: 'var(--muted)'
+            }}
+          >
+            Sign in to your account
+          </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+          <div 
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              background: 'rgba(232, 96, 96, 0.1)',
+              border: '1px solid rgba(232, 96, 96, 0.2)',
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              color: 'var(--danger)',
+              fontSize: '0.875rem',
+              fontFamily: 'Lato, sans-serif'
+            }}
+          >
             <AlertCircle size={16} />
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label 
+              style={{
+                display: 'block',
+                fontFamily: 'Lato, sans-serif',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: 'var(--cream)',
+                marginBottom: 8,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase'
+              }}
+            >
               Email Address
             </label>
-            <div className="relative">
-              <Mail size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div style={{ position: 'relative' }}>
+              <Mail 
+                size={20} 
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--muted)'
+                }} 
+              />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none"
+                style={{
+                  width: '100%',
+                  paddingLeft: 44,
+                  paddingRight: 16,
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  background: 'var(--ink)',
+                  border: '1px solid var(--amber-border)',
+                  borderRadius: 8,
+                  color: 'var(--cream)',
+                  fontFamily: 'Lato, sans-serif',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.15s'
+                }}
                 placeholder="your@email.com"
                 required
                 autoComplete="email"
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--amber)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--amber-border)'}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label 
+              style={{
+                display: 'block',
+                fontFamily: 'Lato, sans-serif',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: 'var(--cream)',
+                marginBottom: 8,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase'
+              }}
+            >
               Password
             </label>
-            <div className="relative">
-              <Lock size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div style={{ position: 'relative' }}>
+              <Lock 
+                size={20} 
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--muted)'
+                }} 
+              />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none"
+                style={{
+                  width: '100%',
+                  paddingLeft: 44,
+                  paddingRight: 48,
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  background: 'var(--ink)',
+                  border: '1px solid var(--amber-border)',
+                  borderRadius: 8,
+                  color: 'var(--cream)',
+                  fontFamily: 'Lato, sans-serif',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.15s'
+                }}
                 placeholder="Enter your password"
                 required
                 autoComplete="current-password"
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--amber)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--amber-border)'}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  padding: 4
+                }}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: 'var(--muted)', fontFamily: 'Lato, sans-serif' }}>
               <input
                 type="checkbox"
-                className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                style={{
+                  width: 16,
+                  height: 16,
+                  accentColor: 'var(--amber)',
+                  border: '1px solid var(--amber-border)',
+                  borderRadius: 4
+                }}
               />
-              <span className="text-gray-600">Remember me</span>
+              Remember me
             </label>
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-orange-600 font-semibold hover:underline"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--amber)',
+                fontFamily: 'Lato, sans-serif',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textDecoration: 'underline'
+              }}
             >
               Forgot password?
             </button>
@@ -154,37 +302,58 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            style={{
+              width: '100%',
+              background: 'var(--amber)',
+              color: 'var(--ink)',
+              padding: '12px 24px',
+              borderRadius: 8,
+              fontFamily: 'Lato, sans-serif',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.5 : 1,
+              transition: 'all 0.15s',
+              border: 'none'
+            }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div style={{ marginTop: 24, textAlign: 'center', fontSize: '0.875rem', color: 'var(--muted)', fontFamily: 'Lato, sans-serif' }}>
           Don't have an account?{' '}
-          <Link href="/signup" className="text-orange-600 font-semibold hover:underline">
+          <Link 
+            href="/signup" 
+            style={{
+              color: 'var(--amber)',
+              fontFamily: 'Lato, sans-serif',
+              fontWeight: 600,
+              textDecoration: 'underline'
+            }}
+          >
             Sign Up
           </Link>
         </div>
 
-        <div className="mt-8">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+        <div style={{ marginTop: 32 }}>
+          <div style={{ position: 'relative', marginBottom: 24 }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
+              <div style={{ width: '100%', borderTop: '1px solid var(--border)' }}></div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', fontSize: '0.875rem' }}>
+              <span style={{ padding: '0 8px', background: 'var(--ink2)', color: 'var(--muted)' }}>Or continue with</span>
             </div>
           </div>
-          <div className="mt-6">
+          <div>
             <GoogleSignInButton />
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-500 mt-6">
+        <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: 24, fontFamily: 'Lato, sans-serif' }}>
           By signing in, you agree to our{' '}
-          <a href="/terms" className="text-orange-500 hover:underline">Terms</a> and{' '}
-          <a href="/privacy" className="text-orange-500 hover:underline">Privacy Policy</a>
+          <a href="/terms" style={{ color: 'var(--amber)', textDecoration: 'underline' }}>Terms</a> and{' '}
+          <a href="/privacy" style={{ color: 'var(--amber)', textDecoration: 'underline' }}>Privacy Policy</a>
         </p>
       </div>
     </div>

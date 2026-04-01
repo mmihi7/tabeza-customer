@@ -13,18 +13,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the current authenticated user from the session
-    const serviceClient = createServiceRoleClient();
-    const { data: { session }, error: sessionError } = await serviceClient.auth.getSession();
-    if (sessionError || !session) {
-      console.error('❌ No authenticated session:', sessionError);
+    // Get the current authenticated user from the request
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('❌ No authorization header found');
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'No authorization header' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Verify the JWT token using service role client
+    const serviceClient = createServiceRoleClient();
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(token);
+    if (authError || !user) {
+      console.error('❌ Invalid token:', authError);
+      return NextResponse.json(
+        { error: 'Invalid authentication token' },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
     console.log('🔗 Linking device', deviceId.substring(0, 12), 'to user', userId.substring(0, 8));
 
     // Ensure user profile exists (create if not)

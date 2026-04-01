@@ -39,10 +39,21 @@ export function useAuth() {
         console.log('⚠️ No persistent device ID found, skipping device linking')
         return
       }
+      
+      // Get current session to include JWT token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.log('⚠️ No session token found, skipping device linking')
+        return
+      }
+      
       console.log('🔗 Linking device to user:', deviceId.substring(0, 12))
       const response = await fetch('/api/user/link-device', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ deviceId }),
       })
       if (!response.ok) {

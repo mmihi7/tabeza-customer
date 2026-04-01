@@ -35,6 +35,19 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
+    // Get balance separately if tab exists
+    if (tab && !error) {
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('tab_balances')
+        .select('balance')
+        .eq('tab_id', tab.id)
+        .single();
+
+      if (!balanceError && balanceData) {
+        (tab as any).balance = balanceData.balance;
+      }
+    }
+
     if (error) {
       console.error('❌ Error fetching tab by customer:', error);
       return NextResponse.json({ error: 'Failed to fetch tab' }, { status: 500 });

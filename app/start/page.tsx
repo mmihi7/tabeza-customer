@@ -11,7 +11,7 @@ import {
   storeActiveTab
 } from '@/lib/device-identity';
 import { useToast } from '@/components/ui/Toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 // Token feature disabled
 // import { TokensService, TOKENS_CONFIG } from '@/lib/tokens-service';
 // import { TokenNotifications, useTokenNotifications } from '@/components/TokenNotifications';
@@ -25,6 +25,8 @@ import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import StepHome from './StepHome';
 import StepIdentity from './StepIdentity';
+import StepConfirm from './StepConfirm';
+import StepTabOpen from './StepTabOpen';
 
 function ConsentContent() {
   const router = useRouter();
@@ -79,9 +81,8 @@ function ConsentContent() {
   const [showOverduePaymentModal, setShowOverduePaymentModal] = useState(false);
   const [overdueTab, setOverdueTab] = useState<any>(null);
 
-  // ── Wizard step state (additive — does not replace existing logic) ──────────
-  // Requirements: 7.1–7.7, 11.1
-  const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3>(0)
+  // ── Wizard step state ──────────────────────────────────────────────────────
+  const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [selectedVenue, setSelectedVenue] = useState<{
     id: string
     slug: string
@@ -89,9 +90,8 @@ function ConsentContent() {
     category?: string
   } | null>(null)
   const [identityMode, setIdentityMode] = useState<'named' | 'nickname' | 'anonymous'>('named')
-  // Note: `nickname` already exists above for the existing consent form.
-  // `wizardNickname` is the wizard's identity nickname to avoid collision.
   const [wizardNickname, setWizardNickname] = useState('')
+  const [createdTabId, setCreatedTabId] = useState<string>('')
 
   // IMPROVED QR CODE EXTRACTION
   const extractSlugFromQRCode = (qrCode: string): string | null => {
@@ -217,16 +217,9 @@ function ConsentContent() {
       message: 'Loading bar information...'
     });
     
-    // Turn off scanner mode and load bar info
+    // Turn off scanner mode and load bar info — loadBarInfo will advance to wizardStep(1)
     setIsScannerMode(false);
     loadBarInfo(extractedSlug);
-
-    // ── Wizard step advancement (additive — does not affect existing loadBarInfo logic) ──
-    // Requirements: 7.1–7.7, 11.1
-    // barId may not be set yet at this point (loadBarInfo is async), so we use
-    // a placeholder id here; task 5.2 will wire the resolved barId from loadBarInfo.
-    setSelectedVenue({ id: barId ?? '', slug: extractedSlug, name: barName })
-    setWizardStep(1)
   };
 
   useEffect(() => {
@@ -243,7 +236,9 @@ function ConsentContent() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace('/');
+      // Don't redirect to main page - unauthenticated users should stay here to scan QR codes
+      // They can sign up/sign in from the QR scanning flow
+      console.log('📱 Unauthenticated user on start page - allowing QR scanning');
     }
   }, [user, authLoading, router]);
 
@@ -353,6 +348,10 @@ function ConsentContent() {
       console.log('✅ Bar loaded successfully:', bar.name);
       setBarId(bar.id);
       setBarName(bar.name || 'Bar');
+
+      // Always route through the wizard — set selectedVenue and go to Identity step.
+      // Existing tab / overdue / business-hours checks still run first (below).
+      setSelectedVenue({ id: bar.id, slug, name: bar.name || 'Bar' });
 
       // Check if bar is currently open for business BEFORE showing consent form
       try {
@@ -547,10 +546,12 @@ function ConsentContent() {
         }
       } catch (error) {
         console.error('Error checking business hours:', error);
-        // Continue with consent form if business hours check fails
+        // Continue with wizard if business hours check fails
       }
 
       setLoading(false);
+      // All checks passed — route to Identity step
+      setWizardStep(1);
 
     } catch (error) {
       console.error('❌ Error loading bar:', error);
@@ -595,15 +596,6 @@ function ConsentContent() {
       
       // Redirect to authentication page
       router.push('/auth/signin');
-      return;
-    }
-
-    if (!termsAccepted) {
-      showToast({
-        type: 'error',
-        title: 'Terms Required',
-        message: 'Please accept the terms and conditions to continue.'
-      });
       return;
     }
 
@@ -742,41 +734,13 @@ function ConsentContent() {
           title: 'Welcome Back!',
           message: `Continuing to your ${finalDisplayName}`
         });
+        setTimeout(() => { router.replace('/menu'); }, 300);
       } else {
         sessionStorage.setItem('just_created_tab', 'true');
-        
-        // Award first connection tokens for new tabs only - DISABLED
-        // try {
-        //   const { data: { user } } = await supabase.auth.getUser();
-        //   if (user && barId) {
-        //     const tokenResult = await tokensService.awardFirstConnectionTokens(user.id, barId);
-            
-        //     if (tokenResult) {
-        //       showNotification({
-        //         type: 'bonus',
-        //         title: '🎉 Welcome Bonus!',
-        //         message: `🎉 +${TOKENS_CONFIG.FIRST_CONNECT_TOKENS} tokens earned for connecting to ${barName}!`,
-        //         amount: TOKENS_CONFIG.FIRST_CONNECT_TOKENS,
-        //         autoHide: 5000,
-        //         timestamp: new Date().toISOString()
-        //       });
-        //     }
-        //   }
-        // } catch (error) {
-        //   // Token awarding failed, but don't block tab creation
-        //   console.warn('Token awarding failed:', error);
-        // }
-        
-        showToast({
-          type: 'success',
-          title: 'Tab Created!',
-          message: `Welcome to ${barName}, ${finalDisplayName}!`
-        });
+        // Show the tab open success screen (step 4) before going to menu
+        setCreatedTabId(tab.id);
+        setWizardStep(4);
       }
-      
-      setTimeout(() => {
-        router.replace('/menu');
-      }, 300);
 
     } catch (error: any) {
       console.error('Tab creation error:', error);
@@ -976,8 +940,6 @@ function ConsentContent() {
   }
 
   // ── wizardStep 1: Identity Step ──────────────────────────────────────────
-  // Requirements: 8.1–8.5, 11.1–11.7
-  // Shown after a venue is selected (via recent-venue tap or QR/code scan).
   if (wizardStep === 1 && selectedVenue) {
     return (
       <StepIdentity
@@ -993,207 +955,70 @@ function ConsentContent() {
     )
   }
 
-  // Main consent form
-  return (
-    <>
-      {/* Overdue tab modals — rendered above the consent form (requirements 2.1, 2.2) */}
-      {showOverdueModal && overdueTab && (
-        <OverdueTabModal
-          tab={overdueTab}
-          barName={barName}
-          onReopen={handleOverdueReopen}
-          onPayNow={() => {
-            setShowOverdueModal(false);
-            setShowOverduePaymentModal(true);
-          }}
-          onClose={() => setShowOverdueModal(false)}
-        />
-      )}
-      {showOverduePaymentModal && overdueTab && (
-        <OverduePaymentModal
-          tab={overdueTab}
-          barName={barName}
-          onSuccess={handleOverduePaymentSuccess}
-          onClose={() => setShowOverduePaymentModal(false)}
-        />
-      )}
-      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center p-4 relative">
-        {/* Back arrow button */}
-        <button
-          onClick={() => {
-            sessionStorage.clear();
-            router.replace('/');
-          }}
-          className="absolute top-4 left-4 p-3 bg-orange-600/80 backdrop-blur-sm rounded-full text-white hover:bg-orange-700/90 transition z-10 shadow-lg border-2 border-white/30"
-          title="Go Back"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        
-        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
-          <div className="text-center mb-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Store size={20} className="text-orange-600" />
-              <p className="text-sm font-medium text-orange-700">You're at</p>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">{barName}</h2>
-            <p className="text-sm text-gray-600">Ready to start your tab</p>
-          </div>
+  // ── wizardStep 2: Confirm Step ────────────────────────────────────────────
+  if (wizardStep === 2 && selectedVenue) {
+    const identityLabel =
+      identityMode === 'anonymous' ? 'Anonymous' :
+      identityMode === 'nickname'  ? (wizardNickname || 'Nickname') :
+      (user?.user_metadata?.first_name || user?.email || 'You')
 
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield size={32} className="text-green-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Anonymous Tab</h1>
-            <p className="text-gray-700 leading-relaxed">
-              You're anonymous here. We don't collect names, phone numbers, or emails.
-            </p>
-          </div>
+    // Derive badge from tab count — reuse same logic as StepHome
+    const tabCount = 0 // will be populated from StepHome data in a future pass
+    const badgeLabel = tabCount >= 3 ? 'Gold' : tabCount >= 1 ? 'Silver' : 'Bronze'
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nickname <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Mary or John"
-              maxLength={20}
-              disabled={creating}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed transition"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              If left blank, we'll assign you a tab number
-            </p>
-          </div>
+    const spendTiers = [
+      { label: 'Bronze', here: badgeLabel === 'Bronze' },
+      { label: 'Silver', here: badgeLabel === 'Silver' },
+      { label: 'Gold',   here: badgeLabel === 'Gold'   },
+    ]
 
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Bell size={20} className="text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Notifications & Alerts</span>
-            </div>
-            
-            {/* Main notifications toggle */}
-            <label className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition mb-3">
-              <input
-                type="checkbox"
-                checked={notificationsEnabled}
-                onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                disabled={creating}
-                className="mt-0.5 w-5 h-5 text-orange-500 rounded focus:ring-orange-500 disabled:cursor-not-allowed"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Enable notifications
-                </p>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  <li>• Order updates from {barName}</li>
-                  <li>• Staff messages</li>
-                  <li>• Bill ready alerts</li>
-                </ul>
-              </div>
-            </label>
+    const tierDesc =
+      badgeLabel === 'Gold'   ? `You're Gold here — the best experience this venue has to offer is yours.` :
+      badgeLabel === 'Silver' ? `You're Silver here — great standing. Keep enjoying your regular visits.` :
+      `You're Bronze here. Spend more per visit to move up and unlock member pricing.`
 
-            {/* Sound and vibration options - only show if notifications enabled */}
-            {notificationsEnabled && (
-              <div className="ml-8 space-y-2">
-                {/* Sound option */}
-                <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition">
-                  <input
-                    type="checkbox"
-                    checked={soundEnabled}
-                    onChange={(e) => setSoundEnabled(e.target.checked)}
-                    disabled={creating}
-                    className="w-4 h-4 text-blue-500 rounded focus:ring-blue-500 disabled:cursor-not-allowed"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">🔊 Sound alerts</p>
-                    <p className="text-xs text-gray-600">Play sound for new orders and messages</p>
-                  </div>
-                </label>
+    return (
+      <StepConfirm
+        venueName={selectedVenue.name}
+        venueMeta={selectedVenue.category ?? ''}
+        badgeLabel={badgeLabel}
+        spendTiers={spendTiers}
+        tierDescription={tierDesc}
+        weeklyVisits={0}
+        identityLabel={identityLabel}
+        onConfirm={handleStartTab}
+        onBack={() => setWizardStep(1)}
+        onChangeIdentity={() => setWizardStep(1)}
+        creating={creating}
+      />
+    )
+  }
 
-                {/* Vibration option */}
-                <label className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition">
-                  <input
-                    type="checkbox"
-                    checked={vibrationEnabled}
-                    onChange={(e) => setVibrationEnabled(e.target.checked)}
-                    disabled={creating}
-                    className="w-4 h-4 text-purple-500 rounded focus:ring-purple-500 disabled:cursor-not-allowed"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">📳 Vibration alerts</p>
-                    <p className="text-xs text-gray-600">Vibrate for new orders and messages</p>
-                  </div>
-                </label>
-              </div>
-            )}
-          </div>
+  // ── wizardStep 4: Tab Open Success ────────────────────────────────────────
+  if (wizardStep === 4 && createdTabId) {
+    const identityLabel =
+      identityMode === 'anonymous' ? 'Anonymous' :
+      identityMode === 'nickname'  ? (wizardNickname || 'Nickname') :
+      (user?.user_metadata?.first_name || user?.email || 'You')
 
-          <div className="mb-6">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                disabled={creating}
-                className="mt-0.5 w-5 h-5 text-orange-500 rounded focus:ring-orange-500 disabled:cursor-not-allowed"
-              />
-              <div className="flex-1">
-                <p className="text-sm text-gray-700">
-                  I agree to the{' '}
-                  <button 
-                    onClick={() => window.open('/terms', '_blank')}
-                    className="text-orange-600 underline hover:text-orange-700"
-                    type="button"
-                  >
-                    Terms of Use
-                  </button>
-                  {' '}and{' '}
-                  <button 
-                    onClick={() => window.open('/privacy', '_blank')}
-                    className="text-orange-600 underline hover:text-orange-700"
-                    type="button"
-                  >
-                    Privacy Policy
-                  </button>
-                </p>
-              </div>
-            </label>
-          </div>
+    return (
+      <StepTabOpen
+        venueName={barName}
+        venueMeta={''}
+        tabId={createdTabId}
+        identityLabel={identityLabel}
+        badgeLabel={'Bronze'}
+        badgeColor={'#633806'}
+        onViewMenu={() => router.replace('/menu')}
+      />
+    )
+  }
 
-          <button
-            onClick={handleStartTab}
-            disabled={!termsAccepted || creating}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 rounded-xl font-bold text-lg hover:from-orange-600 hover:to-red-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition shadow-lg"
-          >
-            {creating ? (
-              <>
-                <span className="animate-spin inline-block mr-2">⟳</span>
-                Creating Your Tab...
-              </>
-            ) : (
-              `Start My Tab at ${barName}`
-            )}
-          </button>
-
-          <div className="text-center mt-6 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              🔒 Your privacy is protected
-            </p>
-            {process.env.NODE_ENV === 'development' && (
-              <p className="text-xs text-gray-400 mt-2 font-mono">
-                Device: {debugDeviceId}...
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  // Fallback — should not be reached; redirect to home screen
+  if (typeof window !== 'undefined') {
+    setWizardStep(0);
+  }
+  return null;
 };
 
 export default function ConsentPage() {
@@ -1207,8 +1032,6 @@ export default function ConsentPage() {
       </div>
     }>
       <ConsentContent />
-      {/* TokenNotifications component - DISABLED */}
-      {/* <TokenNotifications /> */}
     </Suspense>
   );
 }

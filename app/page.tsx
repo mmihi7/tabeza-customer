@@ -9,12 +9,14 @@ import Logo from '@/components/Logo';
 import PWAUpdateManager from '@/components/PWAUpdateManager';
 import TailwindTest from '@/components/TailwindTest';
 import { getAllOpenTabs, hasOpenTabAtBar, validateDeviceIntegrity, storeActiveTab } from '@/lib/device-identity';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import AnonymousToggle from '@/components/anonymous/AnonymousToggle';
 import { isWithinBusinessHours } from '@/lib/business-hours';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
+
+import { getConsentRecord } from '@/lib/consent-records';
 
 export default function LandingPage() {
   return (
@@ -56,24 +58,46 @@ function LandingContent() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && !user && pathname !== '/login') {
+    if (!authLoading && !user && pathname !== '/login' && pathname !== '/signup') {
       console.log('🔐 No authenticated user, redirecting to /login');
       router.push('/login');
     }
   }, [authLoading, user, router, pathname]);
 
+  // Consent gate — once auth is confirmed, verify the user has agreed to terms
+  useEffect(() => {
+    if (authLoading || !user) return;
+    getConsentRecord(user.id).then((record) => {
+      if (!record || record.decision === 'withdrawn') {
+        console.log('🔐 No consent record — redirecting to consent step');
+        router.replace('/signup?step=consent');
+      }
+    }).catch((err) => {
+      // Non-fatal — if the table doesn't exist yet, allow through
+      console.warn('Could not check consent record:', err?.message);
+    });
+  }, [authLoading, user, router]);
+
   const initializeLanding = async () => {
     try {
       const slug = searchParams.get('bar') || searchParams.get('slug') || '';
       
-      if (slug) {
+      // Check if user's email is confirmed
+      // If not confirmed, don't check for existing tabs (user can't have any yet)
+      const emailConfirmed = await isEmailConfirmed();
+      
+      if (slug && emailConfirmed) {
         console.log('🚀 URL parameters found, checking existing tab');
         await checkExistingTabBySlug(slug);
+      } else if (slug && !emailConfirmed) {
+        console.log('� Email not confirmed, skipping existing tab check');
+        // For unconfirmed users, just set the bar context without checking existing tabs
+        await setBarContextOnly(slug);
       } else {
         const justCreatedTab = sessionStorage.getItem('just_created_tab');
         const currentTab = sessionStorage.getItem('currentTab');
         
-        if (!justCreatedTab && !currentTab) {
+        if (!justCreatedTab && !currentTab && emailConfirmed) {
           await loadAllOpenTabs();
         } else {
           sessionStorage.removeItem('just_created_tab');
@@ -88,6 +112,62 @@ function LandingContent() {
         title: 'Connection Error',
         message: 'Failed to initialize. Please try again.'
       });
+      setIsInitializing(false);
+    }
+  };
+
+  // Helper function to check if user's email is confirmed
+  const isEmailConfirmed = async (): Promise<boolean> => {
+    try {
+      const sessionResult = await supabase.auth.getSession();
+      const { data, error } = sessionResult;
+      
+      if (error || !data?.session?.user?.email_confirmed_at) {
+        return false; // Email not confirmed
+      }
+      
+      return true; // Email is confirmed
+    } catch (error) {
+      console.warn('Could not check email confirmation:', error);
+      return false;
+    }
+  };
+
+  // Helper function to set bar context without checking existing tabs
+  const setBarContextOnly = async (barSlug: string) => {
+    try {
+      const { data: bar, error: barError } = await (supabase as any)
+        .from('bars')
+        .select('id, name, active, slug')
+        .eq('slug', barSlug)
+        .maybeSingle();
+
+      if (barError || !bar) {
+        console.log('❌ Bar not found:', barError?.message || 'Bar not found');
+        showToast({
+          type: 'error',
+          title: 'Invalid Bar Code',
+          message: `Bar "${barSlug}" not found. Please scan a valid QR code.`
+        });
+        setIsInitializing(false);
+        return;
+      }
+
+      if (!bar.active) {
+        console.log('❌ Bar inactive:', bar.name);
+        showToast({
+          type: 'warning',
+          title: 'Bar Unavailable',
+          message: `${bar.name} is currently unavailable.`
+        });
+        setIsInitializing(false);
+        return;
+      }
+
+      console.log('✅ Bar context set for new user:', bar.name);
+      setIsInitializing(false);
+    } catch (error) {
+      console.error('❌ Error setting bar context:', error);
       setIsInitializing(false);
     }
   };

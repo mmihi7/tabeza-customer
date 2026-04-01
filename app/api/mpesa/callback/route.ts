@@ -11,6 +11,7 @@ import {
   logMpesaStateTransition,
   type MpesaAuditLogData 
 } from '@tabeza/shared/lib/services/mpesa-audit-logger';
+import { awardBadgeForTabPayment } from '@/lib/badge-awarding';
 
 interface MpesaCallbackMetadataItem {
   Name: string;
@@ -478,7 +479,7 @@ async function handleSuccessfulPayment(
     // Check if tab needs to be resolved (closed) after successful payment
     const { data: tabData, error: tabError } = await supabase
       .from('tabs')
-      .select('id, status, bar_id')
+      .select('id, status, bar_id, customer_id')
       .eq('id', processingResult.tabId)
       .single();
 
@@ -533,6 +534,11 @@ async function handleSuccessfulPayment(
             balance: balanceData.balance,
             mpesaReceiptNumber: processingResult.mpesaReceiptNumber
           });
+
+          // Award badge based on tab payment when tab is fully closed
+          if (tabData.customer_id) {
+            await awardBadgeForTabClosure(supabase, processingResult.tabId, tabData.customer_id);
+          }
         }
       }
     }
@@ -541,6 +547,81 @@ async function handleSuccessfulPayment(
     console.error('Error handling successful payment:', {
       tabId: processingResult.tabId,
       paymentId: processingResult.paymentId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Award badge for tab closure when balance is zero
+ * Gets the total tab amount and calls the badge awarding service
+ */
+async function awardBadgeForTabClosure(
+  supabase: any,
+  tabId: string,
+  customerId: string
+): Promise<void> {
+  try {
+    // Get the total amount for this tab from confirmed orders
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('tab_id', tabId)
+      .eq('status', 'confirmed');
+
+    if (ordersError) {
+      console.error('Failed to fetch orders for badge calculation:', {
+        tabId,
+        customerId,
+        error: ordersError
+      });
+      return;
+    }
+
+    // Calculate total tab amount
+    const tabTotal = orders?.reduce((sum: number, order: any) => sum + order.total, 0) || 0;
+
+    if (tabTotal <= 0) {
+      console.log('No valid orders for badge calculation:', {
+        tabId,
+        customerId,
+        tabTotal
+      });
+      return;
+    }
+
+    // Award badge based on tab total
+    const badgeResult = await awardBadgeForTabPayment(tabId, customerId, tabTotal);
+
+    if (badgeResult.success && badgeResult.awardedBadge) {
+      console.log('Badge awarded for tab payment:', {
+        tabId,
+        customerId,
+        awardedBadge: badgeResult.awardedBadge,
+        previousBadge: badgeResult.previousBadge,
+        tabTotal: badgeResult.tabTotal
+      });
+
+      // Log badge award event using a generic payment event type
+      await logMpesaPaymentEvent('payment_completed' as any, {
+        tab_id: tabId,
+        customer_id: customerId,
+        awarded_badge: badgeResult.awardedBadge,
+        previous_badge: badgeResult.previousBadge,
+        tab_amount: badgeResult.tabTotal
+      });
+    } else if (!badgeResult.success) {
+      console.error('Badge awarding failed:', {
+        tabId,
+        customerId,
+        error: badgeResult.error
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in awardBadgeForTabClosure:', {
+      tabId,
+      customerId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

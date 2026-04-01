@@ -7,6 +7,7 @@ import PWAUpdateManager from '@/components/PWAUpdateManager';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,11 +40,13 @@ export default function RootLayout({
       </head>
       <body>
         <DeviceInitializer>
-          <ToastProvider>
-            <PWAInstallPrompt />
-            <PWAUpdateManager />
-            {children}
-          </ToastProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <PWAInstallPrompt />
+              <PWAUpdateManager />
+              {children}
+            </ToastProvider>
+          </AuthProvider>
         </DeviceInitializer>
         <SpeedInsights />
         <Analytics />

@@ -38,7 +38,7 @@ export const OverduePaymentModal: React.FC<OverduePaymentModalProps> = ({
   const pollingAttemptsRef = useRef(0);
   const MAX_POLLING_ATTEMPTS = 24; // 2 minutes at 5s intervals
 
-  const balance = tab?.balance ?? 0;
+  const balance = tab?.balance ?? tab?.tab_balances?.balance ?? 0;
   const tabId = tab?.id ?? '';
 
   useEffect(() => {

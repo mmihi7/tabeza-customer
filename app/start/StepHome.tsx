@@ -64,24 +64,17 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
 
   const loadRecentVenues = async (userId: string) => {
     try {
-      // Fetch the 5 most recently opened tabs for this user, joined to bars.
-      // Design doc: query tabs joined to bars, limit 5, ordered by opened_at desc.
-      const { data, error } = await (supabase as any)
-        .from('tabs')
-        .select('bar_id, opened_at, bars(id, name, slug, category)')
-        .eq('customer_id', userId)
-        .order('opened_at', { ascending: false })
-        .limit(20) // fetch more so we can aggregate per venue
-
-      if (error) {
-        console.error('[StepHome] Recent venues query failed:', error)
-        setVenuesLoaded(true)
-        return
+      // Use service-role API route to bypass RLS on tabs table
+      const res = await fetch(`/api/tabs/recent-venues?customerId=${userId}`);
+      if (!res.ok) {
+        setVenuesLoaded(true);
+        return;
       }
+      const { tabs: data } = await res.json();
 
       if (!data || data.length === 0) {
-        setVenuesLoaded(true)
-        return
+        setVenuesLoaded(true);
+        return;
       }
 
       // Aggregate per venue: count total tabs and weekly visits

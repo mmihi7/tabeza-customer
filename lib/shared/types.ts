@@ -31,7 +31,7 @@ export interface TokenTransaction {
   user_id: string
   amount: number
   type: 'first_connect' | 'order_completed' | 'referral_sender' | 'referral_receiver' | 'redemption' | 'adjustment'
-  venue_id?: string
+  bar_id?: string
   order_id?: string
   redemption_id?: string
   metadata: Json
@@ -65,7 +65,7 @@ export interface Redemption {
   code: string
   status: 'pending' | 'redeemed' | 'expired' | 'cancelled'
   redeemed_at?: string
-  redeemed_by_venue_id?: string
+  redeemed_by_bar_id?: string
   redeemed_by_staff_id?: string
   created_at: string
   expires_at: string

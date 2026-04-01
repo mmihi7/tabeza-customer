@@ -18,6 +18,7 @@ import { useRealtimeSubscription } from '@/lib/shared/hooks/useRealtimeSubscript
 import { ConnectionStatusIndicator } from '@/lib/shared/components/ConnectionStatus';
 import { calculateResponseTime, formatResponseTime, type ResponseTimeResult, validateMpesaPhoneNumber, formatPhoneNumberInput } from '@/lib/shared';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/hooks/useAuth';
 import { validatePaymentContext, logPaymentDebugInfo } from '@/lib/payment-debug';
 import { TokenNotifications, useTokenNotifications } from '../../components/TokenNotifications';
 import PWAInstallPrompt from '../../components/PWAInstallPrompt';
@@ -93,24 +94,38 @@ interface MessageResponseData {
   initiated_by: string;
 }
 
-const TIER_DISCOUNTS: Record<'low' | 'medium' | 'high', number> = {
-  low: 1.5,
-  medium: 3,
-  high: 5,
+// Venue discount percentages — loaded from venue_discount_settings, keyed by spend tier label
+// 'bronze' = low spend, 'silver' = medium spend, 'gold' = high spend
+type SpendTierLabel = 'bronze' | 'silver' | 'gold';
+const DEFAULT_TIER_DISCOUNTS: Record<SpendTierLabel, number> = {
+  bronze: 1.5,
+  silver: 3.0,
+  gold:   5.0,
 };
 
 /**
  * Returns the discounted price rounded to the nearest whole KES.
  * Does NOT mutate the source price.
  */
-function applyDiscount(price: number, tier: 'low' | 'medium' | 'high'): number {
-  return Math.round(price * (1 - TIER_DISCOUNTS[tier] / 100));
+function applyDiscount(price: number, pct: number): number {
+  return Math.round(price * (1 - pct / 100));
 }
 
 export default function MenuPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const { buzz } = useVibrate(); 
   const playAcceptanceSound = useSound(); // Use synthetic beep by default
+  
+  // Authentication check - redirect unauthenticated users
+  useEffect(() => {
+    if (!authLoading && !user) {
+      console.log('🔐 Unauthenticated user trying to access menu - redirecting to login');
+      router.push('/login');
+      return;
+    }
+  }, [authLoading, user, router]);
+  
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,12 +248,16 @@ export default function MenuPage() {
   // Loyalty tier state
   const [loyaltyData, setLoyaltyData] = useState<{
     visitTier: 'new' | 'bronze' | 'silver' | 'gold';
-    spendTier: 'low' | 'medium' | 'high';
+    spendTier: SpendTierLabel | null;
     totalVisits: number;
     totalSpend: number;
   } | null>(null);
-  // Spend tier for pricing only (separate from loyaltyData which drives the icon display)
-  const [spendTier, setSpendTier] = useState<'low' | 'medium' | 'high' | null>(null);
+  // Venue discount percentages — loaded once per bar
+  const [venueDiscounts, setVenueDiscounts] = useState<Record<SpendTierLabel, number>>(DEFAULT_TIER_DISCOUNTS);
+  // Active spend tier label for pricing (null = new customer, no discount)
+  const [spendTier, setSpendTier] = useState<SpendTierLabel | null>(null);
+  // Spend prompt shown after an order
+  const [spendPrompt, setSpendPrompt] = useState<string | null>(null);
 
   // Customer notification preferences
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -460,183 +479,103 @@ const loadLoyaltyData = async () => {
   if (!tab?.customer_id || !tab?.bar_id) return;
 
   try {
-    console.log('🔍 Loading loyalty data for customer:', tab.customer_id, 'at bar:', tab.bar_id);
-
-    // Fetch venue thresholds, visit data, and spend tier in parallel.
-    // Visits API requires bar_id so tier is scoped to this venue.
-    const [venueResult, visitsResponse, spendResponse] = await Promise.all([
-      supabase
-        .from('bars')
-        .select('bronze_threshold, silver_threshold, gold_threshold')
-        .eq('id', tab.bar_id)
-        .single(),
-      fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`).then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        return r.json();
-      }),
-      fetch(`/api/loyalty/spend-tiers/${tab.customer_id}`).then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-        return r.json();
-      }),
+    // Fetch visits and venue discounts in parallel
+    const [visitsRes, discountsRes] = await Promise.all([
+      fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
+      fetch(`/api/loyalty/venue-discounts/${tab.bar_id}`),
     ]);
 
-    console.log('📊 Loyalty API responses:', { venueResult, visitsResponse, spendResponse });
+    const visitsData   = visitsRes.ok   ? await visitsRes.json()   : null;
+    const discountsData = discountsRes.ok ? await discountsRes.json() : null;
 
-    // Check for API errors in response body
-    if (visitsResponse.error || spendResponse.error) {
-      console.error('❌ API Error loading loyalty data:', visitsResponse.error || spendResponse.error);
-      return;
+    if (discountsData?.spend_tiers) {
+      setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
     }
 
-    // Read venue thresholds — fall back to defaults if the columns don't exist yet
-    const venueData = venueResult.data as {
-      bronze_threshold?: number | null;
-      silver_threshold?: number | null;
-      gold_threshold?: number | null;
-    } | null;
-    const bronzeThreshold = venueData?.bronze_threshold ?? 3000;
-    const silverThreshold = venueData?.silver_threshold ?? 5000;
-    const goldThreshold   = venueData?.gold_threshold   ?? 15000;
+    if (!visitsData || visitsData.error) return;
 
-    // --- 2-visit minimum gate (Bug fix 3.1) ---
-    // A tab is only counted when it has been fully closed (closed_at IS NOT NULL),
-    // which is only possible after a successful payment — overdue tabs cannot be closed.
-    const completedVisits: number = visitsResponse.completedVisits ?? 0;
-    const averageSpend: number    = visitsResponse.averageSpend    ?? 0;
+    const completedVisits: number = visitsData.completedVisits ?? 0;
+    const averageSpend: number    = visitsData.averageSpend    ?? 0;
 
+    // Visit tier — badge count (1/2/3 icons shown in header)
+    // Requires at least 1 completed visit to earn any tier
     let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
+    if (completedVisits >= 3)      visitTier = 'gold';
+    else if (completedVisits >= 2) visitTier = 'silver';
+    else if (completedVisits >= 1) visitTier = 'bronze';
 
-    if (completedVisits < 2) {
-      // Ineligible — fewer than 2 completed visits at this venue
-      visitTier = 'new';
-    } else {
-      // --- Average-spend classification against venue thresholds (Bug fix 3.2 & 3.3) ---
-      if (averageSpend >= goldThreshold) {
-        visitTier = 'gold';
-      } else if (averageSpend >= silverThreshold) {
-        visitTier = 'silver';
-      } else if (averageSpend >= bronzeThreshold) {
-        visitTier = 'bronze';
-      } else {
-        visitTier = 'new';
-      }
-    }
-
-    // Determine spend tier based on weekly spend (drives menu pricing — unchanged)
-    let spendTierValue: 'low' | 'medium' | 'high' = 'low';
-    const weeklySpend = spendResponse.weeklySpend || spendResponse.totalSpend || 0;
-    if (weeklySpend >= 15000) {
-      spendTierValue = 'high';
-    } else if (weeklySpend >= 3000) {
-      spendTierValue = 'medium';
-    }
-
-    console.log('🏆 Calculated loyalty tiers:', {
-      visitTier,
-      spendTier: spendTierValue,
-      completedVisits,
-      averageSpend,
-      bronzeThreshold,
-      silverThreshold,
-      goldThreshold,
-    });
+    // Spend tier — determines which discount % applies (system-wide thresholds)
+    // Bronze: 3,000 | Silver: 10,000 | Gold: 25,000 (set by system admin)
+    let earnedSpendTier: SpendTierLabel | null = null;
+    if (averageSpend >= 25000)     earnedSpendTier = 'gold';
+    else if (averageSpend >= 10000) earnedSpendTier = 'silver';
+    else if (averageSpend >= 3000)  earnedSpendTier = 'bronze';
 
     setLoyaltyData({
       visitTier,
-      spendTier: spendTierValue,
+      spendTier: earnedSpendTier,
       totalVisits: completedVisits,
       totalSpend: averageSpend * completedVisits,
     });
 
+    if (earnedSpendTier) {
+      setSpendTier(earnedSpendTier);
+    }
+
   } catch (error) {
     console.error('❌ Error loading loyalty data:', error);
-    // Don't set loyaltyData on error, keep previous state or null
   }
 };
 
-// Function to render loyalty tier icons
-const renderLoyaltyIcons = () => {
-  console.log('🏆 Rendering loyalty icons, loyaltyData:', loyaltyData);
-  
-  if (!loyaltyData) {
-    console.log('❌ No loyalty data available, not rendering icons');
-    return null;
-  }
+// Helper: generate a spend prompt message based on current spend vs next tier
+const buildSpendPrompt = (
+  currentSpend: number,
+  discounts: Record<SpendTierLabel, number>,
+  earnedTier: SpendTierLabel | null,
+): string | null => {
+  // System-wide thresholds (will come from system admin once that page exists)
+  const THRESHOLDS: Record<SpendTierLabel, number> = { bronze: 3000, silver: 10000, gold: 25000 };
 
-  // Bug fix 4: no icons for ineligible guests (< 2 visits or spend below bronze threshold)
-  if (loyaltyData.visitTier === 'new') {
-    console.log('❌ visitTier is new — guest not yet eligible, not rendering icons');
-    return null;
-  }
-  
-  const { visitTier, spendTier } = loyaltyData;
-  console.log('🏆 Loyalty data available:', { visitTier, spendTier });
-  
-  // Determine icon count based on visit tier
-  let iconCount = 0;
-  if (visitTier === 'bronze') iconCount = 1;
-  else if (visitTier === 'silver') iconCount = 2;
-  else if (visitTier === 'gold') iconCount = 3;
-  
-  // Determine which icon to use based on spend tier
-  let IconComponent = Circle; // Default (Bronze)
-  if (spendTier === 'high') IconComponent = Crown;   // Gold
-  else if (spendTier === 'medium') IconComponent = Shield; // Silver
-  
-  console.log('🏆 Icon configuration:', { iconCount, iconType: IconComponent.name });
-  
-  const icons = [];
-  for (let i = 0; i < iconCount; i++) {
-    icons.push(
-      <IconComponent 
-        key={i}
-        className="w-4 h-4 text-white" 
-        size={12}
-      />
-    );
-  }
-  
-  console.log('🏆 Rendering', iconCount, 'loyalty icons:', icons.length);
-  
+  if (earnedTier === 'gold') return null; // already at top
+
+  const nextTier: SpendTierLabel = earnedTier === 'silver' ? 'gold' : earnedTier === 'bronze' ? 'silver' : 'bronze';
+  const gap = THRESHOLDS[nextTier] - currentSpend;
+  if (gap <= 0) return null;
+
+  const pct = discounts[nextTier];
+  return `Spend KES ${gap.toLocaleString('en-KE')} more to unlock ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)} — ${pct}% off every order here.`;
+};
+const renderLoyaltyIcons = () => {
+  if (!loyaltyData || loyaltyData.visitTier === 'new') return null;
+
+  const { visitTier, spendTier: earnedSpendTier } = loyaltyData;
+
+  // Badge count = visit frequency at this venue
+  const iconCount = visitTier === 'gold' ? 3 : visitTier === 'silver' ? 2 : 1;
+
+  // Badge shape = spend tier (Bronze circle, Silver shield, Gold crown)
+  const IconComponent = earnedSpendTier === 'gold'
+    ? Crown
+    : earnedSpendTier === 'silver'
+    ? Shield
+    : Circle;
+
   return (
-    <div className="flex gap-1">
-      {icons}
+    <div className="flex gap-0.5 items-center">
+      {Array.from({ length: iconCount }).map((_, i) => (
+        <IconComponent key={i} className="w-3.5 h-3.5 text-white drop-shadow" size={14} />
+      ))}
     </div>
   );
 };
 
-// Load average response time and loyalty data when tab is loaded (run once per bar_id change)
+// Load loyalty data and venue discounts when tab is loaded
 useEffect(() => {
   if (!tab?.bar_id) return;
   calculateAverageResponseTime(tab.bar_id);
   loadLoyaltyData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [tab?.bar_id]);
-
-// Fetch spend tier for pricing once per customer_id (Requirements 2.1, 2.2, 2.3, 2.4, 2.5)
-useEffect(() => {
-  if (!tab?.customer_id) return;
-
-  let cancelled = false;
-  fetch(`/api/loyalty/spend-tiers/${tab.customer_id}`)
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    })
-    .then(data => {
-      if (cancelled) return;
-      const tier = data?.spendTier ?? null;
-      if (tier === 'low' || tier === 'medium' || tier === 'high') {
-        setSpendTier(tier);
-      }
-      // null / unknown → leave spendTier as null (New Customer)
-    })
-    .catch(() => {
-      // Silent failure — New Customer treatment
-    });
-
-  return () => { cancelled = true; };
-}, [tab?.customer_id]);
+}, [tab?.bar_id, tab?.customer_id]);
 
 // Load notification preferences when tab loads - reads from already-loaded tab state
 // to avoid a redundant Supabase query that would be blocked by RLS.
@@ -827,6 +766,14 @@ const loadNotificationPrefs = async () => {
           orderTotal: payload.new.total,
           message: 'Your order has been accepted and is being prepared'
         });
+
+        // Show spend prompt after order acceptance
+        setLoyaltyData(prev => {
+          if (!prev) return prev;
+          const prompt = buildSpendPrompt(prev.totalSpend, venueDiscounts, prev.spendTier);
+          if (prompt) setSpendPrompt(prompt);
+          return prev;
+        });
       }
 
     } catch (error) {
@@ -1011,7 +958,7 @@ const loadNotificationPrefs = async () => {
   // Set up real-time subscriptions with improved error handling and debouncing
   const realtimeConfigs = [
     {
-      channelName: `tab-${tab?.id}`,
+      channelName: `tab-orders-${tab?.id}`,
       table: 'tab_orders',
       filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
       event: '*' as const,
@@ -1027,7 +974,7 @@ const loadNotificationPrefs = async () => {
       }
     },
     {
-      channelName: `tab-${tab?.id}`,
+      channelName: `tab-status-${tab?.id}`,
       table: 'tabs',
       filter: tab?.id ? `id=eq.${tab.id}` : undefined,
       event: '*' as const,
@@ -1073,7 +1020,7 @@ const loadNotificationPrefs = async () => {
       }
     },
     {
-      channelName: `tab-${tab?.id}`,
+      channelName: `tab-payments-${tab?.id}`,
       table: 'tab_payments',
       filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
       event: '*' as const,
@@ -1236,21 +1183,17 @@ const loadNotificationPrefs = async () => {
           }
         }
         
-        // Refresh payments data
-        if (!supabase) return;
-        const { data: paymentsData, error: paymentError } = await supabase
-          .from('tab_payments')
-          .select('*')
-          .eq('tab_id', tab?.id || '')
-          .order('created_at', { ascending: false });
-        
-        if (!paymentError && paymentsData) {
-          setPayments(paymentsData);
+        // Refresh payments via service-role API route to bypass RLS
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const paymentsRes = await fetch(`${baseUrl}/api/tabs/${tab?.id}/payments`);
+        if (paymentsRes.ok) {
+          const { payments: paymentsData } = await paymentsRes.json();
+          setPayments(paymentsData || []);
         }
       }
     },
     {
-      channelName: `tab-${tab?.id}`,
+      channelName: `tab-messages-${tab?.id}`,
       table: 'tab_telegram_messages',
       filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
       event: '*' as const,
@@ -1686,14 +1629,15 @@ const loadNotificationPrefs = async () => {
         console.error('Error loading orders:', error);
       }
       try {
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('tab_payments')
-          .select('*')
-          .eq('tab_id', currentTab.id)
-          .order('created_at', { ascending: false });
-        
-        if (!paymentsError && paymentsData) {
-          setPayments(paymentsData);
+        // BUG FIX: Direct anon-key query on tab_payments is blocked by RLS.
+        // Replaced with service-role API route — same pattern as orders.
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const paymentsResponse = await fetch(`${baseUrl}/api/tabs/${currentTab.id}/payments`);
+        if (paymentsResponse.ok) {
+          const { payments: paymentsData } = await paymentsResponse.json();
+          setPayments(paymentsData || []);
+        } else {
+          console.error('Error loading payments via API route:', paymentsResponse.status);
         }
       } catch (error) {
         console.error('Error loading payments:', error);
@@ -2842,7 +2786,7 @@ const loadNotificationPrefs = async () => {
             }
 
             sortedProducts.forEach((bp, idx) => {
-              const displayPrice = spendTier ? applyDiscount(bp.sale_price, spendTier) : bp.sale_price;
+              const displayPrice = spendTier ? applyDiscount(bp.sale_price, venueDiscounts[spendTier]) : bp.sale_price;
               const showStrikethrough = spendTier !== null && displayPrice !== bp.sale_price;
               const imageUrl = getDisplayImage(bp.product);
               const IconComponent = getCategoryIcon(bp.product?.category || '');
@@ -3778,6 +3722,28 @@ const loadNotificationPrefs = async () => {
               className="w-full text-gray-500 py-2 text-sm hover:text-gray-700"
             >
               Skip for now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Spend prompt — shown after order acceptance when guest is close to next tier */}
+      {spendPrompt && (
+        <div
+          className="fixed bottom-20 left-4 right-4 z-50 animate-fadeIn"
+          style={{ animation: 'slideUp 0.3s ease-out' }}
+        >
+          <div
+            className="rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#1a1a2e' }}
+          >
+            <p className="text-sm font-medium flex-1">{spendPrompt}</p>
+            <button
+              onClick={() => setSpendPrompt(null)}
+              className="shrink-0 p-1 rounded-full hover:bg-black hover:bg-opacity-10"
+              aria-label="Dismiss"
+            >
+              <X size={16} />
             </button>
           </div>
         </div>
