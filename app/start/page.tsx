@@ -83,6 +83,7 @@ function ConsentContent() {
 
   // ── Wizard step state ──────────────────────────────────────────────────────
   const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3 | 4>(0)
+  const [showCodeEntry, setShowCodeEntry] = useState(false) // inline code entry on home screen
   const [selectedVenue, setSelectedVenue] = useState<{
     id: string
     slug: string
@@ -278,6 +279,17 @@ function ConsentContent() {
         console.log('📷 Scanner mode requested');
         setIsScannerMode(true);
         setLoading(false);
+        return;
+      }
+
+      // Check if manual code entry mode was requested (from signup success screen)
+      const urlModeParam = searchParams?.get('mode');
+      if (urlModeParam === 'code') {
+        console.log('⌨️ Manual code entry mode requested');
+        setWizardStep(0);
+        setShowCodeEntry(true);
+        setLoading(false);
+        sessionStorage.setItem('open_code_entry', 'true');
         return;
       }
       
@@ -921,8 +933,6 @@ function ConsentContent() {
         <StepHome
           user={user}
           onVenueSelected={(venue) => {
-            // Tapping a recent venue: set venue state and advance to Identity step
-            // Requirements: 7.4
             setSelectedVenue(venue);
             setBarSlug(venue.slug);
             setBarId(venue.id);
@@ -930,11 +940,72 @@ function ConsentContent() {
             setWizardStep(1);
           }}
           onScanOrEnter={() => {
-            // Triggers existing QR scanner / code-entry path
-            // Requirements: 7.6, 7.7
             setIsScannerMode(true);
           }}
         />
+
+        {/* Inline code entry — shown when mode=code or user taps "Enter code" */}
+        {showCodeEntry && (
+          <div
+            style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0,
+              background: 'var(--ink2)', borderTop: '1px solid var(--border)',
+              padding: '1.25rem', zIndex: 50,
+            }}
+          >
+            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.625rem' }}>
+              Enter venue code
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.elements.namedItem('code') as HTMLInputElement).value.trim().toLowerCase();
+                if (!input) return;
+                setShowCodeEntry(false);
+                setBarSlug(input);
+                sessionStorage.setItem('scanned_bar_slug', input);
+                await loadBarInfo(input);
+              }}
+              style={{ display: 'flex', gap: '0.5rem' }}
+            >
+              <input
+                name="code"
+                type="text"
+                autoFocus
+                placeholder="e.g. sunset-lounge"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                style={{
+                  flex: 1, padding: '0.75rem 1rem',
+                  background: 'var(--ink)', border: '1px solid var(--amber-border)',
+                  borderRadius: '0.5rem', color: 'var(--cream)',
+                  fontFamily: "'Lato', sans-serif", fontSize: '1rem', outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: '0.75rem 1.25rem', background: 'var(--amber)',
+                  color: 'var(--ink)', border: 'none', borderRadius: '0.5rem',
+                  fontFamily: "'Lato', sans-serif", fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                Go
+              </button>
+            </form>
+            <button
+              onClick={() => setShowCodeEntry(false)}
+              style={{
+                marginTop: '0.5rem', background: 'none', border: 'none',
+                color: 'var(--muted)', fontFamily: "'Lato', sans-serif",
+                fontSize: '0.8rem', cursor: 'pointer', padding: 0,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </>
     );
   }
