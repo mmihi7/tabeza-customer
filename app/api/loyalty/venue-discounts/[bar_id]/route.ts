@@ -25,7 +25,7 @@ export async function GET(
     }
 
     const db = createServiceRoleClient();
-    const { data, error } = await db
+    const { data, error } = await (db as any)
       .from('venue_discount_settings')
       .select('spend_tiers, visit_bonuses')
       .eq('bar_id', bar_id)
