@@ -647,11 +647,18 @@ function ConsentContent() {
       const customerId = await getCustomerId(user.id);
       console.log('👤 Customer ID for tab creation:', customerId);
 
-      // Prepare display name
-      let displayName: string | null = nickname.trim();
-      if (!displayName) {
-        displayName = null; // Let the database function generate tab number
+      // Prepare display name based on identity mode chosen in StepIdentity
+      let displayName: string | null = null;
+      if (identityMode === 'nickname' && wizardNickname.trim()) {
+        displayName = wizardNickname.trim();
+      } else if (identityMode === 'anonymous') {
+        displayName = 'Anonymous';
+      } else if (identityMode === 'named') {
+        // Use first name from user metadata, fall back to null (DB generates tab number)
+        const firstName = user?.user_metadata?.first_name;
+        displayName = firstName ? firstName.trim() : null;
       }
+      // If null, the database function generates "Tab N"
 
       // Use atomic tab creation function to prevent race conditions
       // User is guaranteed to be authenticated at this point
@@ -662,7 +669,8 @@ function ConsentContent() {
           p_customer_id: customerId, // Use customer_id instead of user_id
           p_display_name: displayName,
           p_notes: {
-            has_nickname: !!nickname.trim(),
+            has_nickname: identityMode === 'nickname',
+            identity_mode: identityMode,
             device_id: deviceId,
             notifications_enabled: notificationsEnabled,
             sound_enabled: soundEnabled,

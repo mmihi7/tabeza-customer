@@ -1019,7 +1019,12 @@ const loadNotificationPrefs = async () => {
             if ((fullTab as any).notes) {
               try {
                 const notes = JSON.parse((fullTab as any).notes);
-                name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
+                // If user chose a nickname, show it instead of tab number
+                if (notes.has_nickname && notes.display_name) {
+                  name = notes.display_name;
+                } else {
+                  name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
+                }
               } catch (e) {
                 name = (fullTab as any).tab_number ? `Tab ${(fullTab as any).tab_number}` : 'Your Tab';
               }
@@ -1496,7 +1501,12 @@ const loadNotificationPrefs = async () => {
       if ((fullTab as any).notes) {
         try {
           const notes = JSON.parse((fullTab as any).notes);
-          name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
+          // If user chose a nickname, show it instead of tab number
+          if (notes.has_nickname && notes.display_name) {
+            name = notes.display_name;
+          } else {
+            name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
+          }
         } catch (e) {
           name = (fullTab as any).tab_number ? `Tab ${(fullTab as any).tab_number}` : 'Your Tab';
         }
