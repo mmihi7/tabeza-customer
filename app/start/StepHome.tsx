@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import TierBadge from '@/components/onboarding/TierBadge'
 import VisitFrequencyDots from '@/components/onboarding/VisitFrequencyDots'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -16,7 +15,8 @@ interface StepHomeProps {
     user_metadata?: { first_name?: string; full_name?: string }
   } | null
   onVenueSelected: (venue: { id: string; slug: string; name: string; category?: string }) => void
-  onScanOrEnter: () => void
+  onScan: () => void
+  onCodeSubmit: (slug: string) => void
 }
 
 interface RecentVenue {
@@ -43,7 +43,11 @@ function deriveInitials(
   return '?'
 }
 
-/** Derive tier from tab count. Requirement 7.2 */
+/** Derive tier from tab count. Requirement 7.2
+ * NOTE: This is used only for the per-venue visit frequency display in recent venues.
+ * The actual spend-based badge (Bronze/Silver/Gold) requires loyalty API data per venue.
+ * Tab count here approximates visit frequency only — not spend tier.
+ */
 function tierFromCount(count: number): 'bronze' | 'silver' | 'gold' {
   if (count >= 3) return 'gold'
   if (count >= 1) return 'silver'
@@ -52,10 +56,10 @@ function tierFromCount(count: number): 'bronze' | 'silver' | 'gold' {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepHomeProps) {
+export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }: StepHomeProps) {
   const [recentVenues, setRecentVenues] = useState<RecentVenue[]>([])
-  const [overallTier, setOverallTier] = useState<'bronze' | 'silver' | 'gold'>('bronze')
   const [venuesLoaded, setVenuesLoaded] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
 
   useEffect(() => {
     if (!user?.id) return
@@ -108,9 +112,6 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
       // Take the 5 most recently seen venues (map preserves insertion order)
       const venues = Array.from(venueMap.values()).slice(0, 5)
 
-      // Overall tier: based on total tab count across all venues
-      const totalTabs = data.length
-      setOverallTier(tierFromCount(totalTabs))
       setRecentVenues(venues)
       setVenuesLoaded(true)
     } catch (err) {
@@ -158,7 +159,7 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
         </div>
 
         <div>
-          {/* Greeting */}
+          {/* Greeting — "Welcome back" only for returning users with prior venues */}
           <p
             style={{
               fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -166,16 +167,17 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
               fontWeight: 600,
               color: 'var(--cream)',
               lineHeight: 1.2,
-              marginBottom: '0.25rem',
             }}
           >
             {user?.user_metadata?.first_name
-              ? `Hey, ${user.user_metadata.first_name}`
-              : 'Welcome back'}
+              ? (venuesLoaded && recentVenues.length > 0
+                  ? `Welcome back, ${user.user_metadata.first_name}`
+                  : `Hey, ${user.user_metadata.first_name}`)
+              : (venuesLoaded && recentVenues.length > 0
+                  ? 'Welcome back'
+                  : 'Hey there')}
           </p>
-
-          {/* Overall TierBadge — Requirement 7.2 */}
-          <TierBadge tier={overallTier} />
+          {/* No overall badge — badge is earned per venue via spend threshold, not shown here */}
         </div>
       </div>
 
@@ -236,8 +238,8 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
                 }
                 aria-label={`Connect to ${venue.name}`}
               >
-                {/* Left: venue name + tier badge */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                {/* Left: venue name only — badge requires spend data from loyalty API */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   <span
                     style={{
                       fontFamily: "'Lato', sans-serif",
@@ -248,7 +250,9 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
                   >
                     {venue.name}
                   </span>
-                  <TierBadge tier={tierFromCount(venue.tabCount)} />
+                  <span style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)' }}>
+                    {venue.tabCount} visit{venue.tabCount !== 1 ? 's' : ''}
+                  </span>
                 </div>
 
                 {/* Right: visit frequency dots */}
@@ -262,25 +266,108 @@ export default function StepHome({ user, onVenueSelected, onScanOrEnter }: StepH
       {/* Spacer pushes CTA to bottom when venues list is short */}
       <div style={{ flex: 1 }} />
 
-      {/* ── Primary CTA — Requirement 7.6, 7.7 ───────────────────────── */}
-      <button
-        onClick={onScanOrEnter}
-        style={{
-          background: 'var(--amber)',
-          color: 'var(--ink)',
-          fontFamily: "'Lato', sans-serif",
-          fontWeight: 700,
-          fontSize: '1rem',
-          border: 'none',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          width: '100%',
-          cursor: 'pointer',
-          letterSpacing: '0.01em',
-        }}
-      >
-        Scan QR / enter code →
-      </button>
+      {/* ── CTA: Scan QR or enter code — column layout ────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+        {/* Scan QR button */}
+        <button
+          onClick={onScan}
+          style={{
+            background: 'var(--amber)',
+            color: 'var(--ink)',
+            fontFamily: "'Lato', sans-serif",
+            fontWeight: 700,
+            fontSize: '1rem',
+            border: 'none',
+            borderRadius: '0.5rem',
+            padding: '1rem',
+            width: '100%',
+            cursor: 'pointer',
+            letterSpacing: '0.01em',
+          }}
+        >
+          Scan QR code
+        </button>
+        <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center', marginTop: '-0.25rem' }}>
+          Point camera at the table code
+        </p>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{
+            fontFamily: "'Lato', sans-serif",
+            fontSize: '0.75rem',
+            color: 'var(--muted)',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+          }}>
+            or enter code
+          </span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        {/* Slug input row */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            const slug = codeInput.trim().toLowerCase()
+            if (!slug) return
+            setCodeInput('')
+            onCodeSubmit(slug)
+          }}
+          style={{ display: 'flex', gap: '0.5rem' }}
+        >
+          <input
+            type="text"
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="e.g. sunset-lounge"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            style={{
+              flex: 1,
+              padding: '0.875rem 1rem',
+              /* Dark-theme visibility: light background so text is readable */
+              background: 'var(--ink2)',
+              border: '1.5px solid var(--amber-border)',
+              borderRadius: '0.5rem',
+              color: 'var(--cream)',
+              fontFamily: "'Lato', sans-serif",
+              fontSize: '0.9375rem',
+              outline: 'none',
+              /* Placeholder needs explicit colour in dark themes */
+              caretColor: 'var(--amber)',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--amber)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--amber-border)' }}
+          />
+          <button
+            type="submit"
+            disabled={!codeInput.trim()}
+            style={{
+              padding: '0.875rem 1.25rem',
+              background: codeInput.trim() ? 'var(--amber)' : 'var(--ink3)',
+              color: codeInput.trim() ? 'var(--ink)' : 'var(--muted)',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontFamily: "'Lato', sans-serif",
+              fontWeight: 700,
+              fontSize: '0.9375rem',
+              cursor: codeInput.trim() ? 'pointer' : 'not-allowed',
+              transition: 'background 0.15s, color 0.15s',
+              flexShrink: 0,
+            }}
+          >
+            Go
+          </button>
+        </form>
+        <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center', marginTop: '-0.25rem' }}>
+          Short code on your table card
+        </p>
+
+      </div>
     </div>
   )
 }

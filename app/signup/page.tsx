@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
 import Link from 'next/link'
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+import { persistConsentRecord, APP_VERSION } from '@/lib/consent-records'
 
 export default function SignupPage() {
   return (
@@ -37,6 +37,19 @@ function SignupContent() {
   const [mobileNumber, setMobileNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const [lastSignupAttempt, setLastSignupAttempt] = useState<number>(0)
+
+  // Poll for email confirmation when on verify step
+  useEffect(() => {
+    if (step !== 'verify') return
+    const interval = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user?.email_confirmed_at) {
+        clearInterval(interval)
+        setStep('consent')
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [step])
 
   useEffect(() => {
     // If we're on the consent step (redirected from email confirmation),
@@ -71,7 +84,7 @@ function SignupContent() {
       const { error } = await supabase.auth.signUp({
         email, password,
         options: { 
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback`,
           data: {
             first_name: firstName,
             last_name: lastName,
@@ -108,7 +121,15 @@ function SignupContent() {
     setStep('verify')
   }
 
-  const handleConsent = () => {
+  const handleConsent = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      try {
+        await persistConsentRecord({ userId: session.user.id, decision: 'agreed', appVersion: APP_VERSION })
+      } catch (err) {
+        console.warn('Could not persist consent record:', err)
+      }
+    }
     setStep('success')
   }
 
@@ -170,22 +191,13 @@ function SignupContent() {
                   Email address
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Mail style={{ 
-                    position: 'absolute', 
-                    left: 12, 
-                    top: 12, 
-                    width: 16, 
-                    height: 16, 
-                    color: 'var(--muted)' 
-                  }} />
                   <input 
                     type="email" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)}
                     style={{
-                      paddingLeft: 40,
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '10px 12px',
                       border: '1px solid var(--border)',
                       borderRadius: 8,
                       backgroundColor: 'var(--ink3)',
@@ -207,23 +219,13 @@ function SignupContent() {
                   Password
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Lock style={{ 
-                    position: 'absolute', 
-                    left: 12, 
-                    top: 12, 
-                    width: 16, 
-                    height: 16, 
-                    color: 'var(--muted)' 
-                  }} />
                   <input 
                     type={showPassword ? 'text' : 'password'} 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)}
                     style={{
-                      paddingLeft: 40,
-                      paddingRight: 40,
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '10px 40px 10px 12px',
                       border: '1px solid var(--border)',
                       borderRadius: 8,
                       backgroundColor: 'var(--ink3)',
@@ -296,7 +298,23 @@ function SignupContent() {
                 >
                   <Phone style={{ width: 16, height: 16 }} />
                 </button>
-                <GoogleSignInButton />
+                {/* Google sign-in placeholder — not yet implemented */}
+                <button
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    backgroundColor: 'transparent',
+                    color: 'var(--muted)',
+                    cursor: 'not-allowed'
+                  }}
+                  disabled
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                </button>
                 <button 
                   style={{
                     display: 'flex',
@@ -504,20 +522,11 @@ function SignupContent() {
               </p>
             </div>
 
-            <button 
-              onClick={() => setStep('consent')}
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--amber)',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: 8,
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-            >
-              I've verified my email →
-            </button>
+            {/* Waiting indicator — page auto-advances once email is confirmed */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--muted)', fontSize: '14px' }}>
+              <div style={{ width: 16, height: 16, borderTop: '2px solid var(--amber)', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              Waiting for confirmation…
+            </div>
           </div>
         )}
 
@@ -611,54 +620,29 @@ function SignupContent() {
                 color: 'var(--cream)', 
                 marginBottom: 8
               }}>
-                You're all set, {firstName}!
+                You're all set{firstName ? `, ${firstName}` : ''}!
               </h1>
-              <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: 24 }}>
+              <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
                 Open your first tab at any Tabeza venue.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button 
-                onClick={handleConnect}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--amber)',
-                  color: 'white',
-                  padding: '12px 16px',
-                  borderRadius: 8,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8
-                }}
-              >
-                <QrCode style={{ width: 20, height: 20 }} /> Scan QR code
-              </button>
-              
-              <button 
-                onClick={() => router.push('/start?mode=code')}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'transparent',
-                  color: 'var(--cream)',
-                  padding: '12px 16px',
-                  borderRadius: 8,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  border: '1px solid var(--border)'
-                }}
-              >
-                Enter venue code
-              </button>
-            </div>
-
-            <p style={{ fontSize: '12px', color: 'var(--muted)', marginTop: 8 }}>
-              Point camera at the table code<br />
-              Short code on your table card
-            </p>
+            <button 
+              onClick={handleConnect}
+              style={{
+                width: '100%',
+                backgroundColor: 'var(--amber)',
+                color: 'var(--ink)',
+                padding: '14px 16px',
+                borderRadius: 8,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '15px',
+                border: 'none',
+              }}
+            >
+              Continue
+            </button>
           </div>
         )}
       </div>

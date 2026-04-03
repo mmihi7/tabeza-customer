@@ -21,13 +21,19 @@ export default function Logo({ size = 'md', className = '' }: LogoProps) {
   return (
     <span className={`inline-flex items-center ${className}`}>
       <Image
-        src="/logo.svg"
+        src="/logo.png"
         alt="Tabeza"
         width={px}
         height={px}
         priority
         onError={(e) => {
-          ;(e.currentTarget as HTMLImageElement).src = FALLBACK_SRC
+          // fallback to SVG, then transparent pixel
+          const img = e.currentTarget as HTMLImageElement
+          if (img.src.endsWith('.png')) {
+            img.src = '/logo.svg'
+          } else {
+            img.src = FALLBACK_SRC
+          }
         }}
       />
     </span>

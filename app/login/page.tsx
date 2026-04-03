@@ -31,15 +31,14 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Success
+      // Success — send existing users directly to the start/home screen
       showToast({
         type: 'success',
         title: 'Signed in',
         message: 'Welcome back!',
       })
 
-      // Redirect to home
-      router.push('/')
+      router.push('/start')
     } catch (err: any) {
       console.error('Login error:', err)
       setError(err.message || 'Invalid email or password')

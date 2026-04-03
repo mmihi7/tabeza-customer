@@ -39,8 +39,8 @@ export default function AuthCallbackPage() {
       } else if (type === 'recovery') {
         router.replace('/reset-password')
       } else {
-        // Fallback — just go home
-        router.replace('/')
+        // Fallback — go to start screen (StepHome with recent venues)
+        router.replace('/start')
       }
     }
 

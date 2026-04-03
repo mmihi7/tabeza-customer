@@ -26,7 +26,6 @@ import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import StepHome from './StepHome';
 import StepIdentity from './StepIdentity';
 import StepConfirm from './StepConfirm';
-import StepTabOpen from './StepTabOpen';
 
 function ConsentContent() {
   const router = useRouter();
@@ -83,7 +82,6 @@ function ConsentContent() {
 
   // ── Wizard step state ──────────────────────────────────────────────────────
   const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3 | 4>(0)
-  const [showCodeEntry, setShowCodeEntry] = useState(false) // inline code entry on home screen
   const [selectedVenue, setSelectedVenue] = useState<{
     id: string
     slug: string
@@ -270,6 +268,18 @@ function ConsentContent() {
     }
   }, [isScannerMode]);
 
+  // Fallback reset — if wizardStep ends up in an unhandled state, reset to home.
+  // Must be unconditional (Rules of Hooks) — the condition is inside the effect.
+  useEffect(() => {
+    if (
+      !loading && !redirecting && !error && !showBarClosed && !isScannerMode &&
+      wizardStep !== 0 && wizardStep !== 1 && wizardStep !== 2 && wizardStep !== 4 &&
+      !selectedVenue && !createdTabId
+    ) {
+      setWizardStep(0);
+    }
+  }, [loading, redirecting, error, showBarClosed, isScannerMode, wizardStep, selectedVenue, createdTabId]);
+
   const initializeConsent = async () => {
     try {
       // Check if scanner mode was requested
@@ -283,13 +293,12 @@ function ConsentContent() {
       }
 
       // Check if manual code entry mode was requested (from signup success screen)
+      // mode=code now just shows StepHome which has the inline code input built in
       const urlModeParam = searchParams?.get('mode');
       if (urlModeParam === 'code') {
-        console.log('⌨️ Manual code entry mode requested');
+        console.log('⌨️ Manual code entry mode requested — showing StepHome');
         setWizardStep(0);
-        setShowCodeEntry(true);
         setLoading(false);
-        sessionStorage.setItem('open_code_entry', 'true');
         return;
       }
       
@@ -749,9 +758,8 @@ function ConsentContent() {
         setTimeout(() => { router.replace('/menu'); }, 300);
       } else {
         sessionStorage.setItem('just_created_tab', 'true');
-        // Show the tab open success screen (step 4) before going to menu
-        setCreatedTabId(tab.id);
-        setWizardStep(4);
+        // Go directly to menu — no intermediate "Tab is open" screen needed
+        setTimeout(() => { router.replace('/menu'); }, 300);
       }
 
     } catch (error: any) {
@@ -799,39 +807,107 @@ function ConsentContent() {
   // Scanner mode
   if (isScannerMode) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center relative">
+      <div style={{ minHeight: '100vh', background: 'var(--ink)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* Close */}
         <button
-          onClick={() => {
-            stopScanner();
-            router.push('/');
+          onClick={() => { stopScanner(); setIsScannerMode(false); }}
+          style={{
+            position: 'absolute', top: 16, right: 16, zIndex: 10,
+            padding: 8, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)',
+            borderRadius: '50%', border: 'none', cursor: 'pointer', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
-          className="absolute top-4 right-4 z-10 p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition"
         >
           <X size={24} />
         </button>
-        
-        <div className="w-full h-full relative">
+
+        {/* Camera viewfinder — takes most of the screen */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <video
             ref={videoRef}
-            className="w-full h-full object-cover"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             autoPlay
             playsInline
             muted
           />
-          
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white rounded-lg">
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-orange-500 rounded-tl-lg"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-orange-500 rounded-tr-lg"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-orange-500 rounded-bl-lg"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-orange-500 rounded-br-lg"></div>
+
+          {/* Corner guides */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: 220, height: 220 }}>
+              {/* top-left */}
+              <div style={{ position: 'absolute', top: 0, left: 0, width: 32, height: 32, borderTop: '4px solid var(--amber)', borderLeft: '4px solid var(--amber)', borderRadius: '4px 0 0 0' }} />
+              {/* top-right */}
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 32, height: 32, borderTop: '4px solid var(--amber)', borderRight: '4px solid var(--amber)', borderRadius: '0 4px 0 0' }} />
+              {/* bottom-left */}
+              <div style={{ position: 'absolute', bottom: 0, left: 0, width: 32, height: 32, borderBottom: '4px solid var(--amber)', borderLeft: '4px solid var(--amber)', borderRadius: '0 0 0 4px' }} />
+              {/* bottom-right */}
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderBottom: '4px solid var(--amber)', borderRight: '4px solid var(--amber)', borderRadius: '0 0 4px 0' }} />
             </div>
           </div>
-          
-          <div className="absolute bottom-8 left-0 right-0 text-center px-4">
-            <p className="text-white text-lg font-medium mb-2">Point camera at QR code</p>
-            <p className="text-white/80 text-sm">The scanner will detect the code automatically</p>
-          </div>
+
+          <p style={{ position: 'absolute', bottom: 20, left: 0, right: 0, textAlign: 'center', color: '#fff', fontFamily: "'Lato', sans-serif", fontSize: '0.9rem', opacity: 0.85 }}>
+            Point camera at QR code
+          </p>
+        </div>
+
+        {/* Code entry below viewfinder — no page navigation needed */}
+        <div style={{ background: 'var(--ink)', padding: '1.25rem 1.25rem 2rem', borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            or enter code manually
+          </p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const input = (e.currentTarget.elements.namedItem('scannerCode') as HTMLInputElement).value.trim().toLowerCase();
+              if (!input) return;
+              stopScanner();
+              setIsScannerMode(false);
+              setBarSlug(input);
+              sessionStorage.setItem('scanned_bar_slug', input);
+              await loadBarInfo(input);
+            }}
+            style={{ display: 'flex', gap: '0.5rem' }}
+          >
+            <input
+              name="scannerCode"
+              type="text"
+              placeholder="e.g. sunset-lounge"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              style={{
+                flex: 1,
+                padding: '0.875rem 1rem',
+                background: 'var(--ink2)',
+                border: '1.5px solid var(--amber-border)',
+                borderRadius: '0.5rem',
+                color: 'var(--cream)',
+                fontFamily: "'Lato', sans-serif",
+                fontSize: '0.9375rem',
+                outline: 'none',
+                caretColor: 'var(--amber)',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--amber)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--amber-border)' }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: '0.875rem 1.25rem',
+                background: 'var(--amber)',
+                color: 'var(--ink)',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontFamily: "'Lato', sans-serif",
+                fontWeight: 700,
+                fontSize: '0.9375rem',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Go
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -939,73 +1015,13 @@ function ConsentContent() {
             setBarName(venue.name);
             setWizardStep(1);
           }}
-          onScanOrEnter={() => {
-            setIsScannerMode(true);
+          onScan={() => setIsScannerMode(true)}
+          onCodeSubmit={async (slug) => {
+            setBarSlug(slug);
+            sessionStorage.setItem('scanned_bar_slug', slug);
+            await loadBarInfo(slug);
           }}
         />
-
-        {/* Inline code entry — shown when mode=code or user taps "Enter code" */}
-        {showCodeEntry && (
-          <div
-            style={{
-              position: 'fixed', bottom: 0, left: 0, right: 0,
-              background: 'var(--ink2)', borderTop: '1px solid var(--border)',
-              padding: '1.25rem', zIndex: 50,
-            }}
-          >
-            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.625rem' }}>
-              Enter venue code
-            </p>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem('code') as HTMLInputElement).value.trim().toLowerCase();
-                if (!input) return;
-                setShowCodeEntry(false);
-                setBarSlug(input);
-                sessionStorage.setItem('scanned_bar_slug', input);
-                await loadBarInfo(input);
-              }}
-              style={{ display: 'flex', gap: '0.5rem' }}
-            >
-              <input
-                name="code"
-                type="text"
-                autoFocus
-                placeholder="e.g. sunset-lounge"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                style={{
-                  flex: 1, padding: '0.75rem 1rem',
-                  background: 'var(--ink)', border: '1px solid var(--amber-border)',
-                  borderRadius: '0.5rem', color: 'var(--cream)',
-                  fontFamily: "'Lato', sans-serif", fontSize: '1rem', outline: 'none',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  padding: '0.75rem 1.25rem', background: 'var(--amber)',
-                  color: 'var(--ink)', border: 'none', borderRadius: '0.5rem',
-                  fontFamily: "'Lato', sans-serif", fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                Go
-              </button>
-            </form>
-            <button
-              onClick={() => setShowCodeEntry(false)}
-              style={{
-                marginTop: '0.5rem', background: 'none', border: 'none',
-                color: 'var(--muted)', fontFamily: "'Lato', sans-serif",
-                fontSize: '0.8rem', cursor: 'pointer', padding: 0,
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </>
     );
   }
@@ -1033,28 +1049,21 @@ function ConsentContent() {
       identityMode === 'nickname'  ? (wizardNickname || 'Nickname') :
       (user?.user_metadata?.first_name || user?.email || 'You')
 
-    // Derive badge from tab count — reuse same logic as StepHome
-    const tabCount = 0 // will be populated from StepHome data in a future pass
-    const badgeLabel = tabCount >= 3 ? 'Gold' : tabCount >= 1 ? 'Silver' : 'Bronze'
-
+    // Badge is earned via spend threshold in a single tab session — not tab count.
+    // A new user at a venue has no badge yet. Show 'New' until loyalty API confirms otherwise.
     const spendTiers = [
-      { label: 'Bronze', here: badgeLabel === 'Bronze' },
-      { label: 'Silver', here: badgeLabel === 'Silver' },
-      { label: 'Gold',   here: badgeLabel === 'Gold'   },
+      { label: 'Bronze', here: false },
+      { label: 'Silver', here: false },
+      { label: 'Gold',   here: false },
     ]
-
-    const tierDesc =
-      badgeLabel === 'Gold'   ? `You're Gold here — the best experience this venue has to offer is yours.` :
-      badgeLabel === 'Silver' ? `You're Silver here — great standing. Keep enjoying your regular visits.` :
-      `You're Bronze here. Spend more per visit to move up and unlock member pricing.`
 
     return (
       <StepConfirm
         venueName={selectedVenue.name}
         venueMeta={selectedVenue.category ?? ''}
-        badgeLabel={badgeLabel}
+        badgeLabel="New"
         spendTiers={spendTiers}
-        tierDescription={tierDesc}
+        tierDescription="Your first visit here. Spend KES 3,000 or more in one session to earn Bronze."
         weeklyVisits={0}
         identityLabel={identityLabel}
         onConfirm={handleStartTab}
@@ -1065,30 +1074,7 @@ function ConsentContent() {
     )
   }
 
-  // ── wizardStep 4: Tab Open Success ────────────────────────────────────────
-  if (wizardStep === 4 && createdTabId) {
-    const identityLabel =
-      identityMode === 'anonymous' ? 'Anonymous' :
-      identityMode === 'nickname'  ? (wizardNickname || 'Nickname') :
-      (user?.user_metadata?.first_name || user?.email || 'You')
-
-    return (
-      <StepTabOpen
-        venueName={barName}
-        venueMeta={''}
-        tabId={createdTabId}
-        identityLabel={identityLabel}
-        badgeLabel={'Bronze'}
-        badgeColor={'#633806'}
-        onViewMenu={() => router.replace('/menu')}
-      />
-    )
-  }
-
-  // Fallback — should not be reached; redirect to home screen
-  if (typeof window !== 'undefined') {
-    setWizardStep(0);
-  }
+  // Fallback — should not be reached; the unconditional useEffect above handles reset.
   return null;
 };
 
