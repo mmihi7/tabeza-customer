@@ -427,7 +427,12 @@ function ConsentContent() {
           let displayName: string;
           try {
             const notes = JSON.parse(existingTab.notes || '{}');
-            displayName = notes.display_name || `Tab ${existingTab.tab_number}`;
+            // If user chose a nickname, show it instead of tab number
+            if (notes.has_nickname && notes.display_name) {
+              displayName = notes.display_name;
+            } else {
+              displayName = notes.display_name || `Tab ${existingTab.tab_number}`;
+            }
             console.log('📝 Display name from notes:', displayName);
           } catch (error) {
             displayName = `Tab ${existingTab.tab_number}`;
@@ -723,7 +728,12 @@ function ConsentContent() {
       let finalDisplayName: string;
       try {
         const notes = JSON.parse(tab.notes || '{}');
-        finalDisplayName = notes.display_name || `Tab ${tab.tab_number}`;
+        // If user chose a nickname, show it instead of tab number
+        if (notes.has_nickname && notes.display_name) {
+          finalDisplayName = notes.display_name;
+        } else {
+          finalDisplayName = notes.display_name || `Tab ${tab.tab_number}`;
+        }
       } catch {
         finalDisplayName = `Tab ${tab.tab_number}`;
       }
