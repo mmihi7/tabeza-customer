@@ -1,0 +1,117 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Venue-Specific Badge Tier Assignment
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: For deterministic bugs, scope the property to the concrete failing case(s) to ensure reproducibility
+  - Test implementation details from Bug Condition in design
+  - The test assertions should match the Expected Behavior Properties from design
+  - Test that customers whose average spend meets venue-specific thresholds (e.g., Popos Silver = 5,000) but falls below system thresholds (Silver = 10,000) receive incorrect badge tier
+  - Concrete failing case: Popos venue (bar_id: 438c80c1-fe11-4ac5-8a48-2fc45104ba31), customer with averageSpend = 5,480, venue Silver threshold = 5,000, system threshold = 10,000
+  - Expected behavior: Badge tier should be 'silver' (5,480 >= 5,000)
+  - Actual behavior on unfixed code: Badge tier is 'bronze' or null (5,480 < 10,000)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found to understand root cause
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Default Threshold Behavior
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Test cases to observe and preserve:
+    - Venues with NULL threshold columns use system defaults (Bronze: 3,000 | Silver: 10,000 | Gold: 25,000)
+    - Customers with spend below all thresholds receive no badge
+    - Customers whose spend is above both venue and system thresholds receive the same tier
+    - Visit frequency bonus calculation based on weeklyVisits remains unchanged
+    - Discount formula `displayPrice = basePrice × (1 - (badgePct + visitBonusPct) / 100)` remains unchanged
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 3. Fix for venue-specific badge threshold calculation
+
+  - [x] 3.1 Update API route to return venue thresholds
+    - Modify `/app/api/loyalty/visits/[customer_id]/route.ts`
+    - Add query to fetch venue's `bronze_threshold`, `silver_threshold`, `gold_threshold` from `bars` table
+    - Include `thresholds` object in response payload with format: `{ bronze: number, silver: number, gold: number }`
+    - Use venue values if present, otherwise use system defaults: `{ bronze: 3000, silver: 10000, gold: 25000 }`
+    - Response payload should include: `{ completedVisits, averageSpend, weeklyVisits, customer_id, thresholds }`
+    - _Bug_Condition: isBugCondition(input) where (input.averageSpend >= input.venueThresholds.silver AND input.averageSpend < 10000) OR (input.averageSpend >= input.venueThresholds.gold AND input.averageSpend < 25000) OR (input.averageSpend >= input.venueThresholds.bronze AND input.averageSpend < 3000)_
+    - _Expected_Behavior: API returns venue-specific thresholds from bars table, falling back to system defaults when NULL_
+    - _Preservation: Venues without custom thresholds (NULL columns) continue using system defaults_
+    - _Requirements: 2.1, 2.4, 3.1_
+
+  - [x] 3.2 Update frontend tier calculation to use venue thresholds
+    - Modify `loadLoyaltyData()` function in `/app/menu/page.tsx` (line ~490)
+    - Extract `thresholds` object from API response
+    - Replace hardcoded threshold comparisons (lines 521-523) with venue-specific thresholds
+    - Update: `if (averageSpend >= thresholds.gold) earnedSpendTier = 'gold'; else if (averageSpend >= thresholds.silver) earnedSpendTier = 'silver'; else if (averageSpend >= thresholds.bronze) earnedSpendTier = 'bronze';`
+    - Update `buildSpendPrompt` helper function to accept and use venue thresholds parameter
+    - _Bug_Condition: Frontend uses hardcoded thresholds (25000, 10000, 3000) instead of venue-specific values_
+    - _Expected_Behavior: Frontend calculates badge tier using venue thresholds from API response_
+    - _Preservation: Discount formula and visit frequency bonus calculation remain unchanged_
+    - _Requirements: 2.2, 2.3, 3.1, 3.6_
+
+  - [x] 3.3 Add tier upgrade detection and notification logic
+    - Add `useRef` to store previous tier across renders in `/app/menu/page.tsx`
+    - After calculating new tier in `loadLoyaltyData()`, compare with previous tier
+    - Implement `tierRank()` helper function to compare tier levels (bronze < silver < gold)
+    - When tier upgrades, show toast notification: "Congratulations! You've earned [Tier] status at [Venue Name]"
+    - Trigger notification sound if `notificationPrefs.soundEnabled` is true
+    - Trigger vibration pattern `[200, 100, 200, 100, 200]` if `notificationPrefs.vibrationEnabled` is true
+    - Update `previousTier.current` after notification
+    - _Bug_Condition: No notification shown when customer's tier upgrades after payment_
+    - _Expected_Behavior: Congratulatory notification displayed when tier upgrades_
+    - _Preservation: Existing notification preferences and sound/vibration logic remain unchanged_
+    - _Requirements: 2.5_
+
+  - [x] 3.4 Trigger badge recalculation after payment completion
+    - Identify payment completion event in real-time subscription handler (line ~768)
+    - Call `loadLoyaltyData()` after successful payment is recorded
+    - Ensure menu prices refresh automatically via existing `spendTier` state update
+    - Option A: Add payment completion as dependency to loyalty data loading effect
+    - Option B: Call `loadLoyaltyData()` explicitly in payment success handler
+    - _Bug_Condition: Badge tier not recalculated after payment completion, remains stale until page refresh_
+    - _Expected_Behavior: Badge tier recalculated immediately after payment, menu prices update automatically_
+    - _Preservation: Existing payment handling and real-time subscription logic remain unchanged_
+    - _Requirements: 2.6_
+
+  - [x] 3.5 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Venue-Specific Badge Tier Assignment
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify that customer at Popos with averageSpend = 5,480 receives Silver badge tier
+    - Verify that API returns venue thresholds correctly
+    - Verify that frontend calculates tier using venue thresholds
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+
+  - [x] 3.6 Verify preservation tests still pass
+    - **Property 2: Preservation** - Default Threshold Behavior
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix (no regressions)
+    - Verify venues without custom thresholds continue using system defaults
+    - Verify customers below all thresholds receive no badge
+    - Verify visit frequency bonus calculation unchanged
+    - Verify discount formula unchanged
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all property-based tests (bug condition + preservation)
+  - Verify all tests pass
+  - Test full flow: customer opens tab → places order → payment completes → badge tier recalculates → notification shown → menu prices update
+  - Test tier upgrade flow: customer starts with no badge → spends to Bronze threshold → notification shown → spends to Silver threshold → notification shown
+  - Test venue switching: customer has Silver at Venue A → opens tab at Venue B with different thresholds → correct tier calculated for Venue B
+  - Ask the user if questions arise

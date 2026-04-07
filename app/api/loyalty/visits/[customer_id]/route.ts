@@ -19,18 +19,17 @@ export async function GET(
 
     const supabaseAdmin = createServiceRoleClient();
 
-    // Query completed (closed) tabs for this customer at the specific venue,
-    // joined with tab_balances to get the spend per tab.
-    // A tab is "completed" when closed_at IS NOT NULL.
-    const { data: completedTabs, error } = await supabaseAdmin
+    // Query completed (closed) tabs for this customer at the specific venue
+    // A tab is "completed" when closed_at IS NOT NULL
+    const { data: completedTabs, error: tabsError } = await supabaseAdmin
       .from('tabs')
-      .select('id, tab_balances!inner(balance)')
-      .eq('owner_identifier', customer_id)
+      .select('id, closed_at')
+      .eq('customer_id', customer_id)
       .eq('bar_id', bar_id)
       .not('closed_at', 'is', null);
 
-    if (error) {
-      console.error('Error querying completed tabs:', error);
+    if (tabsError) {
+      console.error('Error querying completed tabs:', tabsError);
       return NextResponse.json(
         { error: 'Failed to fetch loyalty visits data' },
         { status: 500 }
@@ -39,13 +38,21 @@ export async function GET(
 
     const completedVisits = completedTabs?.length ?? 0;
 
-    // Sum total spend across all completed tabs
-    const totalSpend = completedTabs?.reduce((sum, tab) => {
-      const balance = Array.isArray(tab.tab_balances)
-        ? (tab.tab_balances[0]?.balance ?? 0)
-        : ((tab.tab_balances as { balance: number | null } | null)?.balance ?? 0);
-      return sum + (balance > 0 ? balance : 0);
-    }, 0) ?? 0;
+    // Calculate total spend from tab_payments for completed tabs
+    let totalSpend = 0;
+    if (completedTabs && completedTabs.length > 0) {
+      const tabIds = completedTabs.map(t => t.id);
+      
+      const { data: payments, error: paymentsError } = await supabaseAdmin
+        .from('tab_payments')
+        .select('amount')
+        .in('tab_id', tabIds)
+        .eq('status', 'completed');
+
+      if (!paymentsError && payments) {
+        totalSpend = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      }
+    }
 
     const averageSpend = completedVisits > 0 ? totalSpend / completedVisits : 0;
 
@@ -59,11 +66,30 @@ export async function GET(
 
     const weeklyVisits = recentError ? 0 : (recentTabs?.length ?? 0);
 
+    // Fetch venue-specific badge thresholds from bars table
+    const { data: venueData, error: venueError } = await supabaseAdmin
+      .from('bars')
+      .select('bronze_threshold, silver_threshold, gold_threshold')
+      .eq('id', bar_id)
+      .single();
+
+    if (venueError) {
+      console.error('Error fetching venue thresholds:', venueError);
+    }
+
+    // Use venue thresholds if present, otherwise fall back to system defaults
+    const thresholds = {
+      bronze: venueData?.bronze_threshold ?? 3000,
+      silver: venueData?.silver_threshold ?? 10000,
+      gold: venueData?.gold_threshold ?? 25000,
+    };
+
     return NextResponse.json({
       completedVisits,
       averageSpend,
       weeklyVisits,
       customer_id,
+      thresholds,
     });
   } catch (error) {
     console.error('Error fetching loyalty visits:', error);

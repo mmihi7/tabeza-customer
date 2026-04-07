@@ -103,6 +103,15 @@ const DEFAULT_TIER_DISCOUNTS: Record<SpendTierLabel, number> = {
   gold:   5.0,
 };
 
+// Badge display data (with venue name) for cross-venue badge persistence
+interface BadgeDisplay {
+  badge_level: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
+  awarded_at: string;
+  earned_at_bar_id: string;
+  earned_at_bar_name: string;
+  spend_amount_at_venue: number;
+}
+
 /**
  * Returns the discounted price rounded to the nearest whole KES.
  * Does NOT mutate the source price.
@@ -253,6 +262,11 @@ export default function MenuPage() {
     totalSpend: number;
     weeklyVisits: number;
   } | null>(null);
+  
+  // Global badge state (fetched from customer_badges table)
+  const [globalBadge, setGlobalBadge] = useState<BadgeDisplay | null>(null);
+  const [badgeLoading, setBadgeLoading] = useState(false);
+  
   // Venue discount percentages — loaded once per bar
   const [venueDiscounts, setVenueDiscounts] = useState<Record<SpendTierLabel, number>>(DEFAULT_TIER_DISCOUNTS);
   // Venue visit frequency bonuses — loaded once per bar
@@ -261,10 +275,18 @@ export default function MenuPage() {
     twice_per_week: 2.0,
     thrice_per_week: 3.0,
   });
+  // Venue-specific badge thresholds — loaded from API
+  const [venueThresholds, setVenueThresholds] = useState<Record<SpendTierLabel, number>>({
+    bronze: 3000,
+    silver: 10000,
+    gold: 25000,
+  });
   // Active spend tier label for pricing (null = new customer, no discount)
   const [spendTier, setSpendTier] = useState<SpendTierLabel | null>(null);
   // Spend prompt shown after an order
   const [spendPrompt, setSpendPrompt] = useState<string | null>(null);
+  // Previous tier for upgrade detection
+  const previousTier = useRef<SpendTierLabel | null>(null);
 
   // Customer notification preferences
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -486,14 +508,25 @@ const loadLoyaltyData = async () => {
   if (!tab?.customer_id || !tab?.bar_id) return;
 
   try {
-    // Fetch visits and venue discounts in parallel
-    const [visitsRes, discountsRes] = await Promise.all([
+    // Fetch global badge, visits, and venue discounts in parallel
+    const [badgeRes, visitsRes, discountsRes] = await Promise.all([
+      fetch(`/api/loyalty/badge/${tab.customer_id}`),
       fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
       fetch(`/api/loyalty/venue-discounts/${tab.bar_id}`),
     ]);
 
+    const badgeData    = badgeRes.ok    ? await badgeRes.json()    : null;
     const visitsData   = visitsRes.ok   ? await visitsRes.json()   : null;
     const discountsData = discountsRes.ok ? await discountsRes.json() : null;
+
+    // Store global badge in state
+    if (badgeData && badgeData.badge_level) {
+      setGlobalBadge(badgeData as BadgeDisplay);
+      console.log('🏆 Global badge loaded:', badgeData);
+    } else {
+      setGlobalBadge(null);
+      console.log('🏆 No global badge found for customer');
+    }
 
     if (discountsData?.spend_tiers) {
       setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
@@ -507,6 +540,10 @@ const loadLoyaltyData = async () => {
     const completedVisits: number = visitsData.completedVisits ?? 0;
     const averageSpend: number    = visitsData.averageSpend    ?? 0;
     const weeklyVisits: number    = visitsData.weeklyVisits    ?? 0;
+    const thresholds = visitsData.thresholds ?? { bronze: 3000, silver: 10000, gold: 25000 };
+
+    // Store venue thresholds in state for use in buildSpendPrompt
+    setVenueThresholds(thresholds);
 
     // Visit tier — badge count (1/2/3 icons shown in header)
     // Requires at least 1 completed visit to earn any tier
@@ -515,12 +552,12 @@ const loadLoyaltyData = async () => {
     else if (completedVisits >= 2) visitTier = 'silver';
     else if (completedVisits >= 1) visitTier = 'bronze';
 
-    // Spend tier — determines which discount % applies (system-wide thresholds)
-    // Bronze: 3,000 | Silver: 10,000 | Gold: 25,000 (set by system admin)
+    // Spend tier — determines which discount % applies (venue-specific thresholds)
+    // Uses venue thresholds from bars table, falling back to system defaults
     let earnedSpendTier: SpendTierLabel | null = null;
-    if (averageSpend >= 25000)     earnedSpendTier = 'gold';
-    else if (averageSpend >= 10000) earnedSpendTier = 'silver';
-    else if (averageSpend >= 3000)  earnedSpendTier = 'bronze';
+    if (averageSpend >= thresholds.gold)     earnedSpendTier = 'gold';
+    else if (averageSpend >= thresholds.silver) earnedSpendTier = 'silver';
+    else if (averageSpend >= thresholds.bronze)  earnedSpendTier = 'bronze';
 
     setLoyaltyData({
       visitTier,
@@ -530,13 +567,156 @@ const loadLoyaltyData = async () => {
       weeklyVisits,
     });
 
-    if (earnedSpendTier) {
-      setSpendTier(earnedSpendTier);
+    console.log('📊 Loyalty data set:', {
+      visitTier,
+      earnedSpendTier,
+      completedVisits,
+      weeklyVisits,
+      averageSpend,
+      thresholds
+    });
+
+    // Use global badge level for spendTier state (not local calculation)
+    // This ensures cross-venue badge display and discount application
+    const globalBadgeLevel = badgeData?.badge_level as SpendTierLabel | null;
+    
+    // Badge upgrade detection and award
+    // Compare earned tier rank vs global badge rank
+    const currentBadgeRank = tierRank(globalBadgeLevel);
+    const earnedTierRank = tierRank(earnedSpendTier);
+    
+    if (earnedSpendTier && earnedTierRank > currentBadgeRank) {
+      console.log('🎉 Badge upgrade detected:', {
+        current: globalBadgeLevel || 'none',
+        earned: earnedSpendTier,
+        currentRank: currentBadgeRank,
+        earnedRank: earnedTierRank
+      });
+      
+      try {
+        // Call badge award API
+        const awardResponse = await fetch('/api/loyalty/badge/award', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            customer_id: tab.customer_id,
+            bar_id: tab.bar_id,
+            badge_level: earnedSpendTier,
+            spend_amount: averageSpend,
+          }),
+        });
+
+        if (awardResponse.ok) {
+          const awardResult = await awardResponse.json();
+          
+          if (awardResult.upgraded && awardResult.newBadge) {
+            // Update global badge state
+            setGlobalBadge({
+              badge_level: awardResult.newBadge.badge_level,
+              awarded_at: awardResult.newBadge.awarded_at,
+              earned_at_bar_id: awardResult.newBadge.earned_at_bar_id,
+              earned_at_bar_name: barName,
+              spend_amount_at_venue: awardResult.newBadge.spend_amount_at_venue,
+            });
+            
+            // Show upgrade notification
+            const tierName = earnedSpendTier.charAt(0).toUpperCase() + earnedSpendTier.slice(1);
+            showToast({
+              type: 'success',
+              title: `Congratulations! You've earned ${tierName} status`,
+              message: `at ${barName}`,
+              duration: 8000
+            });
+            
+            // Trigger notification sound and vibration if enabled
+            if (notificationPrefs.soundEnabled) {
+              playAcceptanceSound();
+            }
+            if (notificationPrefs.vibrationEnabled) {
+              buzz([200, 100, 200, 100, 200]);
+            }
+            
+            console.log('✅ Badge upgrade successful:', awardResult);
+          } else {
+            console.log('ℹ️ Badge award API returned no upgrade:', awardResult);
+          }
+        } else {
+          // Log API failure with context
+          const errorText = await awardResponse.text();
+          console.error('❌ Badge award API failed:', {
+            customer_id: tab.customer_id,
+            bar_id: tab.bar_id,
+            badge_level: earnedSpendTier,
+            status: awardResponse.status,
+            error: errorText
+          });
+          
+          // Show generic error toast (graceful degradation)
+          showToast({
+            type: 'error',
+            title: 'Unable to update loyalty status',
+            message: 'Please refresh the page to see your current status.',
+            duration: 5000
+          });
+        }
+      } catch (error) {
+        // Log error with full context
+        console.error('❌ Error awarding badge:', {
+          customer_id: tab.customer_id,
+          bar_id: tab.bar_id,
+          badge_level: earnedSpendTier,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        
+        // Show generic error toast (graceful degradation)
+        showToast({
+          type: 'error',
+          title: 'Unable to update loyalty status',
+          message: 'Please refresh the page to see your current status.',
+          duration: 5000
+        });
+        
+        // Continue without badge upgrade (graceful degradation)
+        // The app remains functional even if badge upgrade fails
+      }
     }
+
+    // Set spendTier to global badge level (cross-venue persistence)
+    // Falls back to locally earned tier if no global badge exists
+    if (globalBadgeLevel) {
+      setSpendTier(globalBadgeLevel);
+      console.log('💳 Using global badge for discount:', globalBadgeLevel);
+    } else if (earnedSpendTier) {
+      setSpendTier(earnedSpendTier);
+      console.log('💳 Using locally earned tier for discount:', earnedSpendTier);
+    } else {
+      setSpendTier(null);
+      console.log('💳 No badge tier - normal pricing');
+    }
+
+    console.log('✅ Loyalty data loading complete:', {
+      globalBadge: globalBadgeLevel,
+      spendTier: globalBadgeLevel || earnedSpendTier,
+      weeklyVisits,
+      venueDiscounts,
+      visitBonuses
+    });
 
   } catch (error) {
     console.error('❌ Error loading loyalty data:', error);
   }
+};
+
+// Helper: compare tier levels for upgrade detection
+const tierRank = (tier: SpendTierLabel | null): number => {
+  if (!tier) return 0;
+  if (tier === 'bronze') return 1;
+  if (tier === 'silver') return 2;
+  if (tier === 'gold') return 3;
+  return 0;
 };
 
 // Helper: generate a spend prompt message based on current spend vs next tier
@@ -544,38 +724,65 @@ const buildSpendPrompt = (
   currentSpend: number,
   discounts: Record<SpendTierLabel, number>,
   earnedTier: SpendTierLabel | null,
+  thresholds: Record<SpendTierLabel, number>,
 ): string | null => {
-  // System-wide thresholds (will come from system admin once that page exists)
-  const THRESHOLDS: Record<SpendTierLabel, number> = { bronze: 3000, silver: 10000, gold: 25000 };
-
   if (earnedTier === 'gold') return null; // already at top
 
   const nextTier: SpendTierLabel = earnedTier === 'silver' ? 'gold' : earnedTier === 'bronze' ? 'silver' : 'bronze';
-  const gap = THRESHOLDS[nextTier] - currentSpend;
+  const gap = thresholds[nextTier] - currentSpend;
   if (gap <= 0) return null;
 
   const pct = discounts[nextTier];
   return `Spend KES ${gap.toLocaleString('en-KE')} more to unlock ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)} — ${pct}% off every order here.`;
 };
 const renderLoyaltyIcons = () => {
-  if (!loyaltyData || loyaltyData.visitTier === 'new') return null;
-
-  const { visitTier, spendTier: earnedSpendTier } = loyaltyData;
-
-  // Badge count = visit frequency at this venue
+  // Show badge if either globalBadge exists OR visitTier is not 'new'
+  if (!globalBadge && (!loyaltyData || loyaltyData.visitTier === 'new')) return null;
+  
+  // Badge shape from global badge (earned anywhere, works everywhere)
+  // Falls back to local spendTier if no global badge exists
+  const badgeLevel = globalBadge?.badge_level || loyaltyData?.spendTier;
+  
+  // Map badge levels with DISTINCTIVE icons and colors:
+  // Bronze → Circle (amber/orange)
+  // Silver → Shield (silver/gray)
+  // Gold → Crown (gold/yellow)
+  // Platinum → Crown (purple/premium)
+  let IconComponent = null;
+  let iconColor = 'text-white';
+  
+  if (badgeLevel === 'platinum') {
+    IconComponent = Crown;
+    iconColor = 'text-purple-300'; // Purple for platinum
+  } else if (badgeLevel === 'gold') {
+    IconComponent = Crown;
+    iconColor = 'text-yellow-300'; // Gold/yellow for gold
+  } else if (badgeLevel === 'silver') {
+    IconComponent = Shield;
+    iconColor = 'text-gray-300'; // Silver/gray for silver
+  } else if (badgeLevel === 'bronze') {
+    IconComponent = Circle;
+    iconColor = 'text-amber-400'; // Amber/orange for bronze
+  }
+  
+  if (!IconComponent) return null;
+  
+  // Badge count from visit frequency at THIS venue
+  const visitTier = loyaltyData?.visitTier || 'new';
+  // Calculate icon count: visitTier gold=3, silver=2, bronze=1
+  // Handle case where globalBadge exists but visitTier is 'new' (show 1 icon)
   const iconCount = visitTier === 'gold' ? 3 : visitTier === 'silver' ? 2 : 1;
-
-  // Badge shape = spend tier (Bronze circle, Silver shield, Gold crown)
-  const IconComponent = earnedSpendTier === 'gold'
-    ? Crown
-    : earnedSpendTier === 'silver'
-    ? Shield
-    : Circle;
-
+  
   return (
     <div className="flex gap-0.5 items-center">
       {Array.from({ length: iconCount }).map((_, i) => (
-        <IconComponent key={i} className="w-3.5 h-3.5 text-white drop-shadow" size={14} />
+        <IconComponent 
+          key={i} 
+          className={`w-3.5 h-3.5 ${iconColor} drop-shadow`}
+          size={14} 
+          strokeWidth={2.5}
+          fill={badgeLevel === 'silver' ? 'currentColor' : 'none'} // Fill shield for silver
+        />
       ))}
     </div>
   );
@@ -782,7 +989,7 @@ const loadNotificationPrefs = async () => {
         // Show spend prompt after order acceptance
         setLoyaltyData(prev => {
           if (!prev) return prev;
-          const prompt = buildSpendPrompt(prev.totalSpend, venueDiscounts, prev.spendTier);
+          const prompt = buildSpendPrompt(prev.totalSpend, venueDiscounts, prev.spendTier, venueThresholds);
           if (prompt) setSpendPrompt(prompt);
           return prev;
         });
@@ -1124,6 +1331,12 @@ const loadNotificationPrefs = async () => {
             if (notificationPrefs.vibrationEnabled) {
               buzz([200, 100, 200]); // Success vibration pattern
             }
+            
+            // Recalculate badge tier after payment completion (Requirements 8.1, 8.2, 8.3, 8.4)
+            // This triggers badge fetch, tier calculation, and upgrade check
+            // Notification shows only when API confirms upgrade (not just local calculation)
+            console.log('🏆 Payment completed - triggering badge recalculation');
+            loadLoyaltyData();
           }
           
           // Handle failed payment notifications (Requirement 2.3)
@@ -2639,8 +2852,6 @@ const loadNotificationPrefs = async () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold">{displayName}</h1>
-                {/* Loyalty Tier Icons */}
-                {renderLoyaltyIcons()}
               </div>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-white text-opacity-90">{barName}</p>
@@ -2753,6 +2964,99 @@ const loadNotificationPrefs = async () => {
         </div>
       </div>
 
+      {/* Prominent Badge Display Section */}
+      {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
+        <div className="bg-black px-4 py-6 border-b border-gray-800">
+          <div className="max-w-md mx-auto text-center">
+            {/* Badge Image */}
+            <div className="mb-3 flex justify-center">
+              {globalBadge?.badge_level === 'platinum' && (
+                <img 
+                  src="/gold.png" 
+                  alt="Platinum Badge" 
+                  className="w-24 h-auto drop-shadow-2xl"
+                  style={{ filter: 'hue-rotate(270deg) saturate(1.5)', maxWidth: '96px' }}
+                />
+              )}
+              {globalBadge?.badge_level === 'gold' && (
+                <img 
+                  src="/gold.png" 
+                  alt="Gold Badge" 
+                  className="w-24 h-auto drop-shadow-2xl"
+                  style={{ maxWidth: '96px' }}
+                />
+              )}
+              {globalBadge?.badge_level === 'silver' && (
+                <img 
+                  src="/silver.png" 
+                  alt="Silver Badge" 
+                  className="w-24 h-auto drop-shadow-2xl"
+                  style={{ maxWidth: '96px' }}
+                />
+              )}
+              {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && (
+                <img 
+                  src="/bronze.png" 
+                  alt="Bronze Badge" 
+                  className="w-24 h-auto drop-shadow-2xl"
+                  style={{ maxWidth: '96px' }}
+                />
+              )}
+            </div>
+
+            {/* Badge Title */}
+            <h2 className="text-lg font-bold text-white mb-1">
+              {globalBadge?.badge_level === 'platinum' && 'Platinum Status'}
+              {globalBadge?.badge_level === 'gold' && 'Gold Status'}
+              {globalBadge?.badge_level === 'silver' && 'Silver Status'}
+              {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze Status'}
+            </h2>
+
+            {/* Badge Subtitle */}
+            {globalBadge && (
+              <p className="text-xs text-gray-400 mb-3">
+                Earned at {globalBadge.earned_at_bar_name}
+              </p>
+            )}
+
+            {/* Visit Frequency Indicators */}
+            {loyaltyData && loyaltyData.visitTier !== 'new' && (
+              <div className="flex justify-center gap-2 mb-3">
+                {Array.from({ 
+                  length: loyaltyData.visitTier === 'gold' ? 3 : loyaltyData.visitTier === 'silver' ? 2 : 1 
+                }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="w-2 h-2 rounded-full bg-orange-500"
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Discount Info */}
+            {spendTier && (
+              <div className="inline-block bg-orange-500 bg-opacity-20 border border-orange-500 border-opacity-30 rounded-full px-3 py-1.5">
+                <p className="text-orange-400 text-xs font-medium">
+                  {(() => {
+                    const badgePct = venueDiscounts[spendTier] ?? 0;
+                    const weekly = loyaltyData?.weeklyVisits ?? 0;
+                    const bonusPct = weekly >= 3
+                      ? (visitBonuses.thrice_per_week ?? 0)
+                      : weekly >= 2
+                      ? (visitBonuses.twice_per_week ?? 0)
+                      : weekly >= 1
+                      ? (visitBonuses.once_per_week ?? 0)
+                      : 0;
+                    const totalDiscountPct = badgePct + bonusPct;
+                    return `${totalDiscountPct.toFixed(1)}% off every order`;
+                  })()}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Unified 2-column product grid — replaces FOOD and DRINKS carousel sections */}
       {loading ? (
         <div className="px-4 mt-4">
@@ -2823,6 +3127,21 @@ const loadNotificationPrefs = async () => {
                   ? (visitBonuses.once_per_week ?? 0)
                   : 0;
                 totalDiscountPct = badgePct + bonusPct;
+                
+                // Debug logging for first product only
+                if (idx === 0) {
+                  console.log('💰 Discount calculation (first product):', {
+                    productName: bp.product?.name,
+                    basePrice: bp.sale_price,
+                    spendTier,
+                    badgePct,
+                    weeklyVisits: weekly,
+                    bonusPct,
+                    totalDiscountPct,
+                    venueDiscounts,
+                    visitBonuses
+                  });
+                }
               }
               const displayPrice = totalDiscountPct > 0
                 ? applyDiscount(bp.sale_price, totalDiscountPct)

@@ -1,0 +1,182 @@
+# Implementation Plan
+
+- [ ] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Design System Token Usage Verification
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate hardcoded colors and poor contrast exist
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases - specific elements using hardcoded Tailwind classes or inline hex colors instead of design system tokens
+  - Test that settings page elements use design system tokens (`var(--cream)`, `var(--amber)`, `var(--ink)`, etc.) instead of hardcoded colors
+  - Verify input fields use `rgba(255,255,255,0.07)` background with `var(--cream)` text instead of `bg-gray-50` with `text-gray-800`
+  - Verify cards use `rgba(255,255,255,0.04)` background instead of `bg-white`
+  - Verify section headings use `var(--amber)` with uppercase styling instead of regular text
+  - Verify tab navigation uses `var(--border)`, `var(--amber)`, and `var(--muted)` tokens
+  - Verify buttons use design system patterns (`var(--amber)` for primary, `rgba(255,255,255,0.07)` for secondary)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - Input fields with `bg-gray-50` and `text-gray-800` creating poor contrast
+    - Cards using `bg-white` instead of design system tokens
+    - Buttons using `bg-green-500`, `bg-gray-200` instead of design system patterns
+    - Section headings using regular text instead of uppercase `var(--amber)`
+    - Tab navigation using hardcoded colors
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10_
+
+- [ ] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Functional Behavior Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for all non-styling functionality
+  - Test form submission: verify data saves correctly to Supabase
+  - Test tab navigation: verify switching between tabs maintains state
+  - Test edit mode: verify toggle between view and edit states works
+  - Test QR code generation: verify QR codes generate and download correctly
+  - Test M-Pesa setup: verify credential encryption and connection testing works
+  - Test printer status: verify status checking displays correctly
+  - Test role management: verify creating/editing roles and permissions works
+  - Test business hours: verify validation and saving works correctly
+  - Test file uploads: verify custom audio uploads work
+  - Test responsive layout: verify layout adapts to different screen sizes
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+- [ ] 3. Fix settings page styling to use design system tokens
+
+  - [ ] 3.1 Update page-level styling
+    - Replace `bg-gray-50` page background with `var(--ink)`
+    - Update page header to match Loyalty Centre pattern with design system tokens
+    - Update loading state to use `var(--ink)` background and `var(--cream)` text
+    - _Bug_Condition: isBugCondition(input) where input.page == 'settings' AND input.hasHardcodedColors_
+    - _Expected_Behavior: Page uses design system tokens exclusively via var() syntax_
+    - _Preservation: All functional behavior (form submission, data loading, tab navigation) unchanged_
+    - _Requirements: 1.7, 2.7_
+
+  - [ ] 3.2 Update tab navigation styling
+    - Replace hardcoded tab colors with design system tokens
+    - Use `var(--border)` for bottom border
+    - Use `var(--amber)` for active tab, `var(--muted)` for inactive tabs
+    - Use `2px solid var(--amber)` for active tab bottom border
+    - _Bug_Condition: Tab navigation uses hardcoded colors instead of design system tokens_
+    - _Expected_Behavior: Tab navigation uses var(--border), var(--amber), var(--muted)_
+    - _Preservation: Tab switching and state management unchanged_
+    - _Requirements: 1.9, 2.9_
+
+  - [ ] 3.3 Update General tab styling
+    - Replace card backgrounds from `bg-white` to `rgba(255,255,255,0.04)` with proper borders
+    - Update input fields to use design system input pattern
+    - Update field labels to use `var(--amber)` with uppercase styling
+    - Update helper text to use `var(--muted)`
+    - Update buttons to use design system button patterns
+    - Update section headings to use uppercase `var(--amber)` with letter-spacing
+    - _Bug_Condition: General tab uses hardcoded colors creating poor contrast_
+    - _Expected_Behavior: General tab uses design system tokens with proper contrast_
+    - _Preservation: Restaurant info editing and saving unchanged_
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.8_
+
+  - [ ] 3.4 Update Venue tab styling
+    - Update venue mode cards to use design system card pattern
+    - Update configuration display to use design system tokens
+    - Update buttons to use design system button patterns
+    - Update section headings and descriptions to use design system typography
+    - _Bug_Condition: Venue tab uses inconsistent styling_
+    - _Expected_Behavior: Venue tab uses design system tokens consistently_
+    - _Preservation: Venue mode configuration and validation unchanged_
+    - _Requirements: 1.3, 1.4, 1.6, 1.8, 2.3, 2.4, 2.6, 2.8_
+
+  - [ ] 3.5 Update Payments tab styling
+    - Update payment method cards to use design system card pattern
+    - Update M-Pesa setup modal background to `var(--ink-3)` with proper borders
+    - Update all form elements in modal to use design system input pattern
+    - Update toggle switches to use `var(--amber)` for active state
+    - Update buttons to use design system button patterns
+    - _Bug_Condition: Payments tab and M-Pesa modal use hardcoded colors_
+    - _Expected_Behavior: Payments tab uses design system tokens throughout_
+    - _Preservation: Payment settings and M-Pesa credential encryption unchanged_
+    - _Requirements: 1.2, 1.3, 1.5, 1.6, 2.2, 2.3, 2.5, 2.6_
+
+  - [ ] 3.6 Update Notifications tab styling
+    - Update notification cards to use design system card pattern
+    - Update toggle switches to use `var(--amber)` for active state
+    - Update labels to use `var(--amber)` and helper text to use `var(--muted)`
+    - Update buttons to use design system button patterns
+    - _Bug_Condition: Notifications tab uses gray colors instead of design system tokens_
+    - _Expected_Behavior: Notifications tab uses design system tokens_
+    - _Preservation: Notification settings saving unchanged_
+    - _Requirements: 1.3, 1.4, 1.6, 2.3, 2.4, 2.6_
+
+  - [ ] 3.7 Update Operations tab styling
+    - Update business hours cards to use design system card pattern
+    - Update time inputs to use design system input pattern
+    - Update day selector cards to use design system styling
+    - Update toggle switches to use `var(--amber)` for active state
+    - Update alert settings inputs to use design system input pattern
+    - Update table settings inputs to use design system input pattern
+    - Update buttons to use design system button patterns
+    - _Bug_Condition: Operations tab uses bg-gray-50 inputs and inconsistent styling_
+    - _Expected_Behavior: Operations tab uses design system tokens consistently_
+    - _Preservation: Business hours validation, alert settings, and table settings unchanged_
+    - _Requirements: 1.3, 1.4, 1.5, 1.6, 2.3, 2.4, 2.5, 2.6_
+
+  - [ ] 3.8 Update Roles tab styling (admin only)
+    - Update RoleCard components to use design system card pattern
+    - Update MemberRow components to use design system styling
+    - Update permission toggles to use `var(--amber)` for active state
+    - Update CreateRoleForm to use design system input and button patterns
+    - Update InviteMemberForm to use design system input and button patterns
+    - Update AuditLogTable to use design system styling
+    - _Bug_Condition: Roles tab uses inconsistent styling not matching design system_
+    - _Expected_Behavior: Roles tab uses design system tokens consistently_
+    - _Preservation: Role management and permission assignment unchanged_
+    - _Requirements: 1.3, 1.4, 1.5, 1.6, 2.3, 2.4, 2.5, 2.6_
+
+  - [ ] 3.9 Update shared components styling
+    - Update QR code section to use design system card pattern
+    - Update copy/download buttons to use design system button patterns
+    - Update printer status section to use design system colors
+    - Update feedback modal background to `var(--ink-3)` with design system form elements
+    - Update success messages to use `var(--success)`
+    - Update error messages to use `var(--error)`
+    - _Bug_Condition: Shared components use hardcoded colors_
+    - _Expected_Behavior: Shared components use design system tokens_
+    - _Preservation: QR code generation, printer status checking, feedback submission unchanged_
+    - _Requirements: 1.2, 1.3, 1.5, 1.6, 2.2, 2.3, 2.5, 2.6_
+
+  - [ ] 3.10 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Design System Token Usage Verified
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - Verify all elements use design system tokens via `var()` syntax
+    - Verify input fields have proper contrast with `var(--cream)` text on dark backgrounds
+    - Verify cards use `rgba(255,255,255,0.04)` background
+    - Verify section headings use uppercase `var(--amber)` styling
+    - Verify tab navigation uses design system tokens
+    - Verify buttons use design system patterns
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10_
+
+  - [ ] 3.11 Verify preservation tests still pass
+    - **Property 2: Preservation** - Functional Behavior Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - Verify form submission works correctly
+    - Verify tab navigation maintains state
+    - Verify edit mode toggle works
+    - Verify QR code generation works
+    - Verify M-Pesa setup works
+    - Verify printer status checking works
+    - Verify role management works
+    - Verify business hours saving works
+    - Verify file uploads work
+    - Verify responsive layout works
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix (no regressions)
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
