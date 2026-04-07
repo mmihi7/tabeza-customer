@@ -448,9 +448,16 @@ function ConsentContent() {
           });
           
           console.log('🔄 Redirecting to menu in 500ms...');
+          console.log('🔄 Current router state:', router);
+          console.log('🔄 Tab data stored:', existingTab);
           setTimeout(() => {
-            console.log('🔄 Executing redirect to /menu');
-            router.replace('/menu');
+            console.log('🔄 Executing redirect to /menu NOW');
+            try {
+              router.replace('/menu');
+              console.log('✅ Router.replace called successfully');
+            } catch (err) {
+              console.error('❌ Router.replace failed:', err);
+            }
           }, 500);
           
           // Keep loading state true to prevent showing consent form during redirect
