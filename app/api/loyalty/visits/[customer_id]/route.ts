@@ -50,7 +50,7 @@ export async function GET(
         .eq('status', 'completed');
 
       if (!paymentsError && payments) {
-        totalSpend = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        totalSpend = payments.reduce((sum, p) => sum + (typeof p.amount === 'number' ? p.amount : parseFloat(p.amount || '0')), 0);
       }
     }
 
@@ -66,7 +66,7 @@ export async function GET(
 
     const weeklyVisits = recentError ? 0 : (recentTabs?.length ?? 0);
 
-    // Fetch venue-specific badge thresholds from bars table
+    // Get venue-specific thresholds (if configured)
     const { data: venueData, error: venueError } = await supabaseAdmin
       .from('bars')
       .select('bronze_threshold, silver_threshold, gold_threshold')
