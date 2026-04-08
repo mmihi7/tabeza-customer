@@ -54,7 +54,35 @@ export async function GET(
       }
     }
 
-    const averageSpend = completedVisits > 0 ? totalSpend / completedVisits : 0;
+    // FIX: Include payments from CURRENT open tab (Bug Fix: payment-badge-award-trigger)
+    // Rationale: Badge upgrade check should use most recent payment data, even if tab is still open
+    // This ensures badge is awarded immediately after qualifying payment, not after tab closes
+    let openTabSpend = 0;
+    const { data: openTab, error: openTabError } = await supabaseAdmin
+      .from('tabs')
+      .select('id')
+      .eq('customer_id', customer_id)
+      .eq('bar_id', bar_id)
+      .is('closed_at', null)
+      .maybeSingle();
+
+    if (!openTabError && openTab) {
+      const { data: openTabPayments, error: openPaymentsError } = await supabaseAdmin
+        .from('tab_payments')
+        .select('amount')
+        .eq('tab_id', openTab.id)
+        .eq('status', 'completed');
+
+      if (!openPaymentsError && openTabPayments) {
+        openTabSpend = openTabPayments.reduce((sum, p) => sum + (typeof p.amount === 'number' ? p.amount : parseFloat(p.amount || '0')), 0);
+      }
+    }
+
+    // Recalculate averageSpend including open tab payments
+    // If open tab has payments, treat it as an additional visit for average calculation
+    const totalVisits = completedVisits + (openTabSpend > 0 ? 1 : 0);
+    const totalSpendWithOpen = totalSpend + openTabSpend;
+    const averageSpend = totalVisits > 0 ? totalSpendWithOpen / totalVisits : 0;
 
     // Count visits in the past 7 days for visit frequency bonus
     const { data: recentTabs, error: recentError } = await supabaseAdmin

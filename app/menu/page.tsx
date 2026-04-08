@@ -508,7 +508,15 @@ const loadLoyaltyData = async () => {
   if (!tab?.customer_id || !tab?.bar_id) return;
 
   try {
+    // FIX: Enhanced logging for badge upgrade flow (Bug Fix: payment-badge-award-trigger)
+    console.log('🏆 [LOYALTY] Starting loyalty data load:', {
+      customer_id: tab.customer_id,
+      bar_id: tab.bar_id,
+      timestamp: new Date().toISOString()
+    });
+
     // Fetch global badge, visits, and venue discounts in parallel
+    console.log('🏆 [LOYALTY] Fetching global badge, visits, and venue discounts...');
     const [badgeRes, visitsRes, discountsRes] = await Promise.all([
       fetch(`/api/loyalty/badge/${tab.customer_id}`),
       fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
@@ -519,13 +527,23 @@ const loadLoyaltyData = async () => {
     const visitsData   = visitsRes.ok   ? await visitsRes.json()   : null;
     const discountsData = discountsRes.ok ? await discountsRes.json() : null;
 
+    console.log('🏆 [LOYALTY] API responses received:', {
+      badgeData: badgeData ? { badge_level: badgeData.badge_level } : null,
+      visitsData: visitsData ? { 
+        completedVisits: visitsData.completedVisits, 
+        averageSpend: visitsData.averageSpend,
+        weeklyVisits: visitsData.weeklyVisits 
+      } : null,
+      discountsData: discountsData ? 'loaded' : null
+    });
+
     // Store global badge in state
     if (badgeData && badgeData.badge_level) {
       setGlobalBadge(badgeData as BadgeDisplay);
-      console.log('🏆 Global badge loaded:', badgeData);
+      console.log('🏆 [LOYALTY] Global badge loaded:', badgeData);
     } else {
       setGlobalBadge(null);
-      console.log('🏆 No global badge found for customer');
+      console.log('🏆 [LOYALTY] No global badge found for customer');
     }
 
     if (discountsData?.spend_tiers) {
@@ -580,13 +598,21 @@ const loadLoyaltyData = async () => {
     // This ensures cross-venue badge display and discount application
     const globalBadgeLevel = badgeData?.badge_level as SpendTierLabel | null;
     
+    // FIX: Enhanced logging for badge upgrade detection (Bug Fix: payment-badge-award-trigger)
+    console.log('🎉 [LOYALTY] Checking for badge upgrade:', {
+      currentBadge: globalBadgeLevel || 'none',
+      earnedTier: earnedSpendTier || 'none',
+      averageSpend,
+      thresholds
+    });
+    
     // Badge upgrade detection and award
     // Compare earned tier rank vs global badge rank
     const currentBadgeRank = tierRank(globalBadgeLevel);
     const earnedTierRank = tierRank(earnedSpendTier);
     
     if (earnedSpendTier && earnedTierRank > currentBadgeRank) {
-      console.log('🎉 Badge upgrade detected:', {
+      console.log('🎉 [LOYALTY] Badge upgrade detected:', {
         current: globalBadgeLevel || 'none',
         earned: earnedSpendTier,
         currentRank: currentBadgeRank,
@@ -594,6 +620,15 @@ const loadLoyaltyData = async () => {
       });
       
       try {
+        // FIX: Enhanced logging before badge award API call (Bug Fix: payment-badge-award-trigger)
+        console.log('🎉 [LOYALTY] Calling badge award API:', {
+          customer_id: tab.customer_id,
+          bar_id: tab.bar_id,
+          badge_level: earnedSpendTier,
+          spend_amount: averageSpend,
+          timestamp: new Date().toISOString()
+        });
+
         // Call badge award API
         const awardResponse = await fetch('/api/loyalty/badge/award', {
           method: 'POST',
@@ -610,6 +645,16 @@ const loadLoyaltyData = async () => {
 
         if (awardResponse.ok) {
           const awardResult = await awardResponse.json();
+          
+          // FIX: Enhanced logging after badge award API response (Bug Fix: payment-badge-award-trigger)
+          console.log('✅ [LOYALTY] Badge award API response:', {
+            upgraded: awardResult.upgraded,
+            newBadge: awardResult.newBadge ? {
+              badge_level: awardResult.newBadge.badge_level,
+              awarded_at: awardResult.newBadge.awarded_at
+            } : null,
+            timestamp: new Date().toISOString()
+          });
           
           if (awardResult.upgraded && awardResult.newBadge) {
             // Update global badge state
@@ -1249,6 +1294,16 @@ const loadNotificationPrefs = async () => {
       filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
       event: '*' as const,
       handler: async (payload: any) => {
+        // FIX: Add subscription initialization logging (Bug Fix: payment-badge-award-trigger)
+        // Rationale: Helps diagnose if subscription is not established on page load or torn down after navigation/reconnection
+        if (payload.eventType === 'SUBSCRIPTION_READY') {
+          console.log('💳 Payment subscription established:', { 
+            tabId: tab?.id, 
+            channelName: `tab-payments-${tab?.id}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         console.log('💳 Real-time payment update:', payload);
         
         // Enhanced payment status handling for customer interface (Requirements 2.1, 2.2, 2.3, 2.4)
@@ -1266,8 +1321,10 @@ const loadNotificationPrefs = async () => {
           });
           
           // Handle successful payment confirmations (Requirement 2.2)
-          if (payment?.status === 'success' && 
-              (!previousPayment || previousPayment.status !== 'success')) {
+          // FIX: Check for both 'success' AND 'completed' statuses (Bug Fix: payment-badge-award-trigger)
+          // Rationale: Database schema and visits API use 'completed' while handler was only checking for 'success'
+          if ((payment?.status === 'success' || payment?.status === 'completed') && 
+              (!previousPayment || (previousPayment.status !== 'success' && previousPayment.status !== 'completed'))) {
             
             console.log('✅ Payment successful - processing balance update and showing customer confirmation:', payment);
             
@@ -1335,8 +1392,14 @@ const loadNotificationPrefs = async () => {
             // Recalculate badge tier after payment completion (Requirements 8.1, 8.2, 8.3, 8.4)
             // This triggers badge fetch, tier calculation, and upgrade check
             // Notification shows only when API confirms upgrade (not just local calculation)
-            console.log('🏆 Payment completed - triggering badge recalculation');
-            loadLoyaltyData();
+            // FIX: Add 2-second delay to allow database to process payment and update aggregated spend calculations (Bug Fix: payment-badge-award-trigger)
+            // Rationale: Visits API calculates averageSpend from COMPLETED tabs only (closed_at IS NOT NULL)
+            // If tab is still open when payment completes, new payment may not be included in spend calculation immediately
+            console.log('🏆 Payment completed - scheduling badge recalculation in 2 seconds');
+            setTimeout(() => {
+              console.log('🏆 Executing delayed badge recalculation');
+              loadLoyaltyData();
+            }, 2000);
           }
           
           // Handle failed payment notifications (Requirement 2.3)
