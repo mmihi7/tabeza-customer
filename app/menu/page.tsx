@@ -629,19 +629,52 @@ const loadLoyaltyData = async () => {
           timestamp: new Date().toISOString()
         });
 
-        // Call badge award API
-        const awardResponse = await fetch('/api/loyalty/badge/award', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            customer_id: tab.customer_id,
-            bar_id: tab.bar_id,
-            badge_level: earnedSpendTier,
-            spend_amount: averageSpend,
-          }),
-        });
+        // FIX: Add retry logic for badge award API (Bug Fix: payment-badge-award-trigger)
+        // Rationale: Handles transient network or database errors without blocking badge upgrade flow
+        let awardResponse;
+        let retryAttempt = 0;
+        const maxRetries = 1;
+        
+        while (retryAttempt <= maxRetries) {
+          try {
+            // Call badge award API
+            awardResponse = await fetch('/api/loyalty/badge/award', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                customer_id: tab.customer_id,
+                bar_id: tab.bar_id,
+                badge_level: earnedSpendTier,
+                spend_amount: averageSpend,
+              }),
+            });
+            
+            // If successful or non-retryable error, break
+            if (awardResponse.ok || awardResponse.status === 400) {
+              break;
+            }
+            
+            // If server error and we have retries left, wait and retry
+            if (awardResponse.status >= 500 && retryAttempt < maxRetries) {
+              console.warn(`⚠️ [LOYALTY] Badge award API failed (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              retryAttempt++;
+            } else {
+              break;
+            }
+          } catch (networkError) {
+            // Network error - retry if we have attempts left
+            if (retryAttempt < maxRetries) {
+              console.warn(`⚠️ [LOYALTY] Network error (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`, networkError);
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              retryAttempt++;
+            } else {
+              throw networkError;
+            }
+          }
+        }
 
         if (awardResponse.ok) {
           const awardResult = await awardResponse.json();

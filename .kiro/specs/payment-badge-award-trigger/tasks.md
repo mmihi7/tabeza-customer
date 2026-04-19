@@ -126,7 +126,7 @@ This bugfix addresses 4 root causes preventing badge awards after qualifying pay
     - _Preservation: Existing badge upgrade logic unchanged; only adds logging for diagnostics_
     - _Requirements: 1.4, 2.5_
 
-  - [ ] 3.6 Add retry logic for badge award API
+  - [x] 3.6 Add retry logic for badge award API
     - If badge award API call fails, retry once after 3 seconds before showing error toast
     - Location: `app/menu/page.tsx` lines ~680-720 in loadLoyaltyData()
     - Implementation:
@@ -140,7 +140,7 @@ This bugfix addresses 4 root causes preventing badge awards after qualifying pay
     - _Preservation: Successful badge award API calls unchanged; only adds retry logic for failures_
     - _Requirements: 1.4, 2.4, 2.5_
 
-  - [ ] 3.7 Verify bug condition exploration test now passes
+  - [x] 3.7 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Badge Awarded After Qualifying Payment
     - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
     - The test from task 1 encodes the expected behavior
@@ -169,7 +169,7 @@ This bugfix addresses 4 root causes preventing badge awards after qualifying pay
     - Confirm all tests still pass after fix (no regressions)
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Run all tests (exploration + preservation)
   - Verify bug condition test passes (badge awarded after qualifying payment)
   - Verify preservation tests pass (non-qualifying payments unchanged)
