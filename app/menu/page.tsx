@@ -676,7 +676,7 @@ const loadLoyaltyData = async () => {
           }
         }
 
-        if (awardResponse.ok) {
+        if (awardResponse?.ok) {
           const awardResult = await awardResponse.json();
           
           // FIX: Enhanced logging after badge award API response (Bug Fix: payment-badge-award-trigger)
@@ -720,7 +720,7 @@ const loadLoyaltyData = async () => {
           } else {
             console.log('ℹ️ Badge award API returned no upgrade:', awardResult);
           }
-        } else {
+        } else if (awardResponse) {
           // Log API failure with context
           const errorText = await awardResponse.text();
           console.error('❌ Badge award API failed:', {
