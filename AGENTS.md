@@ -50,9 +50,9 @@ Email confirmation link → `/auth/callback` → exchanges token → redirects t
 Customers earn a **badge** (Bronze / Silver / Gold) based on their spend at a single venue in one tab session. Badges are permanent once earned and upgrade-only.
 
 **Spend thresholds** (system-wide, set by Tabeza system admin):
-- Bronze: KES 3,000
-- Silver: KES 10,000
-- Gold: KES 25,000
+- Bronze: KES 1,000
+- Silver: KES 3,000
+- Gold: KES 5,000
 
 **Discount formula applied to every menu item**:
 ```
@@ -77,6 +77,9 @@ After an order is accepted by staff, a contextual prompt appears showing how muc
 ### Data Sources
 - Badge tier: `/api/loyalty/visits/[customer_id]?bar_id=` — returns `completedVisits`, `averageSpend`, `weeklyVisits`
 - Venue discounts: `/api/loyalty/venue-discounts/[bar_id]` — returns `spend_tiers` and `visit_bonuses` from `venue_discount_settings` table
+
+### Note on Token Economy
+Token economy (Tabeza Tokens / Billo Beans) is implemented in the staff app backend (`tokens-service.ts`) but not yet integrated into the customer-facing experience. Currently, loyalty is based solely on badge tiers and percentage discounts.
 
 ---
 
