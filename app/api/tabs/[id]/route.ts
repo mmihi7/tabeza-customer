@@ -28,7 +28,11 @@ export async function GET(
 
     const { data: tab, error } = await supabase
       .from('tabs')
-      .select('*, bar:bars(id, name, location)')
+      .select(`
+        *,
+        bar:bars(id, name, location),
+        crew_member:crew_members(id, display_name, face_photo_url, face_thumbnail_url)
+      `)
       .eq('id', tabId)
       .maybeSingle();
 

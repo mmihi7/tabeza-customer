@@ -140,6 +140,7 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('Your Tab');
   const [barName, setBarName] = useState('Loading...');
+  const [crewMember, setCrewMember] = useState<{ display_name: string; face_photo_url?: string; face_thumbnail_url?: string } | null>(null);
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
@@ -1800,6 +1801,7 @@ const loadNotificationPrefs = async () => {
       console.log('✅ Menu page: Full tab loaded:', fullTab);
       setTab(fullTab as Tab);
       setBarName((fullTab as any).bar?.name || 'Bar');
+      setCrewMember((fullTab as any).crew_member || null);
       
       // Load payment settings for this bar
       if ((fullTab as any).bar?.id) {
@@ -2951,6 +2953,21 @@ const loadNotificationPrefs = async () => {
               </div>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-white text-opacity-90">{barName}</p>
+                {crewMember && (
+                  <>
+                    <span className="text-xs text-white text-opacity-60">•</span>
+                    <div className="flex items-center gap-1">
+                      {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
+                        <img
+                          src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
+                          alt={crewMember.display_name}
+                          className="w-5 h-5 rounded-full object-cover border border-white border-opacity-30"
+                        />
+                      ) : null}
+                      <p className="text-xs text-white text-opacity-90">Your waiter: {crewMember.display_name}</p>
+                    </div>
+                  </>
+                )}
                 {selectedTable && (
                   <>
                     <span className="text-xs text-white text-opacity-60">•</span>
