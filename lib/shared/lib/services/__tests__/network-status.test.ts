@@ -68,7 +68,7 @@ describe('NetworkStatusManager', () => {
     });
 
     it('should handle missing navigator gracefully', () => {
-      // @ts-ignore
+      // @ts-expect-error
       delete global.navigator;
       
       const serverManager = new NetworkStatusManager();

@@ -1587,8 +1587,8 @@ const loadNotificationPrefs = async () => {
     }
   ];
 
-  const { connectionStatus, retryCount, reconnect, isConnected } = supabase ? useRealtimeSubscription(
-    realtimeConfigs,
+  const { connectionStatus, retryCount, reconnect, isConnected } = useRealtimeSubscription(
+    supabase ? realtimeConfigs : [],
     // Only re-subscribe when the tab ID changes — not on every render.
     // processedOrders (a Set) and callback refs change every render and would
     // constantly tear down and rebuild the channel, causing missed events.
@@ -1608,12 +1608,7 @@ const loadNotificationPrefs = async () => {
         }
       }
     }
-  ) : {
-    connectionStatus: 'disconnected' as const,
-    retryCount: 0,
-    reconnect: () => {},
-    isConnected: false
-  };
+  );
 
   // Image zoom handlers
   const handleImageZoomIn = () => {
@@ -2744,8 +2739,7 @@ const loadNotificationPrefs = async () => {
       });
       
       // Set bar context for RLS policies
-      const { error: contextError } = await supabase
-        (supabase as any).rpc('set_bar_context', { p_bar_id: tab.bar_id });
+      const { error: contextError } = await (supabase as any).rpc('set_bar_context', { p_bar_id: tab.bar_id });
       
       if (contextError) {
         console.warn('⚠️ Failed to set bar context:', contextError);

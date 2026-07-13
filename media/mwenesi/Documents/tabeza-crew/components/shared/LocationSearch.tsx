@@ -51,7 +51,7 @@ export default function LocationSearch({
   const [results, setResults] = useState<NominatimResult[]>([])
   const [open, setOpen] = useState(false)
   const [searching, setSearching] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Sync external value changes
