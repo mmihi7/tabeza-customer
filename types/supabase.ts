@@ -318,9 +318,13 @@ export interface Database {
           tab_number: number | null
           customer_name: string | null
           status: string
+          device_identifier: string | null
+          owner_identifier: string | null
           closed_at: string | null
+          opened_at: string | null
           created_at: string
           updated_at: string
+          notes: string | null
         }
         Insert: {
           id?: string
@@ -328,9 +332,13 @@ export interface Database {
           tab_number?: number | null
           customer_name?: string | null
           status?: string
+          device_identifier?: string | null
+          owner_identifier?: string | null
           closed_at?: string | null
+          opened_at?: string | null
           created_at?: string
           updated_at?: string
+          notes?: string | null
         }
         Update: {
           id?: string
@@ -338,9 +346,13 @@ export interface Database {
           tab_number?: number | null
           customer_name?: string | null
           status?: string
+          device_identifier?: string | null
+          owner_identifier?: string | null
           closed_at?: string | null
+          opened_at?: string | null
           created_at?: string
           updated_at?: string
+          notes?: string | null
         }
           Relationships: []
       }
@@ -352,6 +364,8 @@ export interface Database {
           quantity: number
           price: number
           status: string
+          total: number | null
+          initiated_by: string | null
           created_at: string
         }
         Insert: {
@@ -361,6 +375,8 @@ export interface Database {
           quantity?: number
           price: number
           status?: string
+          total?: number | null
+          initiated_by?: string | null
           created_at?: string
         }
         Update: {
@@ -370,6 +386,8 @@ export interface Database {
           quantity?: number
           price?: number
           status?: string
+          total?: number | null
+          initiated_by?: string | null
           created_at?: string
         }
           Relationships: []
@@ -409,6 +427,12 @@ export interface Database {
           method: string
           status: string
           created_at: string
+          updated_at: string | null
+          checkout_request_id: string | null
+          merchant_request_id: string | null
+          mpesa_receipt: string | null
+          reference: string | null
+          metadata: Record<string, any> | null
         }
         Insert: {
           id?: string
@@ -417,6 +441,12 @@ export interface Database {
           method: string
           status?: string
           created_at?: string
+          updated_at?: string | null
+          checkout_request_id?: string | null
+          merchant_request_id?: string | null
+          mpesa_receipt?: string | null
+          reference?: string | null
+          metadata?: Record<string, any> | null
         }
         Update: {
           id?: string
@@ -425,6 +455,12 @@ export interface Database {
           method?: string
           status?: string
           created_at?: string
+          updated_at?: string | null
+          checkout_request_id?: string | null
+          merchant_request_id?: string | null
+          mpesa_receipt?: string | null
+          reference?: string | null
+          metadata?: Record<string, any> | null
         }
           Relationships: []
       }
@@ -452,10 +488,175 @@ export interface Database {
         }
           Relationships: []
       }
-      [key: string]: {
-        Row: Record<string, unknown>
-        Insert: Record<string, unknown>
-        Update: Record<string, unknown>
+      categories: {
+        Row: {
+          id: string
+          name: string
+          bar_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          bar_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          bar_id?: string
+        }
+        Relationships: []
+      }
+      devices: {
+        Row: {
+          id: string
+          device_id: string
+          install_count: number
+          last_seen: string
+        }
+        Insert: {
+          id?: string
+          device_id: string
+          install_count?: number
+          last_seen?: string
+        }
+        Update: {
+          id?: string
+          device_id?: string
+          install_count?: number
+          last_seen?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          id: string
+          tab_id: string
+          total: number
+          status: string
+        }
+        Insert: {
+          id?: string
+          tab_id: string
+          total?: number
+          status?: string
+        }
+        Update: {
+          id?: string
+          tab_id?: string
+          total?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      slideshow_images: {
+        Row: {
+          id: string
+          bar_id: string
+          image_url: string
+          display_order: number
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          bar_id: string
+          image_url: string
+          display_order?: number
+          active?: boolean
+        }
+        Update: {
+          id?: string
+          bar_id?: string
+          image_url?: string
+          display_order?: number
+          active?: boolean
+        }
+        Relationships: []
+      }
+      tab_balances: {
+        Row: {
+          id: string
+          tab_id: string
+          balance: number
+        }
+        Insert: {
+          id?: string
+          tab_id: string
+          balance?: number
+        }
+        Update: {
+          id?: string
+          tab_id?: string
+          balance?: number
+        }
+        Relationships: []
+      }
+      tab_telegram_messages: {
+        Row: {
+          id: string
+          tab_id: string
+          message: string
+          order_type: string
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tab_id: string
+          message: string
+          order_type: string
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tab_id?: string
+          message?: string
+          order_type?: string
+          status?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_devices: {
+        Row: {
+          id: string
+          user_id: string
+          device_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          device_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          device_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      venue_discount_settings: {
+        Row: {
+          id: string
+          bar_id: string
+          spend_tiers: Record<string, any> | null
+          visit_bonuses: Record<string, any> | null
+        }
+        Insert: {
+          id?: string
+          bar_id: string
+          spend_tiers?: Record<string, any> | null
+          visit_bonuses?: Record<string, any> | null
+        }
+        Update: {
+          id?: string
+          bar_id?: string
+          spend_tiers?: Record<string, any> | null
+          visit_bonuses?: Record<string, any> | null
+        }
         Relationships: []
       }
     }

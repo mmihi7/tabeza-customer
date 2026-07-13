@@ -293,7 +293,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
     }
 
     // Requirement 2.2: Create tab_payments record with status='initiated'
-    const { data: payment, error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await (supabase as any)
       .from('tab_payments')
       .insert({
         tab_id: tabId,
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         const mockCheckoutRequestId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         // Update payment record with mock checkout request ID and status
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (supabase as any)
           .from('tab_payments')
           .update({ 
             checkout_request_id: mockCheckoutRequestId,
