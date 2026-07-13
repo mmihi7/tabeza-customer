@@ -65,6 +65,7 @@ export interface Database {
           repeat_days?: string[] | null
           repeat_interval?: string | null
         }
+          Relationships: []
       }
       hire_requests: {
         Row: {
@@ -112,6 +113,7 @@ export interface Database {
           expires_at?: string | null
           response_message?: string | null
         }
+          Relationships: []
       }
       staff_members: {
         Row: {
@@ -156,6 +158,7 @@ export interface Database {
           face_thumbnail_url?: string | null
           half_body_photo_url?: string | null
         }
+          Relationships: []
       }
       bars: {
         Row: {
@@ -165,6 +168,9 @@ export interface Database {
           area: string | null
           latitude: number | null
           longitude: number | null
+          bronze_threshold: number | null
+          silver_threshold: number | null
+          gold_threshold: number | null
         }
         Insert: {
           id?: string
@@ -173,6 +179,9 @@ export interface Database {
           area?: string | null
           latitude?: number | null
           longitude?: number | null
+          bronze_threshold?: number | null
+          silver_threshold?: number | null
+          gold_threshold?: number | null
         }
         Update: {
           id?: string
@@ -181,7 +190,11 @@ export interface Database {
           area?: string | null
           latitude?: number | null
           longitude?: number | null
+          bronze_threshold?: number | null
+          silver_threshold?: number | null
+          gold_threshold?: number | null
         }
+          Relationships: []
       }
       staff_notifications: {
         Row: {
@@ -214,6 +227,7 @@ export interface Database {
           read?: boolean
           created_at?: string
         }
+          Relationships: []
       }
       shifts: {
         Row: {
@@ -258,6 +272,191 @@ export interface Database {
           check_out_time?: string | null
           created_at?: string
         }
+          Relationships: []
+      }
+      customer_badges: {
+        Row: {
+          id: string
+          customer_id: string
+          badge_level: string
+          awarded_at: string
+          earned_at_bar_id: string | null
+          spend_amount_at_venue: number | null
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          badge_level: string
+          awarded_at?: string
+          earned_at_bar_id?: string | null
+          spend_amount_at_venue?: number | null
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          badge_level?: string
+          awarded_at?: string
+          earned_at_bar_id?: string | null
+          spend_amount_at_venue?: number | null
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_badges_earned_at_bar_id_fkey"
+            columns: ["earned_at_bar_id"]
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tabs: {
+        Row: {
+          id: string
+          bar_id: string
+          tab_number: number | null
+          customer_name: string | null
+          status: string
+          closed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          bar_id: string
+          tab_number?: number | null
+          customer_name?: string | null
+          status?: string
+          closed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          bar_id?: string
+          tab_number?: number | null
+          customer_name?: string | null
+          status?: string
+          closed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+          Relationships: []
+      }
+      tab_orders: {
+        Row: {
+          id: string
+          tab_id: string
+          product_id: string | null
+          quantity: number
+          price: number
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tab_id: string
+          product_id?: string | null
+          quantity?: number
+          price: number
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tab_id?: string
+          product_id?: string | null
+          quantity?: number
+          price?: number
+          status?: string
+          created_at?: string
+        }
+          Relationships: []
+      }
+      bar_products: {
+        Row: {
+          id: string
+          bar_id: string
+          name: string
+          price: number
+          category: string | null
+          is_available: boolean
+        }
+        Insert: {
+          id?: string
+          bar_id: string
+          name: string
+          price: number
+          category?: string | null
+          is_available?: boolean
+        }
+        Update: {
+          id?: string
+          bar_id?: string
+          name?: string
+          price?: number
+          category?: string | null
+          is_available?: boolean
+        }
+          Relationships: []
+      }
+      tab_payments: {
+        Row: {
+          id: string
+          tab_id: string
+          amount: number
+          method: string
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tab_id: string
+          amount: number
+          method: string
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tab_id?: string
+          amount?: number
+          method?: string
+          status?: string
+          created_at?: string
+        }
+          Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          display_name: string | null
+          phone: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          display_name?: string | null
+          phone?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          display_name?: string | null
+          phone?: string | null
+          created_at?: string
+        }
+          Relationships: []
+      }
+      [key: string]: {
+        Row: Record<string, unknown>
+        Insert: Record<string, unknown>
+        Update: Record<string, unknown>
+        Relationships: []
       }
     }
     Views: Record<string, never>
