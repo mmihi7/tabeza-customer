@@ -2745,7 +2745,7 @@ const loadNotificationPrefs = async () => {
       
       // Set bar context for RLS policies
       const { error: contextError } = await supabase
-        .rpc('set_bar_context', { p_bar_id: tab.bar_id });
+        (supabase as any).rpc('set_bar_context', { p_bar_id: tab.bar_id });
       
       if (contextError) {
         console.warn('⚠️ Failed to set bar context:', contextError);

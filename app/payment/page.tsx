@@ -59,7 +59,7 @@ export default function PaymentPage() {
 
   const verifyTabStatus = async (tabId: string) => {
     try {
-      const { data: fullTab, error } = await supabase
+      const { data: fullTab, error } = await (supabase as any)
         .from('tabs')
         .select('*, bar:bars(id, name)')
         .eq('id', tabId)

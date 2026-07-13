@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    const { data: tab, error } = await supabase
+    const { data: tab, error } = await (supabase as any)
       .from('tabs')
       .select('*')
       .eq('bar_id', barId)

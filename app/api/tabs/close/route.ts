@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     const confirmedOrdersTotal = orders?.reduce((sum, order) => {
-      return sum + parseFloat(order.total.toString());
+      return sum + parseFloat((order.total ?? 0).toString());
     }, 0) || 0;
 
     // Get successful payments total
@@ -260,9 +260,9 @@ export async function POST(request: NextRequest) {
 
     // Call close_tab RPC function (Requirement 1.1, 3.3, 3.5, 3.6)
     try {
-      const { error: rpcError } = await supabase.rpc('close_tab', {
+      const { error: rpcError } = await (supabase as any).rpc('close_tab', {
         p_tab_id: tabId,
-        p_write_off_amount: undefined,
+        p_write_off_amount: null,
         p_closed_by: 'customer'
       });
 

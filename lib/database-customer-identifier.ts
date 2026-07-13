@@ -153,7 +153,7 @@ export async function getCustomerIdentifierFromDatabase(deviceId: string): Promi
 
     console.log('✅ Customer identifier retrieved from database:', {
       tabId: tab.id,
-      tabNumber: tab.tab_number,
+      tabNumber: tab.tab_number ?? undefined,
       barId: tab.bar_id,
       status: tab.status,
       identifierLength: customerIdentifier.length,
@@ -164,7 +164,7 @@ export async function getCustomerIdentifierFromDatabase(deviceId: string): Promi
       success: true,
       customerIdentifier,
       barId: tab.bar_id ?? undefined,
-      tabNumber: tab.tab_number,
+      tabNumber: tab.tab_number ?? undefined,
       tabId: tab.id
     };
 
@@ -369,7 +369,7 @@ export async function resolveCustomerIdentifier(): Promise<CustomerIdentifierFro
           success: true,
           customerIdentifier: tab.owner_identifier ?? undefined,
           barId: tab.bar_id ?? undefined,
-          tabNumber: tab.tab_number,
+          tabNumber: tab.tab_number ?? undefined,
           tabId: tab.id
         };
       }
@@ -463,7 +463,7 @@ export async function resolveCustomerIdentifier(): Promise<CustomerIdentifierFro
             success: true,
             customerIdentifier: tab.owner_identifier ?? undefined,
             barId: tab.bar_id,
-            tabNumber: tab.tab_number,
+            tabNumber: tab.tab_number ?? undefined,
             tabId: tab.id
           };
         }

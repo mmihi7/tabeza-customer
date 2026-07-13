@@ -63,11 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     const nextTabNumber = (maxTabData && maxTabData.length > 0) 
-      ? maxTabData[0].tab_number + 1 
+      ? (maxTabData[0].tab_number ?? 0) + 1 
       : 1;
 
     // Create the new tab
-    const { data: newTab, error: createError } = await supabase
+    const { data: newTab, error: createError } = await (supabase as any)
       .from('tabs')
       .insert({
         bar_id: barId,
