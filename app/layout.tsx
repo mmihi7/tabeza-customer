@@ -19,7 +19,7 @@ export const metadata: Metadata = {
       { url: '/logo.svg', type: 'image/svg+xml' },
     ],
     apple: [
-      { url: '/logo.png', sizes: '180x180' },
+      { url: '/logo.svg', sizes: 'any' },
     ],
   },
   manifest: '/manifest.json',
