@@ -262,7 +262,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
             <p className="text-gray-700 mb-3">
               {countdown.isToday ? 'Opens later today' : 'Opens next time in'}:
             </p>
-            <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-2xl p-4 shadow-lg">
+            <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-2xl p-4 shadow-lg">
               <div className="text-3xl font-bold mb-1">
                 {formatCountdown()}
               </div>
@@ -283,7 +283,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
           <div className="space-y-3">
             <button
               onClick={handleClose}
-              className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all shadow-lg"
+              className="w-full bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white py-3 rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition-all shadow-lg"
             >
               Set Reminder
             </button>

@@ -184,7 +184,7 @@ export default function CartPage() {
             <p className="text-gray-500">Your cart is empty</p>
             <button
               onClick={() => router.push('/menu')}
-              className="mt-4 bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600"
+              className="mt-4 bg-[#FF4F00] text-white px-6 py-2 rounded-lg hover:bg-[#FF4F00]"
             >
               Browse Menu
             </button>
@@ -238,7 +238,7 @@ export default function CartPage() {
                   <span className="font-bold text-lg w-8 text-center">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(itemId, 1)}
-                    className="bg-orange-500 text-white p-2 rounded-lg hover:bg-orange-600"
+                    className="bg-[#FF4F00] text-white p-2 rounded-lg hover:bg-[#FF4F00]"
                     aria-label={`Increase quantity of ${item.name}`}
                   >
                     <Plus size={16} />
@@ -262,7 +262,7 @@ export default function CartPage() {
           <button
             onClick={confirmOrder}
             disabled={submitting}
-            className="w-full bg-orange-500 text-white py-4 rounded-xl font-semibold hover:bg-orange-600 disabled:bg-orange-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            className="w-full bg-[#FF4F00] text-white py-4 rounded-xl font-semibold hover:bg-[#FF4F00] disabled:bg-orange-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
           >
             <CheckCircle size={20} />
             {submitting ? 'Submitting...' : 'Confirm Order'}

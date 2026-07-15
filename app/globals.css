@@ -7,10 +7,10 @@
 
 :root {
   /* Core palette */
-  --amber:        #C8861A;
-  --amber-soft:   #E8A840;
-  --amber-pale:   rgba(200,134,26,0.08);
-  --amber-border: rgba(200,134,26,0.18);
+  --amber:        #FF4F00;
+  --amber-soft:   #FF7033;
+  --amber-pale:   rgba(255,79,0,0.08);
+  --amber-border: rgba(255,79,0,0.18);
 
   /* Backgrounds — layered dark */
   --ink:   #0C0907;
@@ -24,7 +24,7 @@
   --muted2: #5A4A38;
 
   /* Borders */
-  --border:  rgba(200,134,26,0.12);
+  --border:  rgba(255,79,0,0.12);
   --border2: rgba(255,255,255,0.05);
 
   /* Tier colours */
@@ -59,7 +59,7 @@ body {
   body {
     max-width: 428px;
     margin: 0 auto;
-    box-shadow: 0 0 60px rgba(200,134,26,0.15);
+    box-shadow: 0 0 60px rgba(255,79,0,0.15);
     background: var(--ink);
   }
   html {
@@ -141,8 +141,8 @@ body {
 
 /* ── Alert glow (order timer) ──────────────────────────────────────────────── */
 @keyframes borderPulse {
-  0%, 100% { border-color: var(--amber); box-shadow: 0 0 20px rgba(200,134,26,0.3) inset; }
-  50%       { border-color: var(--amber-soft); box-shadow: 0 0 30px rgba(232,168,64,0.4) inset; }
+  0%, 100% { border-color: var(--amber); box-shadow: 0 0 20px rgba(255,79,0,0.3) inset; }
+  50%       { border-color: var(--amber-soft); box-shadow: 0 0 30px rgba(255,112,51,0.4) inset; }
 }
 
 /* ── Accessibility ─────────────────────────────────────────────────────────── */

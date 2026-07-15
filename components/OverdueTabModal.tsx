@@ -113,7 +113,7 @@ export const OverdueTabModal: React.FC<OverdueTabModalProps> = ({
             {/* Reopen Tab (req 2.2.1) */}
             <button
               onClick={onReopen}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 rounded-xl font-bold text-base hover:from-orange-600 hover:to-red-700 transition-all shadow-lg"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white py-4 rounded-xl font-bold text-base hover:from-[#FF4F00] hover:to-red-700 transition-all shadow-lg"
             >
               <RefreshCw size={20} />
               Reopen Tab

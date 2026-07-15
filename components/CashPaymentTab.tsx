@@ -47,7 +47,7 @@ export default function CashPaymentTab({
       <button
         onClick={onPayment}
         disabled={isProcessing || !amount || parseFloat(amount) <= 0}
-        className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+        className="w-full bg-[#FF4F00] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#FF4F00] disabled:bg-gray-300 disabled:cursor-not-allowed transition"
       >
         {isProcessing ? (
           <>

@@ -2906,7 +2906,7 @@ const loadNotificationPrefs = async () => {
           <p className="text-gray-600 mb-6">This tab may have been closed, expired, or is no longer accessible.</p>
           <button
             onClick={() => router.push('/')}
-            className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600"
+            className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00]"
           >
             Start New Tab
           </button>
@@ -2937,7 +2937,7 @@ const loadNotificationPrefs = async () => {
       )}
       <div className="min-h-screen" style={{ background: 'var(--ink)' }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white sticky top-0 z-20 shadow-lg">
+      <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
         {/* Top Row: Restaurant Name & Tab Info */}
         <div className="px-4 py-3 border-b border-white border-opacity-20">
           <div className="flex items-center justify-between">
@@ -3134,7 +3134,7 @@ const loadNotificationPrefs = async () => {
                 }).map((_, i) => (
                   <div 
                     key={i} 
-                    className="w-2 h-2 rounded-full bg-orange-500"
+                    className="w-2 h-2 rounded-full bg-[#FF4F00]"
                   />
                 ))}
               </div>
@@ -3142,7 +3142,7 @@ const loadNotificationPrefs = async () => {
 
             {/* Discount Info */}
             {spendTier && (
-              <div className="inline-block bg-orange-500 bg-opacity-20 border border-orange-500 border-opacity-30 rounded-full px-3 py-1.5">
+              <div className="inline-block bg-[#FF4F00] bg-opacity-20 border border-orange-500 border-opacity-30 rounded-full px-3 py-1.5">
                 <p className="text-orange-400 text-xs font-medium">
                   {(() => {
                     const badgePct = venueDiscounts[spendTier] ?? 0;
@@ -3337,7 +3337,7 @@ const loadNotificationPrefs = async () => {
 
           <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
               {/* Cart Header */}
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4">
+              <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF4F00] text-white p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <ShoppingCart size={20} />
@@ -3348,7 +3348,7 @@ const loadNotificationPrefs = async () => {
                   </div>
                   <button
                     onClick={() => setCart([])}
-                    className="p-2 bg-orange-700 bg-opacity-50 rounded-lg hover:bg-orange-800 transition-colors"
+                    className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-orange-800 transition-colors"
                     title="Clear cart"
                   >
                     <X size={18} className="text-white" />
@@ -3428,7 +3428,7 @@ const loadNotificationPrefs = async () => {
                   <button
                     onClick={confirmOrder}
                     disabled={submittingOrder || cart.length === 0}
-                    className="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {submittingOrder ? (
                       <>
@@ -3779,7 +3779,7 @@ const loadNotificationPrefs = async () => {
                       activePaymentMethod === 'mpesa' 
                         ? 'bg-green-500 hover:bg-green-600 text-white disabled:bg-gray-300 disabled:text-gray-500'
                         : activePaymentMethod === 'cash'
-                        ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                        ? 'bg-[#FF4F00] hover:bg-[#FF4F00] text-white'
                         : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:text-gray-500'
                     } disabled:cursor-not-allowed`}
                   >
@@ -3879,7 +3879,7 @@ const loadNotificationPrefs = async () => {
             <div className="flex-shrink-0 p-6 border-t">
               <button 
                 onClick={() => setAcceptanceModal({ show: false, orderTotal: '', message: '' })}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition-colors"
+                className="w-full bg-[#FF4F00] text-white py-3 rounded-xl font-semibold hover:bg-[#FF4F00] transition-colors"
               >
                 OK
               </button>
@@ -4201,7 +4201,7 @@ const loadNotificationPrefs = async () => {
         >
           <div
             className="rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#1a1a2e' }}
+            style={{ background: 'linear-gradient(135deg, #FF4F00, #CC3F00)', color: '#1a1a2e' }}
           >
             <p className="text-sm font-medium flex-1">{spendPrompt}</p>
             <button

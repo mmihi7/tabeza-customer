@@ -41,7 +41,7 @@ export default function SavedRestaurantsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600">
+    <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00]">
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-sm border-b border-white/20">
         <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
@@ -71,7 +71,7 @@ export default function SavedRestaurantsPage() {
             </p>
             <button
               onClick={() => router.push('/login')}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition"
+              className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition"
             >
               Sign In
             </button>
@@ -85,7 +85,7 @@ export default function SavedRestaurantsPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition"
+              className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition"
             >
               Explore Bars
             </button>
@@ -119,7 +119,7 @@ export default function SavedRestaurantsPage() {
                   <div className="flex flex-col gap-3 ml-4">
                     <button
                       onClick={() => handleQuickConnect(restaurant.slug)}
-                      className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition flex items-center justify-center gap-2"
+                      className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition flex items-center justify-center gap-2"
                     >
                       <span>Quick Connect</span>
                       <ChevronRight size={20} />

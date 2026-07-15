@@ -44,30 +44,30 @@ export async function POST(request: NextRequest) {
           <tr>
             <td align="center" style="padding-bottom:32px;">
               <img src="https://app.tabeza.co.ke/logo.png" alt="Tabeza" width="48" height="48" style="display:block;border-radius:12px;" onerror="this.style.display='none'" />
-              <p style="margin:8px 0 0;color:#C8861A;font-size:20px;font-weight:700;letter-spacing:0.05em;">TABEZA</p>
+              <p style="margin:8px 0 0;color:#FF4F00;font-size:20px;font-weight:700;letter-spacing:0.05em;">TABEZA</p>
             </td>
           </tr>
 
           <tr>
-            <td style="background-color:#131009;border:1px solid rgba(200,134,26,0.18);border-radius:16px;padding:40px 36px;">
+            <td style="background-color:#131009;border:1px solid rgba(255,79,0,0.18);border-radius:16px;padding:40px 36px;">
 
               <h1 style="margin:0 0 8px;color:#F0E8D8;font-size:24px;font-weight:600;line-height:1.3;">
                 Your guests want you on Tabeza
               </h1>
               <p style="margin:0 0 16px;color:#7A6A54;font-size:15px;line-height:1.6;">
-                <strong style="color:#C8861A;">${inviterName}</strong> nominated <strong style="color:#F0E8D8;">${venueName}</strong> to join Tabeza — Kenya's digital tab management platform.
+                <strong style="color:#FF4F00;">${inviterName}</strong> nominated <strong style="color:#F0E8D8;">${venueName}</strong> to join Tabeza — Kenya's digital tab management platform.
               </p>
               <p style="margin:0 0 24px;color:#7A6A54;font-size:15px;line-height:1.6;">
                 Tabeza lets your guests open digital tabs, order from their phones, pay via M-Pesa, and earn loyalty rewards — all without paper or manual reconciliation.
               </p>
 
               <a href="https://tabeza.co.ke"
-                 style="display:inline-block;background-color:#C8861A;color:#0C0907;text-decoration:none;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;letter-spacing:0.02em;">
+                 style="display:inline-block;background-color:#FF4F00;color:#0C0907;text-decoration:none;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;letter-spacing:0.02em;">
                 Learn more at tabeza.co.ke →
               </a>
 
               <p style="margin:24px 0 0;color:#5A4A38;font-size:13px;line-height:1.6;">
-                Questions? Email us at <a href="mailto:support@tabeza.co.ke" style="color:#C8861A;text-decoration:none;">support@tabeza.co.ke</a>
+                Questions? Email us at <a href="mailto:support@tabeza.co.ke" style="color:#FF4F00;text-decoration:none;">support@tabeza.co.ke</a>
               </p>
             </td>
           </tr>
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
           <tr>
             <td align="center" style="padding-top:24px;">
               <p style="margin:0;color:#5A4A38;font-size:12px;">
-                © Tabeza · <a href="https://tabeza.co.ke" style="color:#C8861A;text-decoration:none;">tabeza.co.ke</a>
+                © Tabeza · <a href="https://tabeza.co.ke" style="color:#FF4F00;text-decoration:none;">tabeza.co.ke</a>
               </p>
             </td>
           </tr>

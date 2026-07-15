@@ -19,9 +19,9 @@ module.exports = {
           2: '#C8B898',
         },
         amber: {
-          DEFAULT: '#C8861A',
-          soft: '#E8A840',
-          pale: 'rgba(200,134,26,0.08)',
+          DEFAULT: '#FF4F00',
+          soft: '#FF7033',
+          pale: 'rgba(255,79,0,0.08)',
         },
         muted: {
           DEFAULT: '#7A6A54',
