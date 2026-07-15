@@ -156,7 +156,7 @@ export default function ChatPage() {
                 : 'bg-white shadow-sm rounded-bl-sm'
             }`}>
               <p className={msg.sender === 'user' ? 'text-white' : 'text-gray-800'}>{msg.text}</p>
-              <p className={`text-xs mt-1 ${msg.sender === 'user' ? 'text-orange-100' : 'text-gray-400'}`}>
+              <p className={`text-xs mt-1 ${msg.sender === 'user' ? 'text-[#FFE8DF]' : 'text-gray-400'}`}>
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>

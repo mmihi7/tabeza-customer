@@ -196,7 +196,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
               <div 
                 key={day} 
                 className={`flex justify-between items-center py-1 px-2 rounded ${
-                  isToday ? 'bg-orange-50 font-semibold text-orange-700' : 'text-gray-600'
+                  isToday ? 'bg-[#FFF5F0] font-semibold text-[#CC3F00]' : 'text-gray-600'
                 }`}
               >
                 <span className="text-sm">{day}</span>
@@ -247,8 +247,8 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
         <div className="px-6 pb-8 pt-4">
           {/* Icon and title */}
           <div className="text-center mb-6">
-            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Store size={40} className="text-orange-600" />
+            <div className="w-20 h-20 bg-[#FFE8DF] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Store size={40} className="text-[#FF4F00]" />
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">{barName}</h2>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full">

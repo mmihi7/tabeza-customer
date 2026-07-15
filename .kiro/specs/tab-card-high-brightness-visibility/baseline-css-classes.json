@@ -38,16 +38,16 @@
       },
       "text_colors": {
         "title": "text-gray-800",
-        "table_number": "text-orange-600",
+        "table_number": "text-[#FF4F00]",
         "timestamp": "text-gray-500",
-        "balance_amount_positive": "text-orange-700",
+        "balance_amount_positive": "text-[#CC3F00]",
         "balance_amount_zero": "text-green-600",
         "balance_label": "text-gray-500",
         "footer_orders": "text-gray-600",
         "footer_pending": "text-yellow-600"
       },
       "balance_section": {
-        "background": "bg-orange-50",
+        "background": "bg-[#FFF5F0]",
         "classes": ["text-center", "py-4", "rounded-lg", "mb-3"]
       },
       "footer": {

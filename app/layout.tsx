@@ -17,9 +17,10 @@ export const metadata: Metadata = {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
       { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
     apple: [
-      { url: '/logo.svg', sizes: 'any' },
+      { url: '/icon-192.png', sizes: '192x192' },
     ],
   },
   manifest: '/manifest.json',

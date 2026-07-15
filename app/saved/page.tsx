@@ -100,8 +100,8 @@ export default function SavedRestaurantsPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                        <Star size={24} className="text-orange-600" />
+                      <div className="w-12 h-12 bg-[#FFE8DF] rounded-xl flex items-center justify-center">
+                        <Star size={24} className="text-[#FF4F00]" />
                       </div>
                       <div>
                         <h3 className="text-xl font-bold text-gray-800">{restaurant.name}</h3>

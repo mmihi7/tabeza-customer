@@ -206,7 +206,7 @@ export default function CartPage() {
                       <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>
                   </div>
-                  <p className="font-bold text-orange-600">
+                  <p className="font-bold text-[#FF4F00]">
                     KSh {(item.price * item.quantity).toFixed(2)}
                   </p>
                 </div>
@@ -255,14 +255,14 @@ export default function CartPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4 border-t">
           <div className="flex items-center justify-between mb-3">
             <span className="text-gray-600">Total</span>
-            <span className="text-2xl font-bold text-orange-600">
+            <span className="text-2xl font-bold text-[#FF4F00]">
               KSh {cartTotal.toFixed(2)}
             </span>
           </div>
           <button
             onClick={confirmOrder}
             disabled={submitting}
-            className="w-full bg-[#FF4F00] text-white py-4 rounded-xl font-semibold hover:bg-[#FF4F00] disabled:bg-orange-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            className="w-full bg-[#FF4F00] text-white py-4 rounded-xl font-semibold hover:bg-[#FF4F00] disabled:bg-[#FF9E7A] disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
           >
             <CheckCircle size={20} />
             {submitting ? 'Submitting...' : 'Confirm Order'}

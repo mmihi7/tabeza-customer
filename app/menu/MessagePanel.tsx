@@ -166,7 +166,7 @@ export default function MessagePanel({ isOpen, onClose, tabId, initialMessages, 
                     <div
                       className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${
                         msg.initiated_by === 'customer'
-                          ? 'bg-orange-100 text-gray-900 rounded-br-none border border-orange-200'
+                          ? 'bg-[#FFE8DF] text-gray-900 rounded-br-none border border-[#FFCDB8]'
                           : 'bg-blue-100 text-gray-900 rounded-bl-none border border-blue-200'
                       }`}
                     >
@@ -185,15 +185,15 @@ export default function MessagePanel({ isOpen, onClose, tabId, initialMessages, 
                             </div>
                           )}
                           <p className="text-sm leading-relaxed">{msg.message}</p>
-                          <div className={`flex items-center gap-2 mt-2 ${msg.initiated_by === 'customer' ? 'text-orange-700' : 'text-blue-700'}`}>
+                          <div className={`flex items-center gap-2 mt-2 ${msg.initiated_by === 'customer' ? 'text-[#CC3F00]' : 'text-blue-700'}`}>
                             <span className="text-xs font-medium">
                               {formatTime(msg.created_at)}
                             </span>
                             {msg.initiated_by === 'customer' && (
                               <>
                                 <span className="text-xs">•</span>
-                                {msg.status === 'pending' && <Clock size={12} className="text-orange-600" />}
-                                {msg.status === 'acknowledged' && <CheckCircle size={12} className="text-orange-700" />}
+                                {msg.status === 'pending' && <Clock size={12} className="text-[#FF4F00]" />}
+                                {msg.status === 'acknowledged' && <CheckCircle size={12} className="text-[#CC3F00]" />}
                                 <span className="text-xs capitalize font-medium">{msg.status}</span>
                               </>
                             )}

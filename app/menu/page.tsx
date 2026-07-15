@@ -3142,8 +3142,8 @@ const loadNotificationPrefs = async () => {
 
             {/* Discount Info */}
             {spendTier && (
-              <div className="inline-block bg-[#FF4F00] bg-opacity-20 border border-orange-500 border-opacity-30 rounded-full px-3 py-1.5">
-                <p className="text-orange-400 text-xs font-medium">
+              <div className="inline-block bg-[#FF4F00] bg-opacity-20 border border-[#FF4F00] border-opacity-30 rounded-full px-3 py-1.5">
+                <p className="text-[#FF7040] text-xs font-medium">
                   {(() => {
                     const badgePct = venueDiscounts[spendTier] ?? 0;
                     const weekly = loyaltyData?.weeklyVisits ?? 0;
@@ -3169,7 +3169,7 @@ const loadNotificationPrefs = async () => {
         <div className="px-4 mt-4">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF4F00] mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">Loading menu...</p>
             </div>
           </div>
@@ -3190,7 +3190,7 @@ const loadNotificationPrefs = async () => {
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
             {spendTier && (
               <span className="text-xs text-gray-500">
-                🥉 Your prices · <span className="text-orange-500 font-medium">visit more, pay less</span>
+                🥉 Your prices · <span className="text-[#FFF5F0]0 font-medium">visit more, pay less</span>
               </span>
             )}
           </div>
@@ -3293,7 +3293,7 @@ const loadNotificationPrefs = async () => {
                           {tempFormatCurrency(bp.sale_price)}
                         </span>
                       )}
-                      <span className="text-orange-500 text-sm font-semibold">
+                      <span className="text-[#FFF5F0]0 text-sm font-semibold">
                         {tempFormatCurrency(displayPrice)}
                       </span>
                     </div>
@@ -3330,12 +3330,12 @@ const loadNotificationPrefs = async () => {
 
       {/* Cart Section - Only show when cart has items */}
       {cart.length > 0 && (
-        <div className="p-4 mb-4 bg-gradient-to-br from-orange-50 to-orange-100 border-t border-orange-200">
+        <div className="p-4 mb-4 bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DF] border-t border-[#FFCDB8]">
           <div className="mb-3">
-            <h2 className="text-xs font-semibold text-orange-600 uppercase tracking-wide">YOUR CART</h2>
+            <h2 className="text-xs font-semibold text-[#FF4F00] uppercase tracking-wide">YOUR CART</h2>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-[#FFCDB8] overflow-hidden">
               {/* Cart Header */}
               <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF4F00] text-white p-4">
                 <div className="flex items-center justify-between">
@@ -3343,12 +3343,12 @@ const loadNotificationPrefs = async () => {
                     <ShoppingCart size={20} />
                     <div>
                       <h3 className="font-bold text-lg">Cart Items</h3>
-                      <p className="text-sm text-orange-100">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
+                      <p className="text-sm text-[#FFE8DF]">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setCart([])}
-                    className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-orange-800 transition-colors"
+                    className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-[#993000] transition-colors"
                     title="Clear cart"
                   >
                     <X size={18} className="text-white" />
@@ -3359,28 +3359,28 @@ const loadNotificationPrefs = async () => {
               {/* Cart Items */}
               <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
                 {cart.map((item, index) => (
-                  <div key={`cart-item-${index}`} className="bg-orange-50 rounded-lg border border-orange-200">
+                  <div key={`cart-item-${index}`} className="bg-[#FFF5F0] rounded-lg border border-[#FFCDB8]">
                     <div className="flex items-center justify-between p-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-orange-900">{item.name}</span>
+                          <span className="font-medium text-[#662000]">{item.name}</span>
                         </div>
-                        <p className="text-sm text-orange-600">{tempFormatCurrency(item.price)} each</p>
+                        <p className="text-sm text-[#FF4F00]">{tempFormatCurrency(item.price)} each</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-orange-100 border border-orange-300 rounded-lg">
+                        <div className="flex items-center gap-2 bg-[#FFE8DF] border border-[#FF9E7A] rounded-lg">
                           <button
                             onClick={() => updateCartQuantity(index, -1)}
-                            className="p-2 hover:bg-orange-200 transition-colors"
+                            className="p-2 hover:bg-[#FFCDB8] transition-colors"
                           >
-                            <Minus size={16} className="text-orange-700" />
+                            <Minus size={16} className="text-[#CC3F00]" />
                           </button>
-                          <span className="font-bold w-8 text-center text-orange-900">{item.quantity}</span>
+                          <span className="font-bold w-8 text-center text-[#662000]">{item.quantity}</span>
                           <button
                             onClick={() => updateCartQuantity(index, 1)}
-                            className="p-2 hover:bg-orange-200 transition-colors"
+                            className="p-2 hover:bg-[#FFCDB8] transition-colors"
                           >
-                            <Plus size={16} className="text-orange-700" />
+                            <Plus size={16} className="text-[#CC3F00]" />
                           </button>
                         </div>
                         <button
@@ -3419,11 +3419,11 @@ const loadNotificationPrefs = async () => {
               </div>
 
               {/* Cart Footer */}
-              <div className="border-t border-orange-200 p-4 bg-orange-50">
+              <div className="border-t border-[#FFCDB8] p-4 bg-[#FFF5F0]">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-sm text-orange-600">Total</p>
-                    <p className="text-2xl font-bold text-orange-900">{tempFormatCurrency(cartTotal)}</p>
+                    <p className="text-sm text-[#FF4F00]">Total</p>
+                    <p className="text-2xl font-bold text-[#662000]">{tempFormatCurrency(cartTotal)}</p>
                   </div>
                   <button
                     onClick={confirmOrder}
@@ -3482,7 +3482,7 @@ const loadNotificationPrefs = async () => {
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Orders</p>
-              <p className="text-2xl font-bold text-orange-500">{tempFormatCurrency(tabTotal)}</p>
+              <p className="text-2xl font-bold text-[#FFF5F0]0">{tempFormatCurrency(tabTotal)}</p>
               <p className="text-xs text-transparent mt-1">-</p>
             </div>
           </div>
@@ -3604,7 +3604,7 @@ const loadNotificationPrefs = async () => {
                             payment.method === 'mpesa' 
                               ? 'bg-green-100 text-green-600' 
                               : payment.method === 'cash'
-                              ? 'bg-orange-100 text-orange-600'
+                              ? 'bg-[#FFE8DF] text-[#FF4F00]'
                               : 'bg-blue-100 text-blue-600'
                           }`}>
                             {payment.method === 'mpesa' ? (
@@ -3670,7 +3670,7 @@ const loadNotificationPrefs = async () => {
                   <button
                     onClick={() => setActivePaymentMethod('cards')}
                     className={`px-4 py-2 font-medium text-sm ${activePaymentMethod === 'cards'
-                        ? 'text-orange-500 border-b-2 border-orange-500'
+                        ? 'text-[#FFF5F0]0 border-b-2 border-[#FF4F00]'
                         : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
@@ -3684,7 +3684,7 @@ const loadNotificationPrefs = async () => {
                   <button
                     onClick={() => setActivePaymentMethod('cash')}
                     className={`px-4 py-2 font-medium text-sm ${activePaymentMethod === 'cash'
-                        ? 'text-orange-500 border-b-2 border-orange-500'
+                        ? 'text-[#FFF5F0]0 border-b-2 border-[#FF4F00]'
                         : 'text-gray-500 hover:text-gray-700'
                       }`}
                   >
@@ -3706,13 +3706,13 @@ const loadNotificationPrefs = async () => {
                       <p className="text-xs text-gray-400">Expires 12/26</p>
                     </div>
                   </div>
-                  <button className="text-xs text-orange-500 font-medium">Change</button>
+                  <button className="text-xs text-[#FFF5F0]0 font-medium">Change</button>
                 </div>
               )}
               <div className="border-t border-gray-100 pt-4">
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
+                <div className="bg-[#FFF5F0] border border-[#FFCDB8] rounded-xl p-4 mb-4">
                   <p className="text-sm text-gray-600 mb-1">Outstanding Balance</p>
-                  <p className="text-3xl font-bold text-orange-600">{tempFormatCurrency(balance)}</p>
+                  <p className="text-3xl font-bold text-[#FF4F00]">{tempFormatCurrency(balance)}</p>
                 </div>
                 <div className="space-y-4">
                   {activePaymentMethod === 'mpesa' && (
@@ -3755,7 +3755,7 @@ const loadNotificationPrefs = async () => {
                         type="number"
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#FF4F00] focus:outline-none"
                         placeholder="0"
                         max={balance}
                         min="1"
@@ -3862,7 +3862,7 @@ const loadNotificationPrefs = async () => {
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-orange-500">{formatCurrency(parseFloat(acceptanceModal.orderTotal))}</div>
+                <div className="text-3xl font-bold text-[#FFF5F0]0">{formatCurrency(parseFloat(acceptanceModal.orderTotal))}</div>
               </div>
               
               {/* Order Items - Scrollable if needed */}
@@ -4020,7 +4020,7 @@ const loadNotificationPrefs = async () => {
               {rejectionReasons.map((reason) => (
                 <label
                   key={reason.value}
-                  className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-orange-300 transition-colors"
+                  className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-[#FF9E7A] transition-colors"
                 >
                   <input
                     type="radio"
@@ -4028,7 +4028,7 @@ const loadNotificationPrefs = async () => {
                     value={reason.value}
                     checked={selectedRejectionReason === reason.value}
                     onChange={(e) => setSelectedRejectionReason(e.target.value)}
-                    className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+                    className="w-4 h-4 text-[#FFF5F0]0 focus:ring-[#FF4F00]"
                   />
                   <span className="text-sm text-gray-700">{reason.label}</span>
                 </label>
@@ -4154,8 +4154,8 @@ const loadNotificationPrefs = async () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto transform animate-slideUp">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Utensils size={32} className="text-orange-500" />
+              <div className="w-16 h-16 bg-[#FFE8DF] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Utensils size={32} className="text-[#FFF5F0]0" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">What's your table number?</h2>
               <p className="text-gray-600">
@@ -4172,7 +4172,7 @@ const loadNotificationPrefs = async () => {
                     console.log('🪑 Table button clicked:', tableNum);
                     selectTable(tableNum);
                   }}
-                  className="aspect-square bg-orange-50 border-2 border-orange-200 rounded-lg hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 flex items-center justify-center font-bold text-orange-700 hover:scale-105"
+                  className="aspect-square bg-[#FFF5F0] border-2 border-[#FFCDB8] rounded-lg hover:bg-[#FFE8DF] hover:border-[#FF9E7A] transition-all duration-200 flex items-center justify-center font-bold text-[#CC3F00] hover:scale-105"
                 >
                   {tableNum}
                 </button>

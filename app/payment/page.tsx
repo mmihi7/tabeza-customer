@@ -249,16 +249,16 @@ export default function PaymentPage() {
 
       <div className="p-4 space-y-4">
         {/* Balance Info */}
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div className="bg-[#FFF5F0] border border-[#FFCDB8] rounded-xl p-4">
           <p className="text-sm text-gray-600 mb-1">Outstanding Balance</p>
-          <p className="text-3xl font-bold text-orange-600">{formatCurrency(balance)}</p>
+          <p className="text-3xl font-bold text-[#FF4F00]">{formatCurrency(balance)}</p>
         </div>
 
         {/* Loading State */}
         {loadingSettings ? (
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF4F00]"></div>
               <span className="ml-3 text-gray-600">Loading payment options...</span>
             </div>
           </div>
