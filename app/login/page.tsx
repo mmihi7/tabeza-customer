@@ -31,6 +31,27 @@ export default function LoginPage() {
 
       if (error) throw error
 
+      // ── Multi-role check ─────────────────────────────────────────
+      // If this user also has venue manager or crew access, show the
+      // role picker so they can choose which platform to enter.
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const rolesRes = await fetch('/api/auth/roles', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          if (rolesRes.ok) {
+            const { roles } = await rolesRes.json()
+            if (roles.length > 1) {
+              router.push('/select-role')
+              return
+            }
+          }
+        }
+      } catch {
+        // Non-fatal — fall through to default destination
+      }
+
       // Success — send existing users directly to the start/home screen
       showToast({
         type: 'success',

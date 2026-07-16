@@ -1,19 +1,14 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import ReactDOM from 'react-dom/client';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
-  // Food & Drink Icons
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid,
-  // Loyalty tier icons (same as staff app)
   Crown, Shield, Circle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
 import { useSound } from '@/hooks/useSound';
-import { telegramMessageQueries } from '@/lib/telegram-queries';
 import { MessageAlert, InitiatedBy } from '@/lib/shared/types';
-// import { TokensService } from '@/lib/shared/tokens-service';
 import { useRealtimeSubscription } from '@/lib/shared/hooks/useRealtimeSubscription';
 import { ConnectionStatusIndicator } from '@/lib/shared/components/ConnectionStatus';
 import { calculateResponseTime, formatResponseTime, type ResponseTimeResult, validateMpesaPhoneNumber, formatPhoneNumberInput } from '@/lib/shared';
@@ -65,10 +60,9 @@ interface Tab {
   id: string;
   status: string;
   bar_id: string;
-  tab_number?: number; // DB returns number, not string
+  tab_number?: number;
   notes?: string;
   customer_id?: string;
-  // Added notification columns
   notifications_enabled?: boolean;
   sound_enabled?: boolean;
   vibration_enabled?: boolean;
@@ -79,7 +73,6 @@ interface Tab {
   };
 }
 
-// Define proper types for the response time queries
 interface OrderResponseData {
   created_at: string;
   confirmed_at: string;
@@ -94,16 +87,13 @@ interface MessageResponseData {
   initiated_by: string;
 }
 
-// Venue discount percentages — loaded from venue_discount_settings, keyed by spend tier label
-// 'bronze' = low spend, 'silver' = medium spend, 'gold' = high spend
 type SpendTierLabel = 'bronze' | 'silver' | 'gold';
 const DEFAULT_TIER_DISCOUNTS: Record<SpendTierLabel, number> = {
   bronze: 1.5,
   silver: 3.0,
-  gold:   5.0,
+  gold: 5.0,
 };
 
-// Badge display data (with venue name) for cross-venue badge persistence
 interface BadgeDisplay {
   badge_level: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
   awarded_at: string;
@@ -112,10 +102,6 @@ interface BadgeDisplay {
   spend_amount_at_venue: number;
 }
 
-/**
- * Returns the discounted price rounded to the nearest whole KES.
- * Does NOT mutate the source price.
- */
 function applyDiscount(price: number, pct: number): number {
   return Math.round(price * (1 - pct / 100));
 }
@@ -124,17 +110,19 @@ export default function MenuPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { buzz } = useVibrate(); 
-  const playAcceptanceSound = useSound(); // Use synthetic beep by default
+  const playAcceptanceSound = useSound();
+  const { showToast } = useToast();
   
-  // Authentication check - redirect unauthenticated users
+  // Authentication check
   useEffect(() => {
     if (!authLoading && !user) {
-      console.log('🔐 Unauthenticated user trying to access menu - redirecting to login');
+      console.log('🔐 Unauthenticated user - redirecting to login');
       router.push('/login');
       return;
     }
   }, [authLoading, user, router]);
   
+  // State declarations
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,20 +142,18 @@ export default function MenuPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [scrollY, setScrollY] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(Date.now()); // Add this state for real-time updates
-  const [processedOrders, setProcessedOrders] = useState<Set<string>>(new Set()); // Track processed orders for notifications
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [processedOrders, setProcessedOrders] = useState<Set<string>>(new Set());
   const [acceptanceModal, setAcceptanceModal] = useState<{
     show: boolean;
     orderTotal: string;
     message: string;
   }>({ show: false, orderTotal: '', message: '' });
 
-  // Rejection reason modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [selectedRejectionReason, setSelectedRejectionReason] = useState<string>('');
 
-  // Rejection reasons enum (max 3 as requested)
   const rejectionReasons = [
     { value: 'wrong_items', label: 'Wrong items ordered' },
     { value: 'already_ordered', label: 'Already ordered this' },
@@ -181,18 +167,10 @@ export default function MenuPage() {
     cash_enabled: true
   });
   const [loadingPaymentSettings, setLoadingPaymentSettings] = useState(true);
-  const { showToast } = useToast();
-  
-  // Token service instance - DISABLED
-  // const tokensService = supabase ? new TokensService(supabase) : null;
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
-  // const { showNotification } = useTokenNotifications();
 
-  // Balance change handlers
   const handleBalanceChange = (newBalance: number, previousBalance: number) => {
     console.log('💰 Balance changed:', { newBalance, previousBalance });
-    
-    // Show balance change notification
     const change = previousBalance - newBalance;
     if (change > 0) {
       showToast({
@@ -206,24 +184,20 @@ export default function MenuPage() {
 
   const handleAutoClose = (tabId: string, finalBalance: number) => {
     console.log('🔒 Tab auto-closing:', { tabId, finalBalance });
-    
     showToast({
       type: 'success',
       title: '🎉 Tab Closing!',
       message: 'Your tab has been paid in full and will close automatically',
       duration: 8000
     });
-    
-    // Trigger celebration effects
     if (notificationPrefs.soundEnabled) {
       playAcceptanceSound();
     }
     if (notificationPrefs.vibrationEnabled) {
-      buzz([200, 100, 200, 100, 200]); // Celebration vibration pattern
+      buzz([200, 100, 200, 100, 200]);
     }
   };
 
-  // Telegram messaging state
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -233,29 +207,21 @@ export default function MenuPage() {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [showMessagePanel, setShowMessagePanel] = useState(false);
   
-  // Static menu states
   const [menuType, setMenuType] = useState<'interactive' | 'static'>('interactive');
   const [staticMenuUrl, setStaticMenuUrl] = useState<string | null>(null);
   const [staticMenuType, setStaticMenuType] = useState<'pdf' | 'image' | 'slideshow' | null>(null);
-  const [showStaticMenu, setShowStaticMenu] = useState(false); // Start collapsed by default
+  const [showStaticMenu, setShowStaticMenu] = useState(false);
   const [imageScale, setImageScale] = useState(1);
 
-  // Slideshow state for static slideshows
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
-  // Slideshow settings are read from the DB schema when present; no default transitionSpeed assumed
   const [slideshowSettings, setSlideshowSettings] = useState<Record<string, any> | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSlideshowPlaying, setIsSlideshowPlaying] = useState(false);
 
-  // Removed collapsible functionality - all sections now always visible
-
-  // NEW: Average response time state
   const [averageResponseTime, setAverageResponseTime] = useState<number | null>(null);
   const [responseTimeLoading, setResponseTimeLoading] = useState(false);
-
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
-  // Loyalty tier state
   const [loyaltyData, setLoyaltyData] = useState<{
     visitTier: 'new' | 'bronze' | 'silver' | 'gold';
     spendTier: SpendTierLabel | null;
@@ -264,171 +230,143 @@ export default function MenuPage() {
     weeklyVisits: number;
   } | null>(null);
   
-  // Global badge state (fetched from customer_badges table)
   const [globalBadge, setGlobalBadge] = useState<BadgeDisplay | null>(null);
   const [badgeLoading, setBadgeLoading] = useState(false);
-  
-  // Venue discount percentages — loaded once per bar
   const [venueDiscounts, setVenueDiscounts] = useState<Record<SpendTierLabel, number>>(DEFAULT_TIER_DISCOUNTS);
-  // Venue visit frequency bonuses — loaded once per bar
   const [visitBonuses, setVisitBonuses] = useState<Record<string, number>>({
     once_per_week: 1.0,
     twice_per_week: 2.0,
     thrice_per_week: 3.0,
   });
-  // Venue-specific badge thresholds — loaded from API
   const [venueThresholds, setVenueThresholds] = useState<Record<SpendTierLabel, number>>({
     bronze: 3000,
     silver: 10000,
     gold: 25000,
   });
-  // Active spend tier label for pricing (null = new customer, no discount)
   const [spendTier, setSpendTier] = useState<SpendTierLabel | null>(null);
-  // Spend prompt shown after an order
   const [spendPrompt, setSpendPrompt] = useState<string | null>(null);
-  // Previous tier for upgrade detection
   const previousTier = useRef<SpendTierLabel | null>(null);
 
-  // Customer notification preferences
   const [notificationPrefs, setNotificationPrefs] = useState({
     notificationsEnabled: true,
     soundEnabled: true,
     vibrationEnabled: true
   });
 
-  // Table selection state
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [barTables, setBarTables] = useState<number[]>([]);
   const [tableSelectionRequired, setTableSelectionRequired] = useState(false);
-  
-  // Not cold preferences for drinks
   const [notColdPreferences, setNotColdPreferences] = useState<Record<string | number, boolean>>({});
   
-  // Define drink categories that support "not cold" preference
   const drinkCategories = ['Beer & Cider', 'Wine & Champagne', 'Spirits', 'Liqueurs & Specialty', 'Non-Alcoholic'];
-
   const loadAttempted = useRef(false);
 
-  // Helper function to get display image - product image only, fallback to icon
-  const getDisplayImage = (product: any) => {
+  // Refs for scrolling
+  const menuRef = useRef<HTMLDivElement>(null);
+  const ordersRef = useRef<HTMLDivElement>(null);
+  const paymentRef = useRef<HTMLDivElement>(null);
+
+  // Helper functions - memoized for performance
+  const getDisplayImage = useCallback((product: any) => {
     if (!product || typeof product !== 'object') return null;
-    
-    // Only check if product has its own image
     if (product.image_url) {
       console.log('📸 Customer using product image:', product.image_url);
       return product.image_url;
     }
-    
-    console.log('❌ Customer no product image found, will use category icon for:', product.category);
+    console.log('❌ Customer no product image found for:', product.category);
     return null;
-  };
+  }, []);
 
-  // Helper function to get icon for category based on final category list
-  const getCategoryIcon = (categoryName: string) => {
+  const getCategoryIcon = useCallback((categoryName: string) => {
     const category = categoryName.toLowerCase();
+    const iconMap: Record<string, any> = {
+      'beer & cider': Beer,
+      'beer': Beer,
+      'cider': Beer,
+      'wine & champagne': Wine,
+      'wine': Wine,
+      'champagne': Wine,
+      'spirits': Glasses,
+      'whiskey': Glasses,
+      'gin': Glasses,
+      'vodka': Glasses,
+      'rum': Glasses,
+      'tequila': Glasses,
+      'liqueurs & specialty': Martini,
+      'liqueur': Martini,
+      'brandy': Martini,
+      'cocktail': Martini,
+      'non-alcoholic': Droplets,
+      'soft drink': Droplets,
+      'juice': Droplets,
+      'water': Droplets,
+      'energy': Droplets,
+      'coffee': Droplets,
+      'tea': Droplets,
+      'pizza': Pizza,
+      'bbq': Flame,
+      'choma': Flame,
+      'grill': Flame,
+      'starters': Leaf,
+      'appetizers': Leaf,
+      'salad': Leaf,
+      'main courses': Utensils,
+      'main': Utensils,
+      'meal': Utensils,
+      'dish': Utensils,
+      'side dishes': Wheat,
+      'side': Wheat,
+      'accompaniment': Wheat,
+      'bakery': Egg,
+      'breakfast': Egg,
+      'bread': Egg,
+      'egg': Egg,
+      'desserts': Cake,
+      'snacks': Cake,
+      'cake': Cake,
+      'ice cream': Cake,
+      'popcorn': Cake,
+      'convenience': Package,
+      'other': Package,
+      'traditional': Package,
+      'smoking': Package,
+      'tobacco': Package,
+      'vape': Package,
+    };
     
-    // DRINKS CATEGORIES
-    if (category.includes('beer & cider') || category.includes('beer') || category.includes('cider')) {
-      console.log('🍺 Customer returning Beer icon for:', categoryName);
-      return Beer;
-    }
-    if (category.includes('wine & champagne') || category.includes('wine') || category.includes('champagne')) {
-      console.log('🍷 Customer returning Wine icon for:', categoryName);
-      return Wine;
-    }
-    if (category.includes('spirits') || category.includes('whiskey') || category.includes('gin') || category.includes('vodka') || category.includes('rum') || category.includes('tequila')) {
-      console.log('🥃 Customer returning Glasses icon for:', categoryName);
-      return Glasses;
-    }
-    if (category.includes('liqueurs & specialty') || category.includes('liqueur') || category.includes('brandy') || category.includes('cocktail')) {
-      console.log('🍸 Customer returning Martini icon for:', categoryName);
-      return Martini;
-    }
-    if (category.includes('non-alcoholic') || category.includes('soft drink') || category.includes('juice') || category.includes('water') || category.includes('energy') || category.includes('coffee') || category.includes('tea')) {
-      console.log('🥤 Customer returning Droplets icon for:', categoryName);
-      return Droplets;
-    }
-    
-    // FOOD CATEGORIES
-    if (category.includes('pizza')) {
-      console.log('🍕 Customer returning Pizza icon for:', categoryName);
-      return Pizza;
-    }
-    if (category.includes('bbq') || category.includes('choma') || category.includes('grill')) {
-      console.log('🔥 Customer returning Flame icon for:', categoryName);
-      return Flame;
-    }
-    if (category.includes('starters') || category.includes('appetizers') || category.includes('salad')) {
-      console.log('🥗 Customer returning Leaf icon for:', categoryName);
-      return Leaf;
-    }
-    if (category.includes('main courses') || category.includes('main') || category.includes('meal') || category.includes('dish')) {
-      console.log('🍽️ Customer returning Utensils icon for:', categoryName);
-      return Utensils;
-    }
-    if (category.includes('side dishes') || category.includes('side') || category.includes('accompaniment')) {
-      console.log('🍚 Customer returning Wheat icon for:', categoryName);
-      return Wheat;
-    }
-    if (category.includes('bakery') || category.includes('breakfast') || category.includes('bread') || category.includes('egg')) {
-      console.log('🍳 Customer returning Egg icon for:', categoryName);
-      return Egg;
-    }
-    if (category.includes('desserts') || category.includes('snacks') || category.includes('cake') || category.includes('ice cream') || category.includes('popcorn')) {
-      console.log('🍰 Customer returning Cake icon for:', categoryName);
-      return Cake;
-    }
-    if (category.includes('convenience') || category.includes('other') || category.includes('traditional') || category.includes('smoking') || category.includes('tobacco') || category.includes('vape')) {
-      console.log('📦 Customer returning Package icon for:', categoryName);
-      return Package;
-    }
-    
-    // Default
-    console.log('📦 Customer returning default LayoutGrid icon for:', categoryName);
-    return LayoutGrid;
-  };
+    const matchedKey = Object.keys(iconMap).find(key => category.includes(key));
+    return matchedKey ? iconMap[matchedKey] : LayoutGrid;
+  }, []);
 
-  // Helper function to check if an item is a drink
-  const isDrinkItem = (item: any): boolean => {
+  const isDrinkItem = useCallback((item: any): boolean => {
     return item.category ? drinkCategories.includes(item.category) : false;
-  };
+  }, []);
 
-  // Helper function to check if a product is a drink
-  const isDrinkProduct = (product: any): boolean => {
+  const isDrinkProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
     return drinkCategories.includes(product.category);
-  };
+  }, []);
 
-  // Helper function to check if a product is food
-  const isFoodProduct = (product: any): boolean => {
+  const isFoodProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
     return !drinkCategories.includes(product.category);
-  };
+  }, []);
 
-  // Toggle not cold preference
-  const toggleNotCold = (itemId: string | number) => {
+  const toggleNotCold = useCallback((itemId: string | number) => {
     setNotColdPreferences(prev => ({
       ...prev,
       [itemId]: !prev[itemId]
     }));
-  };
+  }, []);
 
-  const menuRef = useRef<HTMLDivElement>(null);
-  const foodMenuRef = useRef<HTMLDivElement>(null);
-  const drinksMenuRef = useRef<HTMLDivElement>(null);
-  const ordersRef = useRef<HTMLDivElement>(null);
-  const paymentRef = useRef<HTMLDivElement>(null);
-
-  // Timer for real-time updates - FIX: Add this useEffect
+  // Timer for real-time updates
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
-    }, 1000); // Update every second
+    }, 1000);
 
-    return () => {
-      clearInterval(timer);
-    };
+    return () => clearInterval(timer);
   }, []);
 
   // Handle scroll for parallax effect
@@ -440,13 +378,14 @@ export default function MenuPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Load cart from sessionStorage on component mount
+  // Load cart from sessionStorage
   useEffect(() => {
     const cartData = sessionStorage.getItem('cart');
     if (cartData) {
       try {
-        setCart(JSON.parse(cartData));
-        console.log('🛒 Cart loaded from sessionStorage:', JSON.parse(cartData));
+        const parsedCart = JSON.parse(cartData);
+        setCart(parsedCart);
+        console.log('🛒 Cart loaded from sessionStorage:', parsedCart);
       } catch (error) {
         console.error('Error parsing cart data:', error);
         setCart([]);
@@ -454,27 +393,20 @@ export default function MenuPage() {
     }
   }, []);
 
-  // Load user's token balance - DISABLED
+  // Load user's token balance - DISABLED (kept for future use)
   useEffect(() => {
-    const loadTokenBalance = async () => {
-      console.log('🪙 Token balance loading disabled');
-      // Token balance loading disabled to prevent database errors
-      setCurrentBalance(null);
-    };
-
-    loadTokenBalance();
+    console.log('🪙 Token balance loading disabled');
+    setCurrentBalance(null);
   }, [tab?.id]);
 
-  // NEW: Function to calculate average response time for this bar
-  // NEW: Function to calculate average response time for this bar (COPIED FROM STAFF APP)
-  // NEW: Function to calculate average response time for this bar (USING SHARED UTILITY)
-  const calculateAverageResponseTime = async (barId: string) => {
+  // Calculate average response time
+  const calculateAverageResponseTime = useCallback(async (barId: string) => {
     console.log('🔍 [CUSTOMER] Starting response time calculation for bar:', barId);
     setResponseTimeLoading(true);
     
     try {
       const result = await calculateResponseTime(barId, {
-        timeframe: '24h', // Show last 24 hours for more relevant data
+        timeframe: '24h',
         includeMessages: true,
         includeOrders: true
       });
@@ -485,7 +417,6 @@ export default function MenuPage() {
         return;
       }
       
-      // Round to nearest minute for display
       const roundedAvg = Math.round(result.averageMinutes);
       setAverageResponseTime(roundedAvg);
       
@@ -502,237 +433,252 @@ export default function MenuPage() {
     } finally {
       setResponseTimeLoading(false);
     }
-  };
-  
-// Function to load loyalty data
-const loadLoyaltyData = async () => {
-  if (!tab?.customer_id || !tab?.bar_id) return;
+  }, []);
 
-  try {
-    // FIX: Enhanced logging for badge upgrade flow (Bug Fix: payment-badge-award-trigger)
-    console.log('🏆 [LOYALTY] Starting loyalty data load:', {
-      customer_id: tab.customer_id,
-      bar_id: tab.bar_id,
-      timestamp: new Date().toISOString()
-    });
+  // Helper: compare tier levels
+  const tierRank = useCallback((tier: SpendTierLabel | null): number => {
+    if (!tier) return 0;
+    if (tier === 'bronze') return 1;
+    if (tier === 'silver') return 2;
+    if (tier === 'gold') return 3;
+    return 0;
+  }, []);
 
-    // Fetch global badge, visits, and venue discounts in parallel
-    console.log('🏆 [LOYALTY] Fetching global badge, visits, and venue discounts...');
-    const [badgeRes, visitsRes, discountsRes] = await Promise.all([
-      fetch(`/api/loyalty/badge/${tab.customer_id}`),
-      fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
-      fetch(`/api/loyalty/venue-discounts/${tab.bar_id}`),
-    ]);
+  // Helper: build spend prompt
+  const buildSpendPrompt = useCallback((
+    currentSpend: number,
+    discounts: Record<SpendTierLabel, number>,
+    earnedTier: SpendTierLabel | null,
+    thresholds: Record<SpendTierLabel, number>,
+  ): string | null => {
+    if (earnedTier === 'gold') return null;
 
-    const badgeData    = badgeRes.ok    ? await badgeRes.json()    : null;
-    const visitsData   = visitsRes.ok   ? await visitsRes.json()   : null;
-    const discountsData = discountsRes.ok ? await discountsRes.json() : null;
+    const nextTier: SpendTierLabel = earnedTier === 'silver' ? 'gold' : earnedTier === 'bronze' ? 'silver' : 'bronze';
+    const gap = thresholds[nextTier] - currentSpend;
+    if (gap <= 0) return null;
 
-    console.log('🏆 [LOYALTY] API responses received:', {
-      badgeData: badgeData ? { badge_level: badgeData.badge_level } : null,
-      visitsData: visitsData ? { 
-        completedVisits: visitsData.completedVisits, 
-        averageSpend: visitsData.averageSpend,
-        weeklyVisits: visitsData.weeklyVisits 
-      } : null,
-      discountsData: discountsData ? 'loaded' : null
-    });
+    const pct = discounts[nextTier];
+    return `Spend KES ${gap.toLocaleString('en-KE')} more to unlock ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)} — ${pct}% off every order here.`;
+  }, []);
 
-    // Store global badge in state
-    if (badgeData && badgeData.badge_level) {
-      setGlobalBadge(badgeData as BadgeDisplay);
-      console.log('🏆 [LOYALTY] Global badge loaded:', badgeData);
-    } else {
-      setGlobalBadge(null);
-      console.log('🏆 [LOYALTY] No global badge found for customer');
-    }
+  // Load loyalty data
+  const loadLoyaltyData = useCallback(async () => {
+    if (!tab?.customer_id || !tab?.bar_id) return;
 
-    if (discountsData?.spend_tiers) {
-      setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
-    }
-    if (discountsData?.visit_bonuses) {
-      setVisitBonuses(discountsData.visit_bonuses);
-    }
+    try {
+      console.log('🏆 [LOYALTY] Starting loyalty data load:', {
+        customer_id: tab.customer_id,
+        bar_id: tab.bar_id,
+        timestamp: new Date().toISOString()
+      });
 
-    if (!visitsData || visitsData.error) return;
+      const [badgeRes, visitsRes, discountsRes] = await Promise.all([
+        fetch(`/api/loyalty/badge/${tab.customer_id}`),
+        fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
+        fetch(`/api/loyalty/venue-discounts/${tab.bar_id}`),
+      ]);
 
-    const completedVisits: number = visitsData.completedVisits ?? 0;
-    const averageSpend: number    = visitsData.averageSpend    ?? 0;
-    const weeklyVisits: number    = visitsData.weeklyVisits    ?? 0;
-    const thresholds = visitsData.thresholds ?? { bronze: 3000, silver: 10000, gold: 25000 };
+      const badgeData = badgeRes.ok ? await badgeRes.json() : null;
+      const visitsData = visitsRes.ok ? await visitsRes.json() : null;
+      const discountsData = discountsRes.ok ? await discountsRes.json() : null;
 
-    // Store venue thresholds in state for use in buildSpendPrompt
-    setVenueThresholds(thresholds);
+      console.log('🏆 [LOYALTY] API responses received:', {
+        badgeData: badgeData ? { badge_level: badgeData.badge_level } : null,
+        visitsData: visitsData ? { 
+          completedVisits: visitsData.completedVisits, 
+          averageSpend: visitsData.averageSpend,
+          weeklyVisits: visitsData.weeklyVisits 
+        } : null,
+        discountsData: discountsData ? 'loaded' : null
+      });
 
-    // Visit tier — badge count (1/2/3 icons shown in header)
-    // Requires at least 1 completed visit to earn any tier
-    let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
-    if (completedVisits >= 3)      visitTier = 'gold';
-    else if (completedVisits >= 2) visitTier = 'silver';
-    else if (completedVisits >= 1) visitTier = 'bronze';
+      if (badgeData && badgeData.badge_level) {
+        setGlobalBadge(badgeData as BadgeDisplay);
+        console.log('🏆 [LOYALTY] Global badge loaded:', badgeData);
+      } else {
+        setGlobalBadge(null);
+        console.log('🏆 [LOYALTY] No global badge found for customer');
+      }
 
-    // Spend tier — determines which discount % applies (venue-specific thresholds)
-    // Uses venue thresholds from bars table, falling back to system defaults
-    let earnedSpendTier: SpendTierLabel | null = null;
-    if (averageSpend >= thresholds.gold)     earnedSpendTier = 'gold';
-    else if (averageSpend >= thresholds.silver) earnedSpendTier = 'silver';
-    else if (averageSpend >= thresholds.bronze)  earnedSpendTier = 'bronze';
+      if (discountsData?.spend_tiers) {
+        setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
+      }
+      if (discountsData?.visit_bonuses) {
+        setVisitBonuses(discountsData.visit_bonuses);
+      }
 
-    setLoyaltyData({
-      visitTier,
-      spendTier: earnedSpendTier,
-      totalVisits: completedVisits,
-      totalSpend: averageSpend * completedVisits,
-      weeklyVisits,
-    });
+      if (!visitsData || visitsData.error) return;
 
-    console.log('📊 Loyalty data set:', {
-      visitTier,
-      earnedSpendTier,
-      completedVisits,
-      weeklyVisits,
-      averageSpend,
-      thresholds
-    });
+      const completedVisits: number = visitsData.completedVisits ?? 0;
+      const averageSpend: number = visitsData.averageSpend ?? 0;
+      const weeklyVisits: number = visitsData.weeklyVisits ?? 0;
+      const thresholds = visitsData.thresholds ?? { bronze: 3000, silver: 10000, gold: 25000 };
 
-    // Use global badge level for spendTier state (not local calculation)
-    // This ensures cross-venue badge display and discount application
-    const globalBadgeLevel = badgeData?.badge_level as SpendTierLabel | null;
-    
-    // FIX: Enhanced logging for badge upgrade detection (Bug Fix: payment-badge-award-trigger)
-    console.log('🎉 [LOYALTY] Checking for badge upgrade:', {
-      currentBadge: globalBadgeLevel || 'none',
-      earnedTier: earnedSpendTier || 'none',
-      averageSpend,
-      thresholds
-    });
-    
-    // Badge upgrade detection and award
-    // Compare earned tier rank vs global badge rank
-    const currentBadgeRank = tierRank(globalBadgeLevel);
-    const earnedTierRank = tierRank(earnedSpendTier);
-    
-    if (earnedSpendTier && earnedTierRank > currentBadgeRank) {
-      console.log('🎉 [LOYALTY] Badge upgrade detected:', {
-        current: globalBadgeLevel || 'none',
-        earned: earnedSpendTier,
-        currentRank: currentBadgeRank,
-        earnedRank: earnedTierRank
+      setVenueThresholds(thresholds);
+
+      let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
+      if (completedVisits >= 3) visitTier = 'gold';
+      else if (completedVisits >= 2) visitTier = 'silver';
+      else if (completedVisits >= 1) visitTier = 'bronze';
+
+      let earnedSpendTier: SpendTierLabel | null = null;
+      if (averageSpend >= thresholds.gold) earnedSpendTier = 'gold';
+      else if (averageSpend >= thresholds.silver) earnedSpendTier = 'silver';
+      else if (averageSpend >= thresholds.bronze) earnedSpendTier = 'bronze';
+
+      setLoyaltyData({
+        visitTier,
+        spendTier: earnedSpendTier,
+        totalVisits: completedVisits,
+        totalSpend: averageSpend * completedVisits,
+        weeklyVisits,
+      });
+
+      console.log('📊 Loyalty data set:', {
+        visitTier,
+        earnedSpendTier,
+        completedVisits,
+        weeklyVisits,
+        averageSpend,
+        thresholds
+      });
+
+      const globalBadgeLevel = badgeData?.badge_level as SpendTierLabel | null;
+      
+      console.log('🎉 [LOYALTY] Checking for badge upgrade:', {
+        currentBadge: globalBadgeLevel || 'none',
+        earnedTier: earnedSpendTier || 'none',
+        averageSpend,
+        thresholds
       });
       
-      try {
-        // FIX: Enhanced logging before badge award API call (Bug Fix: payment-badge-award-trigger)
-        console.log('🎉 [LOYALTY] Calling badge award API:', {
-          customer_id: tab.customer_id,
-          bar_id: tab.bar_id,
-          badge_level: earnedSpendTier,
-          spend_amount: averageSpend,
-          timestamp: new Date().toISOString()
+      const currentBadgeRank = tierRank(globalBadgeLevel);
+      const earnedTierRank = tierRank(earnedSpendTier);
+      
+      if (earnedSpendTier && earnedTierRank > currentBadgeRank) {
+        console.log('🎉 [LOYALTY] Badge upgrade detected:', {
+          current: globalBadgeLevel || 'none',
+          earned: earnedSpendTier,
+          currentRank: currentBadgeRank,
+          earnedRank: earnedTierRank
         });
-
-        // FIX: Add retry logic for badge award API (Bug Fix: payment-badge-award-trigger)
-        // Rationale: Handles transient network or database errors without blocking badge upgrade flow
-        let awardResponse;
-        let retryAttempt = 0;
-        const maxRetries = 1;
         
-        while (retryAttempt <= maxRetries) {
-          try {
-            // Call badge award API
-            awardResponse = await fetch('/api/loyalty/badge/award', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                customer_id: tab.customer_id,
-                bar_id: tab.bar_id,
-                badge_level: earnedSpendTier,
-                spend_amount: averageSpend,
-              }),
-            });
-            
-            // If successful or non-retryable error, break
-            if (awardResponse.ok || awardResponse.status === 400) {
-              break;
-            }
-            
-            // If server error and we have retries left, wait and retry
-            if (awardResponse.status >= 500 && retryAttempt < maxRetries) {
-              console.warn(`⚠️ [LOYALTY] Badge award API failed (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`);
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              retryAttempt++;
-            } else {
-              break;
-            }
-          } catch (networkError) {
-            // Network error - retry if we have attempts left
-            if (retryAttempt < maxRetries) {
-              console.warn(`⚠️ [LOYALTY] Network error (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`, networkError);
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              retryAttempt++;
-            } else {
-              throw networkError;
-            }
-          }
-        }
-
-        if (awardResponse?.ok) {
-          const awardResult = await awardResponse.json();
-          
-          // FIX: Enhanced logging after badge award API response (Bug Fix: payment-badge-award-trigger)
-          console.log('✅ [LOYALTY] Badge award API response:', {
-            upgraded: awardResult.upgraded,
-            newBadge: awardResult.newBadge ? {
-              badge_level: awardResult.newBadge.badge_level,
-              awarded_at: awardResult.newBadge.awarded_at
-            } : null,
-            timestamp: new Date().toISOString()
-          });
-          
-          if (awardResult.upgraded && awardResult.newBadge) {
-            // Update global badge state
-            setGlobalBadge({
-              badge_level: awardResult.newBadge.badge_level,
-              awarded_at: awardResult.newBadge.awarded_at,
-              earned_at_bar_id: awardResult.newBadge.earned_at_bar_id,
-              earned_at_bar_name: barName,
-              spend_amount_at_venue: awardResult.newBadge.spend_amount_at_venue,
-            });
-            
-            // Show upgrade notification
-            const tierName = earnedSpendTier.charAt(0).toUpperCase() + earnedSpendTier.slice(1);
-            showToast({
-              type: 'success',
-              title: `Congratulations! You've earned ${tierName} status`,
-              message: `at ${barName}`,
-              duration: 8000
-            });
-            
-            // Trigger notification sound and vibration if enabled
-            if (notificationPrefs.soundEnabled) {
-              playAcceptanceSound();
-            }
-            if (notificationPrefs.vibrationEnabled) {
-              buzz([200, 100, 200, 100, 200]);
-            }
-            
-            console.log('✅ Badge upgrade successful:', awardResult);
-          } else {
-            console.log('ℹ️ Badge award API returned no upgrade:', awardResult);
-          }
-        } else if (awardResponse) {
-          // Log API failure with context
-          const errorText = await awardResponse.text();
-          console.error('❌ Badge award API failed:', {
+        try {
+          console.log('🎉 [LOYALTY] Calling badge award API:', {
             customer_id: tab.customer_id,
             bar_id: tab.bar_id,
             badge_level: earnedSpendTier,
-            status: awardResponse.status,
-            error: errorText
+            spend_amount: averageSpend,
+            timestamp: new Date().toISOString()
+          });
+
+          let awardResponse;
+          let retryAttempt = 0;
+          const maxRetries = 1;
+          
+          while (retryAttempt <= maxRetries) {
+            try {
+              awardResponse = await fetch('/api/loyalty/badge/award', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  customer_id: tab.customer_id,
+                  bar_id: tab.bar_id,
+                  badge_level: earnedSpendTier,
+                  spend_amount: averageSpend,
+                }),
+              });
+              
+              if (awardResponse.ok || awardResponse.status === 400) {
+                break;
+              }
+              
+              if (awardResponse.status >= 500 && retryAttempt < maxRetries) {
+                console.warn(`⚠️ [LOYALTY] Badge award API failed (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                retryAttempt++;
+              } else {
+                break;
+              }
+            } catch (networkError) {
+              if (retryAttempt < maxRetries) {
+                console.warn(`⚠️ [LOYALTY] Network error (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`, networkError);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                retryAttempt++;
+              } else {
+                throw networkError;
+              }
+            }
+          }
+
+          if (awardResponse?.ok) {
+            const awardResult = await awardResponse.json();
+            
+            console.log('✅ [LOYALTY] Badge award API response:', {
+              upgraded: awardResult.upgraded,
+              newBadge: awardResult.newBadge ? {
+                badge_level: awardResult.newBadge.badge_level,
+                awarded_at: awardResult.newBadge.awarded_at
+              } : null,
+              timestamp: new Date().toISOString()
+            });
+            
+            if (awardResult.upgraded && awardResult.newBadge) {
+              setGlobalBadge({
+                badge_level: awardResult.newBadge.badge_level,
+                awarded_at: awardResult.newBadge.awarded_at,
+                earned_at_bar_id: awardResult.newBadge.earned_at_bar_id,
+                earned_at_bar_name: barName,
+                spend_amount_at_venue: awardResult.newBadge.spend_amount_at_venue,
+              });
+              
+              const tierName = earnedSpendTier.charAt(0).toUpperCase() + earnedSpendTier.slice(1);
+              showToast({
+                type: 'success',
+                title: `Congratulations! You've earned ${tierName} status`,
+                message: `at ${barName}`,
+                duration: 8000
+              });
+              
+              if (notificationPrefs.soundEnabled) {
+                playAcceptanceSound();
+              }
+              if (notificationPrefs.vibrationEnabled) {
+                buzz([200, 100, 200, 100, 200]);
+              }
+              
+              console.log('✅ Badge upgrade successful:', awardResult);
+            } else {
+              console.log('ℹ️ Badge award API returned no upgrade:', awardResult);
+            }
+          } else if (awardResponse) {
+            const errorText = await awardResponse.text();
+            console.error('❌ Badge award API failed:', {
+              customer_id: tab.customer_id,
+              bar_id: tab.bar_id,
+              badge_level: earnedSpendTier,
+              status: awardResponse.status,
+              error: errorText
+            });
+            
+            showToast({
+              type: 'error',
+              title: 'Unable to update loyalty status',
+              message: 'Please refresh the page to see your current status.',
+              duration: 5000
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error awarding badge:', {
+            customer_id: tab.customer_id,
+            bar_id: tab.bar_id,
+            badge_level: earnedSpendTier,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
           });
           
-          // Show generic error toast (graceful degradation)
           showToast({
             type: 'error',
             title: 'Unable to update loyalty status',
@@ -740,160 +686,87 @@ const loadLoyaltyData = async () => {
             duration: 5000
           });
         }
-      } catch (error) {
-        // Log error with full context
-        console.error('❌ Error awarding badge:', {
-          customer_id: tab.customer_id,
-          bar_id: tab.bar_id,
-          badge_level: earnedSpendTier,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined
-        });
-        
-        // Show generic error toast (graceful degradation)
-        showToast({
-          type: 'error',
-          title: 'Unable to update loyalty status',
-          message: 'Please refresh the page to see your current status.',
-          duration: 5000
-        });
-        
-        // Continue without badge upgrade (graceful degradation)
-        // The app remains functional even if badge upgrade fails
       }
+
+      if (globalBadgeLevel) {
+        setSpendTier(globalBadgeLevel);
+        console.log('💳 Using global badge for discount:', globalBadgeLevel);
+      } else if (earnedSpendTier) {
+        setSpendTier(earnedSpendTier);
+        console.log('💳 Using locally earned tier for discount:', earnedSpendTier);
+      } else {
+        setSpendTier(null);
+        console.log('💳 No badge tier - normal pricing');
+      }
+
+      console.log('✅ Loyalty data loading complete:', {
+        globalBadge: globalBadgeLevel,
+        spendTier: globalBadgeLevel || earnedSpendTier,
+        weeklyVisits,
+        venueDiscounts,
+        visitBonuses
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading loyalty data:', error);
     }
+  }, [tab?.customer_id, tab?.bar_id, barName, notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled, buzz, playAcceptanceSound, showToast, tierRank]);
 
-    // Set spendTier to global badge level (cross-venue persistence)
-    // Falls back to locally earned tier if no global badge exists
-    if (globalBadgeLevel) {
-      setSpendTier(globalBadgeLevel);
-      console.log('💳 Using global badge for discount:', globalBadgeLevel);
-    } else if (earnedSpendTier) {
-      setSpendTier(earnedSpendTier);
-      console.log('💳 Using locally earned tier for discount:', earnedSpendTier);
-    } else {
-      setSpendTier(null);
-      console.log('💳 No badge tier - normal pricing');
+  // Render loyalty icons
+  const renderLoyaltyIcons = useCallback(() => {
+    if (!globalBadge && (!loyaltyData || loyaltyData.visitTier === 'new')) return null;
+    
+    const badgeLevel = globalBadge?.badge_level || loyaltyData?.spendTier;
+    
+    let IconComponent = null;
+    let iconColor = 'text-white';
+    
+    if (badgeLevel === 'platinum') {
+      IconComponent = Crown;
+      iconColor = 'text-purple-300';
+    } else if (badgeLevel === 'gold') {
+      IconComponent = Crown;
+      iconColor = 'text-yellow-300';
+    } else if (badgeLevel === 'silver') {
+      IconComponent = Shield;
+      iconColor = 'text-gray-300';
+    } else if (badgeLevel === 'bronze') {
+      IconComponent = Circle;
+      iconColor = 'text-amber-400';
     }
+    
+    if (!IconComponent) return null;
+    
+    const visitTier = loyaltyData?.visitTier || 'new';
+    const iconCount = visitTier === 'gold' ? 3 : visitTier === 'silver' ? 2 : 1;
+    
+    return (
+      <div className="flex gap-0.5 items-center">
+        {Array.from({ length: iconCount }).map((_, i) => (
+          <IconComponent 
+            key={i} 
+            className={`w-3.5 h-3.5 ${iconColor} drop-shadow`}
+            size={14} 
+            strokeWidth={2.5}
+            fill={badgeLevel === 'silver' ? 'currentColor' : 'none'}
+          />
+        ))}
+      </div>
+    );
+  }, [globalBadge, loyaltyData]);
 
-    console.log('✅ Loyalty data loading complete:', {
-      globalBadge: globalBadgeLevel,
-      spendTier: globalBadgeLevel || earnedSpendTier,
-      weeklyVisits,
-      venueDiscounts,
-      visitBonuses
-    });
+  // Load loyalty data and venue discounts when tab changes
+  useEffect(() => {
+    if (!tab?.bar_id) return;
+    calculateAverageResponseTime(tab.bar_id);
+    loadLoyaltyData();
+  }, [tab?.bar_id, tab?.customer_id, calculateAverageResponseTime, loadLoyaltyData]);
 
-  } catch (error) {
-    console.error('❌ Error loading loyalty data:', error);
-  }
-};
+  // Load notification preferences
+  const loadNotificationPrefs = useCallback(async () => {
+    if (!tab) return;
 
-// Helper: compare tier levels for upgrade detection
-const tierRank = (tier: SpendTierLabel | null): number => {
-  if (!tier) return 0;
-  if (tier === 'bronze') return 1;
-  if (tier === 'silver') return 2;
-  if (tier === 'gold') return 3;
-  return 0;
-};
-
-// Helper: generate a spend prompt message based on current spend vs next tier
-const buildSpendPrompt = (
-  currentSpend: number,
-  discounts: Record<SpendTierLabel, number>,
-  earnedTier: SpendTierLabel | null,
-  thresholds: Record<SpendTierLabel, number>,
-): string | null => {
-  if (earnedTier === 'gold') return null; // already at top
-
-  const nextTier: SpendTierLabel = earnedTier === 'silver' ? 'gold' : earnedTier === 'bronze' ? 'silver' : 'bronze';
-  const gap = thresholds[nextTier] - currentSpend;
-  if (gap <= 0) return null;
-
-  const pct = discounts[nextTier];
-  return `Spend KES ${gap.toLocaleString('en-KE')} more to unlock ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)} — ${pct}% off every order here.`;
-};
-const renderLoyaltyIcons = () => {
-  // Show badge if either globalBadge exists OR visitTier is not 'new'
-  if (!globalBadge && (!loyaltyData || loyaltyData.visitTier === 'new')) return null;
-  
-  // Badge shape from global badge (earned anywhere, works everywhere)
-  // Falls back to local spendTier if no global badge exists
-  const badgeLevel = globalBadge?.badge_level || loyaltyData?.spendTier;
-  
-  // Map badge levels with DISTINCTIVE icons and colors:
-  // Bronze → Circle (amber/orange)
-  // Silver → Shield (silver/gray)
-  // Gold → Crown (gold/yellow)
-  // Platinum → Crown (purple/premium)
-  let IconComponent = null;
-  let iconColor = 'text-white';
-  
-  if (badgeLevel === 'platinum') {
-    IconComponent = Crown;
-    iconColor = 'text-purple-300'; // Purple for platinum
-  } else if (badgeLevel === 'gold') {
-    IconComponent = Crown;
-    iconColor = 'text-yellow-300'; // Gold/yellow for gold
-  } else if (badgeLevel === 'silver') {
-    IconComponent = Shield;
-    iconColor = 'text-gray-300'; // Silver/gray for silver
-  } else if (badgeLevel === 'bronze') {
-    IconComponent = Circle;
-    iconColor = 'text-amber-400'; // Amber/orange for bronze
-  }
-  
-  if (!IconComponent) return null;
-  
-  // Badge count from visit frequency at THIS venue
-  const visitTier = loyaltyData?.visitTier || 'new';
-  // Calculate icon count: visitTier gold=3, silver=2, bronze=1
-  // Handle case where globalBadge exists but visitTier is 'new' (show 1 icon)
-  const iconCount = visitTier === 'gold' ? 3 : visitTier === 'silver' ? 2 : 1;
-  
-  return (
-    <div className="flex gap-0.5 items-center">
-      {Array.from({ length: iconCount }).map((_, i) => (
-        <IconComponent 
-          key={i} 
-          className={`w-3.5 h-3.5 ${iconColor} drop-shadow`}
-          size={14} 
-          strokeWidth={2.5}
-          fill={badgeLevel === 'silver' ? 'currentColor' : 'none'} // Fill shield for silver
-        />
-      ))}
-    </div>
-  );
-};
-
-// Load loyalty data and venue discounts when tab is loaded
-useEffect(() => {
-  if (!tab?.bar_id) return;
-  calculateAverageResponseTime(tab.bar_id);
-  loadLoyaltyData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [tab?.bar_id, tab?.customer_id]);
-
-// Load notification preferences when tab loads - reads from already-loaded tab state
-// to avoid a redundant Supabase query that would be blocked by RLS.
-const loadNotificationPrefs = async () => {
-  if (!tab) return;
-
-  try {
-    // Use the tab already in state — it was fetched via the service role API route
-    // so all fields are available. No need for a second DB query.
-    const tabData = tab as {
-      sound_enabled?: boolean;
-      vibration_enabled?: boolean;
-      notes?: string;
-    };
-
-    const soundEnabled = tabData.sound_enabled ?? true;
-    const vibrationEnabled = tabData.vibration_enabled ?? true;
     try {
-      // Use the tab already in state — it was fetched via the service role API route
-      // so all fields are available. No need for a second DB query.
       const tabData = tab as {
         sound_enabled?: boolean;
         vibration_enabled?: boolean;
@@ -933,35 +806,21 @@ const loadNotificationPrefs = async () => {
       });
     } catch (error) {
       console.error('Error loading notification preferences:', error);
-      // Use defaults on error
       setNotificationPrefs({
         notificationsEnabled: true,
         soundEnabled: true,
         vibrationEnabled: true
       });
     }
-  } catch (error) {
-    console.error('Error loading notification preferences:', error);
-    // Use defaults on error
-    setNotificationPrefs({
-      notificationsEnabled: true,
-      soundEnabled: true,
-      vibrationEnabled: true
-    });
-  }
-};
+  }, [tab]);
 
-  // Load notification preferences when tab loads
   useEffect(() => {
     if (tab?.id) {
       loadNotificationPrefs();
     }
-  }, [tab?.id]);
+  }, [tab?.id, loadNotificationPrefs]);
 
-  // Real-time subscription handlers with proper state management
-  // Requirements: 5, 6, 10, 11, 14, 15
-  
-  // Handle order updates (UPDATE events)
+  // Real-time subscription handlers
   const handleOrderUpdate = useCallback((payload: any) => {
     console.log('📦 [REALTIME] Order UPDATE received:', {
       eventType: payload.eventType,
@@ -973,7 +832,6 @@ const loadNotificationPrefs = async () => {
     });
 
     try {
-      // Validate payload
       if (!payload.new || !payload.new.id) {
         console.error('❌ [REALTIME] Invalid order update payload:', payload);
         return;
@@ -981,8 +839,6 @@ const loadNotificationPrefs = async () => {
 
       const updatedOrder = payload.new as TabOrder;
 
-      // Update orders state using state updater function
-      // This ensures we work with the latest state and trigger re-render
       setOrders(prevOrders => {
         console.log('🔄 [REALTIME] Updating orders state:', {
           previousCount: prevOrders.length,
@@ -1003,7 +859,6 @@ const loadNotificationPrefs = async () => {
         return newOrders;
       });
 
-      // Handle customer approval of staff order
       const isCustomerApproval = (
         payload.new?.status === 'confirmed' && 
         payload.old?.status === 'pending' && 
@@ -1023,7 +878,6 @@ const loadNotificationPrefs = async () => {
         setShowRejectModal(false);
       }
 
-      // Handle customer rejection of staff order
       const isCustomerRejection = (
         payload.new?.status === 'cancelled' && 
         payload.old?.status === 'pending' && 
@@ -1044,7 +898,6 @@ const loadNotificationPrefs = async () => {
         setShowRejectModal(false);
       }
 
-      // Handle staff acceptance of customer order
       const isStaffAcceptance = (
         payload.new?.status === 'confirmed' && 
         payload.old?.status === 'pending' && 
@@ -1055,7 +908,6 @@ const loadNotificationPrefs = async () => {
         console.log('🎉 [REALTIME] Staff accepted customer order:', payload.new.id);
         setProcessedOrders(prev => new Set([...prev, payload.new.id]));
         
-        // Trigger notifications
         buzz([200, 100, 200]);
         playAcceptanceSound();
         
@@ -1065,7 +917,6 @@ const loadNotificationPrefs = async () => {
           message: 'Your order has been accepted and is being prepared'
         });
 
-        // Show spend prompt after order acceptance
         setLoyaltyData(prev => {
           if (!prev) return prev;
           const prompt = buildSpendPrompt(prev.totalSpend, venueDiscounts, prev.spendTier, venueThresholds);
@@ -1076,22 +927,7 @@ const loadNotificationPrefs = async () => {
 
     } catch (error) {
       console.error('❌ [REALTIME] Error handling order update:', error);
-      // Fallback: refetch orders data
-      console.log('🔄 [REALTIME] Falling back to refetch...');
       if (tab?.id) {
-        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
-        // Original direct query (NON-DESTRUCTIVE — kept for reference):
-        // supabase
-        //   .from('tab_orders')
-        //   .select('*')
-        //   .eq('tab_id', tab.id)
-        //   .order('created_at', { ascending: false })
-        //   .then(({ data, error }) => {
-        //     if (!error && data) {
-        //       setOrders(data as TabOrder[]);
-        //       console.log('✅ [REALTIME] Orders refetched successfully');
-        //     }
-        //   });
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
           .then(res => res.ok ? res.json() : Promise.reject(res.status))
@@ -1102,9 +938,8 @@ const loadNotificationPrefs = async () => {
           .catch(err => console.error('❌ [REALTIME] Fallback refetch failed:', err));
       }
     }
-  }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast, setShowRejectModal, setAcceptanceModal]);
+  }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast, buildSpendPrompt, venueDiscounts, venueThresholds]);
 
-  // Handle new orders (INSERT events)
   const handleOrderInsert = useCallback((payload: any) => {
     console.log('➕ [REALTIME] Order INSERT received:', {
       eventType: payload.eventType,
@@ -1115,7 +950,6 @@ const loadNotificationPrefs = async () => {
     });
 
     try {
-      // Validate payload
       if (!payload.new || !payload.new.id) {
         console.error('❌ [REALTIME] Invalid order insert payload:', payload);
         return;
@@ -1123,7 +957,6 @@ const loadNotificationPrefs = async () => {
 
       const newOrder = payload.new as TabOrder;
 
-      // Add order to state using state updater function
       setOrders(prevOrders => {
         console.log('🔄 [REALTIME] Adding order to state:', {
           previousCount: prevOrders.length,
@@ -1144,7 +977,6 @@ const loadNotificationPrefs = async () => {
         return updatedOrders;
       });
 
-      // Show notification for new staff orders
       if (newOrder.initiated_by === 'staff' && newOrder.status === 'pending') {
         console.log('📢 [REALTIME] New staff order requires approval:', newOrder.id);
         
@@ -1155,29 +987,13 @@ const loadNotificationPrefs = async () => {
           duration: 8000
         });
 
-        // Trigger notification
         buzz([200, 100, 200]);
         playAcceptanceSound();
       }
 
     } catch (error) {
       console.error('❌ [REALTIME] Error handling order insert:', error);
-      // Fallback: refetch orders data
-      console.log('🔄 [REALTIME] Falling back to refetch...');
       if (tab?.id) {
-        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
-        // Original direct query (NON-DESTRUCTIVE — kept for reference):
-        // supabase
-        //   .from('tab_orders')
-        //   .select('*')
-        //   .eq('tab_id', tab.id)
-        //   .order('created_at', { ascending: false })
-        //   .then(({ data, error }) => {
-        //     if (!error && data) {
-        //       setOrders(data as TabOrder[]);
-        //       console.log('✅ [REALTIME] Orders refetched successfully');
-        //     }
-        //   });
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
           .then(res => res.ok ? res.json() : Promise.reject(res.status))
@@ -1190,7 +1006,6 @@ const loadNotificationPrefs = async () => {
     }
   }, [tab?.id, buzz, playAcceptanceSound, showToast]);
 
-  // Handle order deletions (DELETE events)
   const handleOrderDelete = useCallback((payload: any) => {
     console.log('🗑️ [REALTIME] Order DELETE received:', {
       eventType: payload.eventType,
@@ -1199,7 +1014,6 @@ const loadNotificationPrefs = async () => {
     });
 
     try {
-      // Validate payload
       if (!payload.old || !payload.old.id) {
         console.error('❌ [REALTIME] Invalid order delete payload:', payload);
         return;
@@ -1207,7 +1021,6 @@ const loadNotificationPrefs = async () => {
 
       const deletedOrderId = payload.old.id;
 
-      // Remove order from state using state updater function
       setOrders(prevOrders => {
         console.log('🔄 [REALTIME] Removing order from state:', {
           previousCount: prevOrders.length,
@@ -1225,22 +1038,7 @@ const loadNotificationPrefs = async () => {
 
     } catch (error) {
       console.error('❌ [REALTIME] Error handling order delete:', error);
-      // Fallback: refetch orders data
-      console.log('🔄 [REALTIME] Falling back to refetch...');
       if (tab?.id) {
-        // BUG FIX (menu-orders-not-visible): Direct client-side query blocked by RLS — replaced with API route.
-        // Original direct query (NON-DESTRUCTIVE — kept for reference):
-        // supabase
-        //   .from('tab_orders')
-        //   .select('*')
-        //   .eq('tab_id', tab.id)
-        //   .order('created_at', { ascending: false })
-        //   .then(({ data, error }) => {
-        //     if (!error && data) {
-        //       setOrders(data as TabOrder[]);
-        //       console.log('✅ [REALTIME] Orders refetched successfully');
-        //     }
-        //   });
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         fetch(`${baseUrl}/api/tabs/${tab.id}/orders`)
           .then(res => res.ok ? res.json() : Promise.reject(res.status))
@@ -1253,346 +1051,312 @@ const loadNotificationPrefs = async () => {
     }
   }, [tab?.id]);
 
-  // Set up real-time subscriptions with improved error handling and debouncing
-  const realtimeConfigs = [
-    {
-      channelName: `tab-orders-${tab?.id}`,
-      table: 'tab_orders',
-      filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
-      event: '*' as const,
-      handler: async (payload: any) => {
-        // Route to appropriate handler based on event type
-        if (payload.eventType === 'UPDATE') {
-          handleOrderUpdate(payload);
-        } else if (payload.eventType === 'INSERT') {
-          handleOrderInsert(payload);
-        } else if (payload.eventType === 'DELETE') {
-          handleOrderDelete(payload);
-        }
-      }
-    },
-    {
-      channelName: `tab-status-${tab?.id}`,
-      table: 'tabs',
-      filter: tab?.id ? `id=eq.${tab.id}` : undefined,
-      event: '*' as const,
-      handler: async (payload: any) => {
-        console.log('📋 Real-time tab update:', payload);
-        if (payload.eventType === 'UPDATE') {
-          const updatedTab = payload.new as Tab;
-          
-          if (updatedTab.status === 'closed') {
-            console.log('🛑 Tab was closed, redirecting to home');
-            sessionStorage.removeItem('currentTab');
-            sessionStorage.removeItem('cart');
-            router.replace('/');
-            return;
+  // Set up real-time subscriptions
+  const realtimeConfigs = useMemo(() => {
+    if (!tab?.id) return [];
+    
+    return [
+      {
+        channelName: `tab-orders-${tab.id}`,
+        table: 'tab_orders',
+        filter: `tab_id=eq.${tab.id}`,
+        event: '*' as const,
+        handler: async (payload: any) => {
+          if (payload.eventType === 'UPDATE') {
+            handleOrderUpdate(payload);
+          } else if (payload.eventType === 'INSERT') {
+            handleOrderInsert(payload);
+          } else if (payload.eventType === 'DELETE') {
+            handleOrderDelete(payload);
           }
-          
-          if (!supabase) return;
-          
-          const { data: fullTab, error } = await supabase
-            .from('tabs')
-            .select('*, bar:bars(id, name, location)')
-            .eq('id', tab?.id || '')
-            .maybeSingle();
-          
-          if (!error && fullTab) {
-            setTab(fullTab as Tab);
-            setBarName((fullTab as any).bar?.name || 'Bar');
+        }
+      },
+      {
+        channelName: `tab-status-${tab.id}`,
+        table: 'tabs',
+        filter: `id=eq.${tab.id}`,
+        event: '*' as const,
+        handler: async (payload: any) => {
+          console.log('📋 Real-time tab update:', payload);
+          if (payload.eventType === 'UPDATE') {
+            const updatedTab = payload.new as Tab;
             
-            let name = 'Your Tab';
-            if ((fullTab as any).notes) {
-              try {
-                const notes = JSON.parse((fullTab as any).notes);
-                // If user chose a nickname, show it instead of tab number
-                if (notes.has_nickname && notes.display_name) {
-                  name = notes.display_name;
-                } else {
-                  name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
-                }
-              } catch (e) {
-                name = (fullTab as any).tab_number ? `Tab ${(fullTab as any).tab_number}` : 'Your Tab';
-              }
-            } else if ((fullTab as any).tab_number) {
-              name = `Tab ${(fullTab as any).tab_number}`;
+            if (updatedTab.status === 'closed') {
+              console.log('🛑 Tab was closed, redirecting to home');
+              sessionStorage.removeItem('currentTab');
+              sessionStorage.removeItem('cart');
+              router.replace('/');
+              return;
             }
-            setDisplayName(name);
-          }
-        }
-      }
-    },
-    {
-      channelName: `tab-payments-${tab?.id}`,
-      table: 'tab_payments',
-      filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
-      event: '*' as const,
-      handler: async (payload: any) => {
-        // FIX: Add subscription initialization logging (Bug Fix: payment-badge-award-trigger)
-        // Rationale: Helps diagnose if subscription is not established on page load or torn down after navigation/reconnection
-        if (payload.eventType === 'SUBSCRIPTION_READY') {
-          console.log('💳 Payment subscription established:', { 
-            tabId: tab?.id, 
-            channelName: `tab-payments-${tab?.id}`,
-            timestamp: new Date().toISOString()
-          });
-        }
-        
-        console.log('💳 Real-time payment update:', payload);
-        
-        // Enhanced payment status handling for customer interface (Requirements 2.1, 2.2, 2.3, 2.4)
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          const payment = payload.new;
-          const previousPayment = payload.old;
-          
-          console.log('💳 Customer payment subscription update:', {
-            eventType: payload.eventType,
-            paymentId: payment?.id,
-            status: payment?.status,
-            previousStatus: previousPayment?.status,
-            amount: payment?.amount,
-            method: payment?.method
-          });
-          
-          // Handle successful payment confirmations (Requirement 2.2)
-          // FIX: Check for both 'success' AND 'completed' statuses (Bug Fix: payment-badge-award-trigger)
-          // Rationale: Database schema and visits API use 'completed' while handler was only checking for 'success'
-          if ((payment?.status === 'success' || payment?.status === 'completed') && 
-              (!previousPayment || (previousPayment.status !== 'success' && previousPayment.status !== 'completed'))) {
             
-            console.log('✅ Payment successful - processing balance update and showing customer confirmation:', payment);
+            if (!supabase) return;
             
-            // Extract payment details
-            const paymentAmount = parseFloat(payment.amount);
-            const paymentMethod = payment.method || 'unknown';
-            let mpesaReceipt = null;
-            let transactionDate = null;
+            const { data: fullTab, error } = await supabase
+              .from('tabs')
+              .select('*, bar:bars(id, name, location)')
+              .eq('id', tab.id)
+              .maybeSingle();
             
-            // Extract M-Pesa specific details from metadata
-            if (paymentMethod === 'mpesa' && payment.metadata) {
-              try {
-                const metadata = payment.metadata;
-                if (metadata.Body?.stkCallback?.CallbackMetadata?.Item) {
-                  const items = metadata.Body.stkCallback.CallbackMetadata.Item;
-                  const receiptItem = items.find((item: any) => item.Name === 'MpesaReceiptNumber');
-                  const dateItem = items.find((item: any) => item.Name === 'TransactionDate');
-                  
-                  if (receiptItem) mpesaReceipt = receiptItem.Value.toString();
-                  if (dateItem) {
-                    const dateStr = dateItem.Value.toString();
-                    const year = parseInt(dateStr.substring(0, 4));
-                    const month = parseInt(dateStr.substring(4, 6)) - 1;
-                    const day = parseInt(dateStr.substring(6, 8));
-                    const hour = parseInt(dateStr.substring(8, 10));
-                    const minute = parseInt(dateStr.substring(10, 12));
-                    const second = parseInt(dateStr.substring(12, 14));
-                    transactionDate = new Date(year, month, day, hour, minute, second);
+            if (!error && fullTab) {
+              setTab(fullTab as Tab);
+              setBarName((fullTab as any).bar?.name || 'Bar');
+              
+              let name = 'Your Tab';
+              if ((fullTab as any).notes) {
+                try {
+                  const notes = JSON.parse((fullTab as any).notes);
+                  if (notes.has_nickname && notes.display_name) {
+                    name = notes.display_name;
+                  } else {
+                    name = notes.display_name || `Tab ${(fullTab as any).tab_number || ''}`;
                   }
+                } catch (e) {
+                  name = (fullTab as any).tab_number ? `Tab ${(fullTab as any).tab_number}` : 'Your Tab';
                 }
-              } catch (error) {
-                console.error('Error parsing M-Pesa metadata:', error);
+              } else if ((fullTab as any).tab_number) {
+                name = `Tab ${(fullTab as any).tab_number}`;
+              }
+              setDisplayName(name);
+            }
+          }
+        }
+      },
+      {
+        channelName: `tab-payments-${tab.id}`,
+        table: 'tab_payments',
+        filter: `tab_id=eq.${tab.id}`,
+        event: '*' as const,
+        handler: async (payload: any) => {
+          if (payload.eventType === 'SUBSCRIPTION_READY') {
+            console.log('💳 Payment subscription established:', { 
+              tabId: tab.id, 
+              channelName: `tab-payments-${tab.id}`,
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          console.log('💳 Real-time payment update:', payload);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const payment = payload.new;
+            const previousPayment = payload.old;
+            
+            console.log('💳 Customer payment subscription update:', {
+              eventType: payload.eventType,
+              paymentId: payment?.id,
+              status: payment?.status,
+              previousStatus: previousPayment?.status,
+              amount: payment?.amount,
+              method: payment?.method
+            });
+            
+            if ((payment?.status === 'success' || payment?.status === 'completed') && 
+                (!previousPayment || (previousPayment.status !== 'success' && previousPayment.status !== 'completed'))) {
+              
+              console.log('✅ Payment successful - processing customer confirmation:', payment);
+              
+              const paymentAmount = parseFloat(payment.amount);
+              const paymentMethod = payment.method || 'unknown';
+              let mpesaReceipt = null;
+              let transactionDate = null;
+              
+              if (paymentMethod === 'mpesa' && payment.metadata) {
+                try {
+                  const metadata = payment.metadata;
+                  if (metadata.Body?.stkCallback?.CallbackMetadata?.Item) {
+                    const items = metadata.Body.stkCallback.CallbackMetadata.Item;
+                    const receiptItem = items.find((item: any) => item.Name === 'MpesaReceiptNumber');
+                    const dateItem = items.find((item: any) => item.Name === 'TransactionDate');
+                    
+                    if (receiptItem) mpesaReceipt = receiptItem.Value.toString();
+                    if (dateItem) {
+                      const dateStr = dateItem.Value.toString();
+                      const year = parseInt(dateStr.substring(0, 4));
+                      const month = parseInt(dateStr.substring(4, 6)) - 1;
+                      const day = parseInt(dateStr.substring(6, 8));
+                      const hour = parseInt(dateStr.substring(8, 10));
+                      const minute = parseInt(dateStr.substring(10, 12));
+                      const second = parseInt(dateStr.substring(12, 14));
+                      transactionDate = new Date(year, month, day, hour, minute, second);
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error parsing M-Pesa metadata:', error);
+                }
+              }
+              
+              console.log('Payment processed, balance will update via real-time subscriptions:', {
+                paymentId: payment.id,
+                tabId: tab.id,
+                amount: paymentAmount,
+                method: paymentMethod
+              });
+              
+              const confirmationMessage = [
+                `${tempFormatCurrency(paymentAmount)} payment successful`,
+                mpesaReceipt ? `Receipt: ${mpesaReceipt}` : null
+              ].filter(Boolean).join(' • ');
+              
+              showToast({
+                type: 'success',
+                title: '✅ Payment Confirmed!',
+                message: confirmationMessage,
+                duration: 8000
+              });
+              
+              if (notificationPrefs.soundEnabled) {
+                playAcceptanceSound();
+              }
+              if (notificationPrefs.vibrationEnabled) {
+                buzz([200, 100, 200]);
+              }
+              
+              console.log('🏆 Payment completed - scheduling badge recalculation in 2 seconds');
+              setTimeout(() => {
+                console.log('🏆 Executing delayed badge recalculation');
+                loadLoyaltyData();
+              }, 2000);
+            }
+            
+            else if (payment?.status === 'failed' && 
+                     (!previousPayment || previousPayment.status !== 'failed')) {
+              
+              console.log('❌ Payment failed - showing customer error:', payment);
+              
+              const paymentAmount = parseFloat(payment.amount);
+              let failureReason = 'Payment was declined';
+              
+              if (payment.metadata) {
+                try {
+                  if (payment.metadata.Body?.stkCallback?.ResultDesc) {
+                    failureReason = payment.metadata.Body.stkCallback.ResultDesc;
+                  } else if (payment.metadata.failure_reason) {
+                    failureReason = payment.metadata.failure_reason;
+                  }
+                } catch (error) {
+                  console.error('Error parsing failure metadata:', error);
+                }
+              }
+              
+              showToast({
+                type: 'error',
+                title: '❌ Payment Failed',
+                message: `${tempFormatCurrency(paymentAmount)} payment failed: ${failureReason}. Please try again or use a different payment method.`,
+                duration: 10000
+              });
+              
+              if (notificationPrefs.vibrationEnabled) {
+                buzz([100, 50, 100, 50, 100]);
               }
             }
             
-            // Balance update will be handled by existing real-time subscriptions
-            console.log('Payment processed, balance will update via real-time subscriptions:', {
-              paymentId: payment.id,
-              tabId: tab?.id,
-              amount: paymentAmount,
-              method: paymentMethod
-            });
-            
-            // Show payment confirmation (Requirement 2.2)
-            const confirmationMessage = [
-              `${tempFormatCurrency(paymentAmount)} payment successful`,
-              mpesaReceipt ? `Receipt: ${mpesaReceipt}` : null
-            ].filter(Boolean).join(' • ');
-            
-            showToast({
-              type: 'success',
-              title: '✅ Payment Confirmed!',
-              message: confirmationMessage,
-              duration: 8000
-            });
-            
-            // Trigger notification sounds and vibration (Requirement 2.1)
-            if (notificationPrefs.soundEnabled) {
-              playAcceptanceSound();
-            }
-            if (notificationPrefs.vibrationEnabled) {
-              buzz([200, 100, 200]); // Success vibration pattern
+            else if (payment?.status === 'pending' && 
+                     (!previousPayment || previousPayment.status !== 'pending')) {
+              
+              console.log('⏳ Payment processing - showing customer status:', payment);
+              
+              const paymentAmount = parseFloat(payment.amount);
+              
+              showToast({
+                type: 'info',
+                title: '⏳ Payment Processing',
+                message: `${tempFormatCurrency(paymentAmount)} payment is being processed. Please wait for confirmation.`,
+                duration: 5000
+              });
             }
             
-            // Recalculate badge tier after payment completion (Requirements 8.1, 8.2, 8.3, 8.4)
-            // This triggers badge fetch, tier calculation, and upgrade check
-            // Notification shows only when API confirms upgrade (not just local calculation)
-            // FIX: Add 2-second delay to allow database to process payment and update aggregated spend calculations (Bug Fix: payment-badge-award-trigger)
-            // Rationale: Visits API calculates averageSpend from COMPLETED tabs only (closed_at IS NOT NULL)
-            // If tab is still open when payment completes, new payment may not be included in spend calculation immediately
-            console.log('🏆 Payment completed - scheduling badge recalculation in 2 seconds');
-            setTimeout(() => {
-              console.log('🏆 Executing delayed badge recalculation');
-              loadLoyaltyData();
-            }, 2000);
-          }
-          
-          // Handle failed payment notifications (Requirement 2.3)
-          else if (payment?.status === 'failed' && 
-                   (!previousPayment || previousPayment.status !== 'failed')) {
-            
-            console.log('❌ Payment failed - showing customer error:', payment);
-            
-            const paymentAmount = parseFloat(payment.amount);
-            let failureReason = 'Payment was declined';
-            
-            // Extract failure reason from metadata
-            if (payment.metadata) {
-              try {
-                if (payment.metadata.Body?.stkCallback?.ResultDesc) {
-                  failureReason = payment.metadata.Body.stkCallback.ResultDesc;
-                } else if (payment.metadata.failure_reason) {
-                  failureReason = payment.metadata.failure_reason;
-                }
-              } catch (error) {
-                console.error('Error parsing failure metadata:', error);
-              }
-            }
-            
-            // Show payment failure notification with retry option (Requirement 2.3)
-            showToast({
-              type: 'error',
-              title: '❌ Payment Failed',
-              message: `${tempFormatCurrency(paymentAmount)} payment failed: ${failureReason}. Please try again or use a different payment method.`,
-              duration: 10000
-            });
-            
-            // Trigger error notification
-            if (notificationPrefs.soundEnabled) {
-              // Could add error sound here
-            }
-            if (notificationPrefs.vibrationEnabled) {
-              buzz([100, 50, 100, 50, 100]); // Error vibration pattern
+            else if ((payment?.status === 'cancelled' || payment?.status === 'timeout') && 
+                     previousPayment && previousPayment.status !== payment.status) {
+              
+              console.log('⏰ Payment cancelled/timeout - showing customer notification:', payment);
+              
+              const paymentAmount = parseFloat(payment.amount);
+              const statusText = payment.status === 'timeout' ? 'timed out' : 'was cancelled';
+              
+              showToast({
+                type: 'error',
+                title: '❌ Payment Not Completed',
+                message: `${tempFormatCurrency(paymentAmount)} payment ${statusText}. Please try again.`,
+                duration: 8000
+              });
             }
           }
           
-          // Handle processing/pending status updates (Requirement 2.5)
-          else if (payment?.status === 'pending' && 
-                   (!previousPayment || previousPayment.status !== 'pending')) {
-            
-            console.log('⏳ Payment processing - showing customer status:', payment);
-            
-            const paymentAmount = parseFloat(payment.amount);
-            
-            // Show processing notification (Requirement 2.5)
-            showToast({
-              type: 'info',
-              title: '⏳ Payment Processing',
-              message: `${tempFormatCurrency(paymentAmount)} payment is being processed. Please wait for confirmation.`,
-              duration: 5000
-            });
-          }
-          
-          // Handle timeout/cancelled payments
-          else if ((payment?.status === 'cancelled' || payment?.status === 'timeout') && 
-                   previousPayment && previousPayment.status !== payment.status) {
-            
-            console.log('⏰ Payment cancelled/timeout - showing customer notification:', payment);
-            
-            const paymentAmount = parseFloat(payment.amount);
-            const statusText = payment.status === 'timeout' ? 'timed out' : 'was cancelled';
-            
-            showToast({
-              type: 'error',
-              title: '❌ Payment Not Completed',
-              message: `${tempFormatCurrency(paymentAmount)} payment ${statusText}. Please try again.`,
-              duration: 8000
-            });
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+          const paymentsRes = await fetch(`${baseUrl}/api/tabs/${tab.id}/payments`);
+          if (paymentsRes.ok) {
+            const { payments: paymentsData } = await paymentsRes.json();
+            setPayments(paymentsData || []);
           }
         }
-        
-        // Refresh payments via service-role API route to bypass RLS
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const paymentsRes = await fetch(`${baseUrl}/api/tabs/${tab?.id}/payments`);
-        if (paymentsRes.ok) {
-          const { payments: paymentsData } = await paymentsRes.json();
-          setPayments(paymentsData || []);
+      },
+      {
+        channelName: `tab-messages-${tab.id}`,
+        table: 'tab_telegram_messages',
+        filter: `tab_id=eq.${tab.id}`,
+        event: '*' as const,
+        handler: async (payload: any) => {
+          console.log('📩 Telegram message real-time update:', {
+            event: payload.eventType,
+            new: payload.new,
+            old: payload.old
+          });
+
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+          try {
+            const res = await fetch(`${baseUrl}/api/tabs/${tab.id}/messages`);
+            if (!res.ok) return;
+            const { messages } = await res.json();
+            if (messages) {
+              const messagesWithBarName = messages.map((msg: any) => ({
+                ...msg,
+                bar_name: msg.tab?.bars?.name || null
+              }));
+              setTelegramMessages(messagesWithBarName);
+
+              const unreadCount = messages.filter((msg: any) => {
+                if (msg.initiated_by !== 'staff') return false;
+                const lastRead = sessionStorage.getItem('messages_last_read');
+                if (!lastRead) return true;
+                return new Date(msg.created_at) > new Date(lastRead);
+              }).length;
+              setUnreadMessagesCount(unreadCount);
+            }
+          } catch (err) {
+            console.error('❌ Error refreshing messages after realtime event:', err);
+          }
+
+          if (payload.new?.initiated_by === 'staff' && 
+              payload.eventType === 'INSERT') {
+            playCustomerNotification(notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled);
+            setNewMessageAlert({
+              type: 'acknowledged',
+              message: 'Staff responded to your message',
+              timestamp: new Date().toISOString(),
+              messageContent: payload.new.message
+            });
+            setTimeout(() => setNewMessageAlert(null), 5000);
+          }
+
+          if (payload.new?.status === 'acknowledged' && 
+              payload.old?.status === 'pending' &&
+              payload.new?.staff_acknowledged_at) {
+            buzz([200, 100, 200]);
+            playAcceptanceSound();
+            setNewMessageAlert({
+              type: 'acknowledged',
+              message: 'Staff has acknowledged your message',
+              timestamp: new Date().toISOString()
+            });
+            setTimeout(() => setNewMessageAlert(null), 5000);
+          }
         }
       }
-    },
-    {
-      channelName: `tab-messages-${tab?.id}`,
-      table: 'tab_telegram_messages',
-      filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
-      event: '*' as const,
-      handler: async (payload: any) => {
-        console.log('📩 Telegram message real-time update:', {
-          event: payload.eventType,
-          new: payload.new,
-          old: payload.old
-        });
-
-        // Refresh messages via service-role API route to bypass RLS.
-        // Direct anon-key queries are blocked, causing the badge/panel to stay stale.
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        try {
-          const res = await fetch(`${baseUrl}/api/tabs/${tab?.id}/messages`);
-          if (!res.ok) return;
-          const { messages } = await res.json();
-          if (messages) {
-            const messagesWithBarName = messages.map((msg: any) => ({
-              ...msg,
-              bar_name: msg.tab?.bars?.name || null
-            }));
-            setTelegramMessages(messagesWithBarName);
-
-            const unreadCount = messages.filter((msg: any) => {
-              if (msg.initiated_by !== 'staff') return false;
-              const lastRead = sessionStorage.getItem('messages_last_read');
-              if (!lastRead) return true;
-              return new Date(msg.created_at) > new Date(lastRead);
-            }).length;
-            setUnreadMessagesCount(unreadCount);
-          }
-        } catch (err) {
-          console.error('❌ Error refreshing messages after realtime event:', err);
-        }
-
-        // Show notification for new messages (when staff responds)
-        if (payload.new?.initiated_by === 'staff' && 
-            payload.eventType === 'INSERT') {
-          playCustomerNotification(notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled);
-          setNewMessageAlert({
-            type: 'acknowledged',
-            message: 'Staff responded to your message',
-            timestamp: new Date().toISOString(),
-            messageContent: payload.new.message
-          });
-          setTimeout(() => setNewMessageAlert(null), 5000);
-        }
-
-        // Show notification for staff acknowledgments
-        if (payload.new?.status === 'acknowledged' && 
-            payload.old?.status === 'pending' &&
-            payload.new?.staff_acknowledged_at) {
-          buzz([200, 100, 200]);
-          playAcceptanceSound();
-          setNewMessageAlert({
-            type: 'acknowledged',
-            message: 'Staff has acknowledged your message',
-            timestamp: new Date().toISOString()
-          });
-          setTimeout(() => setNewMessageAlert(null), 5000);
-        }
-      }
-    }
-  ];
+    ];
+  }, [tab, handleOrderUpdate, handleOrderInsert, handleOrderDelete, router, showToast, playAcceptanceSound, buzz, notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled, loadLoyaltyData]);
 
   const { connectionStatus, retryCount, reconnect, isConnected } = useRealtimeSubscription(
     supabase ? realtimeConfigs : [],
-    // Only re-subscribe when the tab ID changes — not on every render.
-    // processedOrders (a Set) and callback refs change every render and would
-    // constantly tear down and rebuild the channel, causing missed events.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tab?.id],
     {
       maxRetries: 10,
@@ -1600,52 +1364,35 @@ const loadNotificationPrefs = async () => {
       debounceMs: 300,
       onConnectionChange: (status) => {
         console.log('📡 Connection status changed:', status);
-        // Show connection status indicator when not connected
-        if (status === 'connected') {
-          setShowConnectionStatus(false);
-        } else {
-          setShowConnectionStatus(true);
-        }
+        setShowConnectionStatus(status !== 'connected');
       }
     }
   );
 
   // Image zoom handlers
-  const handleImageZoomIn = () => {
+  const handleImageZoomIn = useCallback(() => {
     setImageScale(prev => Math.min(prev + 0.25, 3));
-  };
+  }, []);
 
-  const handleImageZoomOut = () => {
+  const handleImageZoomOut = useCallback(() => {
     setImageScale(prev => Math.max(prev - 0.25, 0.5));
-  };
+  }, []);
 
-  const handleImageFitWidth = () => {
+  const handleImageFitWidth = useCallback(() => {
     setImageScale(1);
-  };
+  }, []);
 
-  // Removed toggle functions - sections are now always visible
-  
-  // Keep cart toggle function for floating button only
-  const toggleCart = () => {
-    // Cart is now always visible, this function is only used by floating button for scrolling
+  const toggleCart = useCallback(() => {
     if (paymentRef.current) {
       paymentRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  };
+  }, []);
 
-  // Removed remaining toggle functions - sections are now always visible
+  const toggleStaticMenu = useCallback(() => {
+    setShowStaticMenu(prev => !prev);
+  }, []);
 
-  const toggleStaticMenu = () => {
-    if (!showStaticMenu) {
-      // Opening static menu - close other sections
-      setShowStaticMenu(true);
-    } else {
-      // Closing static menu - just collapse it
-      setShowStaticMenu(false);
-    }
-  };
-
-  const getPendingOrderTime = () => {
+  const getPendingOrderTime = useCallback(() => {
     const pendingCustomerOrders = orders.filter(o => o.status === 'pending' && o.initiated_by === 'customer');
     if (pendingCustomerOrders.length === 0) {
       sessionStorage.removeItem('oldestPendingCustomerOrderTime');
@@ -1662,41 +1409,29 @@ const loadNotificationPrefs = async () => {
       orderTime = new Date(oldestPendingOrder.created_at).getTime();
       sessionStorage.setItem('oldestPendingCustomerOrderTime', new Date(orderTime).toISOString());
     }
-    const currentTime = Date.now();
-    const elapsedSeconds = Math.floor((currentTime - orderTime) / 1000);
+    const currentTimeNow = Date.now();
+    const elapsedSeconds = Math.floor((currentTimeNow - orderTime) / 1000);
     return {
       elapsed: elapsedSeconds,
       orderTime: orderTime,
       submissionTime: new Date(orderTime).toISOString()
     };
-  };
+  }, [orders]);
 
-  useEffect(() => {
-    if (loadAttempted.current) {
-      console.log('⏭️ Load already attempted, skipping...');
-      return;
-    }
-    loadAttempted.current = true;
-    console.log('🔄 Menu page: Starting loadTabData...');
-    loadTabData();
-  }, []);
-
-  // FIXED: Payment settings loading with correct column names
-  const loadPaymentSettings = async (barId: string) => {
+  // Load payment settings
+  const loadPaymentSettings = useCallback(async (barId: string) => {
     if (!supabase) return;
     
     try {
       console.log('💳 Loading payment settings for bar:', barId);
-      // FIXED: Use correct column names from database
       const { data, error } = await supabase
         .from('bars')
-        .select('mpesa_enabled')
+        .select('mpesa_enabled, payment_cash_enabled, payment_card_enabled')
         .eq('id', barId)
         .single();
 
       if (error) {
         console.error('Error loading payment settings:', error);
-        // Use default settings if error
         setPaymentSettings({
           mpesa_enabled: false,
           card_enabled: false,
@@ -1715,7 +1450,6 @@ const loadNotificationPrefs = async () => {
           cash_enabled: paymentData.payment_cash_enabled ?? true
         });
 
-        // Set default payment method to first available one
         if (paymentData.mpesa_enabled) {
           setActivePaymentMethod('mpesa');
         } else if (paymentData.payment_card_enabled) {
@@ -1726,7 +1460,6 @@ const loadNotificationPrefs = async () => {
       }
     } catch (error) {
       console.error('Error in loadPaymentSettings:', error);
-      // Use default settings with only cash enabled
       setPaymentSettings({
         mpesa_enabled: false,
         card_enabled: false,
@@ -1735,15 +1468,15 @@ const loadNotificationPrefs = async () => {
     } finally {
       setLoadingPaymentSettings(false);
     }
-  };
+  }, []);
 
-  const loadTabData = async () => {
+  // Load tab data
+  const loadTabData = useCallback(async () => {
     console.log('📋 Menu page: loadTabData called');
     const tabData = sessionStorage.getItem('currentTab');
     console.log('📦 Menu page: Retrieved tab data from sessionStorage:', tabData ? 'Found' : 'Not found');
     if (!tabData) {
       console.error('❌ Menu page: No tab data found in sessionStorage');
-      console.log('📦 All sessionStorage keys:', Object.keys(sessionStorage));
       router.replace('/');
       return;
     }
@@ -1764,9 +1497,6 @@ const loadNotificationPrefs = async () => {
     try {
       console.log('🔍 Menu page: Fetching full tab data via API...');
 
-      // Fetch tab via API route which uses the service role client to bypass RLS.
-      // Direct client-side Supabase queries are blocked by RLS when set_bar_context
-      // is not defined or not yet applied in the database.
       const tabResponse = await fetch(`/api/tabs/${currentTab.id}`);
       const tabBody = await tabResponse.json().catch(() => ({}));
 
@@ -1784,7 +1514,6 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Check if tab is closed - redirect if so
       if (fullTab.status === 'closed') {
         console.log('🛑 Tab is closed, redirecting to home');
         sessionStorage.removeItem('currentTab');
@@ -1798,7 +1527,6 @@ const loadNotificationPrefs = async () => {
       setBarName((fullTab as any).bar?.name || 'Bar');
       setCrewMember((fullTab as any).crew_member || null);
       
-      // Load payment settings for this bar
       if ((fullTab as any).bar?.id) {
         loadPaymentSettings((fullTab as any).bar.id);
       }
@@ -1807,7 +1535,6 @@ const loadNotificationPrefs = async () => {
       if ((fullTab as any).notes) {
         try {
           const notes = JSON.parse((fullTab as any).notes);
-          // If user chose a nickname, show it instead of tab number
           if (notes.has_nickname && notes.display_name) {
             name = notes.display_name;
           } else {
@@ -1820,6 +1547,7 @@ const loadNotificationPrefs = async () => {
         name = `Tab ${(fullTab as any).tab_number}`;
       }
       setDisplayName(name);
+
       if ((fullTab as any).bar?.id) {
         try {
           const { data: categoriesData, error: categoriesError } = await supabase
@@ -1828,7 +1556,6 @@ const loadNotificationPrefs = async () => {
             .order('name');
           if (categoriesError) {
             console.error('Error loading categories:', categoriesError);
-            // Fallback: extract categories from bar_products
             const uniqueCategories = Array.from(new Set(
               barProducts.map(bp => bp.product?.category).filter(Boolean)
             )).sort().map(catName => ({ name: catName }));
@@ -1840,6 +1567,7 @@ const loadNotificationPrefs = async () => {
         } catch (error) {
           console.error('Error loading categories:', error);
         }
+
         try {
           const { data: barProductsData, error: barProductsError } = await supabase
             .from('bar_products')
@@ -1870,7 +1598,6 @@ const loadNotificationPrefs = async () => {
           console.error('Error loading products:', error);
         }
         
-        // Load bar table configuration
         try {
           console.log('🏢 Loading bar table configuration for bar:', (fullTab as any).bar.id);
           const { data: barData, error: barError } = await supabase
@@ -1888,13 +1615,11 @@ const loadNotificationPrefs = async () => {
             console.log('🔧 Table setup config:', { tableCount, tableSetupEnabled });
             
             if (tableSetupEnabled && tableCount > 0) {
-              // Generate table numbers array (1 to tableCount)
               const tables = Array.from({ length: tableCount }, (_, i) => i + 1);
               console.log('🪑 Generated tables array:', tables);
               setBarTables(tables);
               setTableSelectionRequired(true);
               
-              // Check if tab already has a table assigned
               const tabNotes = (fullTab as any).notes;
               let hasTableAssigned = false;
               console.log('📝 Tab notes:', tabNotes);
@@ -1911,9 +1636,6 @@ const loadNotificationPrefs = async () => {
                 }
               }
               
-              // Show table selection modal only for new tabs (just_created_tab flag).
-              // Returning users already have a table assigned or chose not to select one.
-              // They can change their table from within the menu if needed.
               const isNewTab = sessionStorage.getItem('just_created_tab') === 'true';
               if (!hasTableAssigned && isNewTab) {
                 console.log('⏰ New tab — setting up table selection modal with delay...');
@@ -1933,18 +1655,8 @@ const loadNotificationPrefs = async () => {
           console.error('Error loading bar table configuration:', error);
         }
       }
-      try {
-        // BUG FIX (menu-orders-not-visible): The direct client-side query below is blocked by RLS
-        // when using the publishable key, causing staff-initiated orders to be invisible.
-        // Replaced with a server-side API route that uses the service role client to bypass RLS.
-        // Original direct query (NON-DESTRUCTIVE — kept for reference):
-        // const { data: ordersData, error: ordersError } = await supabase
-        //   .from('tab_orders')
-        //   .select('*')
-        //   .eq('tab_id', currentTab.id)
-        //   .order('created_at', { ascending: false });
-        // if (!ordersError) setOrders(ordersData || []);
 
+      try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const ordersResponse = await fetch(`${baseUrl}/api/tabs/${currentTab.id}/orders`);
         if (ordersResponse.ok) {
@@ -1956,9 +1668,8 @@ const loadNotificationPrefs = async () => {
       } catch (error) {
         console.error('Error loading orders:', error);
       }
+
       try {
-        // BUG FIX: Direct anon-key query on tab_payments is blocked by RLS.
-        // Replaced with service-role API route — same pattern as orders.
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const paymentsResponse = await fetch(`${baseUrl}/api/tabs/${currentTab.id}/payments`);
         if (paymentsResponse.ok) {
@@ -1971,7 +1682,6 @@ const loadNotificationPrefs = async () => {
         console.error('Error loading payments:', error);
       }
       
-      // Load bar settings (menu type, static menu URL and type)
       if ((fullTab as any).bar?.id) {
         try {
           const { data: barData, error: barError } = await supabase
@@ -1985,12 +1695,10 @@ const loadNotificationPrefs = async () => {
             setStaticMenuUrl((barData as any).static_menu_url);
             setStaticMenuType((barData as any).static_menu_type);
             
-            // Auto-show static menu if menu_type is static and either a single URL exists OR it's a slideshow
             if ((barData as any).menu_type === 'static' && ((barData as any).static_menu_url || (barData as any).static_menu_type === 'slideshow')) {
               setShowStaticMenu(true);
             }
 
-            // If this is a slideshow, fetch the slideshow images and settings
             if ((barData as any).static_menu_type === 'slideshow') {
               try {
                 const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -2004,22 +1712,18 @@ const loadNotificationPrefs = async () => {
                   const json = await resp.json();
                   console.log('✅ Slideshow API response:', json);
                   setSlideshowImages(json.images || []);
-                  // Use settings from DB schema if present; do not assume a transition speed
                   setSlideshowSettings(json.settings ?? null);
                   setCurrentSlideIndex(0);
-                  // Slideshow is manual only - no auto-play
                   setIsSlideshowPlaying(false);
 
-                  // If slideshow exists, show static menu
                   if (json.images && json.images.length > 0) {
                     setShowStaticMenu(true);
                   }
-                  return; // success
+                  return;
                 }
 
                 console.warn('Failed to fetch slideshow images', resp.status, await resp.text());
 
-                // Fallback: try admin inspection endpoint
                 try {
                   const altUrl = `${baseUrl}/api/admin/slideshow-status?barId=${(fullTab as any).bar.id}`;
                   console.log('🔁 Trying admin fallback:', altUrl);
@@ -2038,7 +1742,6 @@ const loadNotificationPrefs = async () => {
               } catch (err) {
                 console.warn('Error fetching slideshow images', err);
 
-                // Try admin endpoint as a last-ditch fallback
                 try {
                   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
                   const altUrl = `${baseUrl}/api/admin/slideshow-status?barId=${(fullTab as any).bar.id}`;
@@ -2067,9 +1770,20 @@ const loadNotificationPrefs = async () => {
       setLoading(false);
     }
     getPendingOrderTime();
-  };
+  }, [router, loadPaymentSettings, barProducts, getPendingOrderTime]);
 
-  const selectTable = async (tableNumber: number | null) => {
+  useEffect(() => {
+    if (loadAttempted.current) {
+      console.log('⏭️ Load already attempted, skipping...');
+      return;
+    }
+    loadAttempted.current = true;
+    console.log('🔄 Menu page: Starting loadTabData...');
+    loadTabData();
+  }, [loadTabData]);
+
+  // Select table
+  const selectTable = useCallback(async (tableNumber: number | null) => {
     console.log('🪑 selectTable called with:', tableNumber);
     if (!tab) {
       console.log('❌ No tab available');
@@ -2077,7 +1791,6 @@ const loadNotificationPrefs = async () => {
     }
     
     try {
-      // Update tab notes via API route (service role, bypasses RLS)
       const response = await fetch('/api/tabs/update-notes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -2104,10 +1817,7 @@ const loadNotificationPrefs = async () => {
       setSelectedTable(tableNumber);
       setShowTableModal(false);
       
-      // Update local tab state
       setTab(prev => prev ? { ...prev, notes: JSON.stringify(updatedNotes) } : null);
-      
-      // Clear new tab flag so modal won't show again on refresh
       sessionStorage.removeItem('just_created_tab');
       
       const tableText = tableNumber ? `Table ${tableNumber}` : 'No table selected';
@@ -2125,9 +1835,10 @@ const loadNotificationPrefs = async () => {
         message: 'Failed to assign table number'
       });
     }
-  };
+  }, [tab, showToast]);
 
-  const handleCloseTab = async () => {
+  // Handle close tab
+  const handleCloseTab = useCallback(async () => {
     try {
       if (!tab) {
         console.error('No tab to close');
@@ -2139,7 +1850,6 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Check if there's an outstanding balance
       const tabTotal = orders
         .filter(order => order.status === 'confirmed')
         .reduce((sum, order) => sum + parseFloat(order.total), 0);
@@ -2148,17 +1858,15 @@ const loadNotificationPrefs = async () => {
         .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
       const currentBalance = tabTotal - paidTotal;
 
-      // PREVENT closing if there's an outstanding balance
       if (currentBalance > 0) {
         showToast({
           type: 'error',
           title: 'Cannot Close Tab',
           message: `You have ${formatCurrency(currentBalance)} outstanding balance. Please pay at the bar before closing your tab.`
         });
-        return; // Stop here - don't close the tab
+        return;
       }
 
-      // Get device identifier from cookies
       const deviceId = document.cookie
         .split('; ')
         .find(row => row.startsWith('tabeza_device_id_v2=') || row.startsWith('tabeza_device_id='))
@@ -2166,7 +1874,6 @@ const loadNotificationPrefs = async () => {
 
       console.log('🔒 Closing tab:', { tabId: tab.id, deviceId });
 
-      // Call the close tab API
       const response = await fetch('/api/tabs/close', {
         method: 'POST',
         headers: {
@@ -2180,11 +1887,9 @@ const loadNotificationPrefs = async () => {
 
       const responseData = await response.json();
 
-      // Handle different response status codes
       if (!response.ok) {
         console.error('❌ Close tab failed:', { status: response.status, data: responseData });
 
-        // 400 - Validation errors (balance, pending orders)
         if (response.status === 400) {
           if (responseData.details?.balance) {
             showToast({
@@ -2214,7 +1919,6 @@ const loadNotificationPrefs = async () => {
           return;
         }
 
-        // 401 - Unauthorized (device mismatch)
         if (response.status === 401) {
           showToast({
             type: 'error',
@@ -2224,21 +1928,18 @@ const loadNotificationPrefs = async () => {
           return;
         }
 
-        // 404 - Tab not found
         if (response.status === 404) {
           showToast({
             type: 'error',
             title: 'Tab Not Found',
             message: 'This tab no longer exists'
           });
-          // Clear session and redirect
           sessionStorage.removeItem('currentTab');
           sessionStorage.removeItem('cart');
           router.replace('/');
           return;
         }
 
-        // 503 - Service unavailable (connection error)
         if (response.status === 503) {
           showToast({
             type: 'error',
@@ -2248,7 +1949,6 @@ const loadNotificationPrefs = async () => {
           return;
         }
 
-        // 500 - Server error
         if (response.status === 500) {
           showToast({
             type: 'error',
@@ -2258,7 +1958,6 @@ const loadNotificationPrefs = async () => {
           return;
         }
 
-        // Generic error fallback
         showToast({
           type: 'error',
           title: 'Error',
@@ -2267,27 +1966,23 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Success - clear session and redirect
       console.log('✅ Tab closed successfully');
       
       sessionStorage.removeItem('currentTab');
       sessionStorage.removeItem('cart');
       sessionStorage.removeItem('oldestPendingCustomerOrderTime');
 
-      // Show success toast
       showToast({
         type: 'success',
         title: 'Tab Closed',
         message: responseData.message || 'Tab closed successfully. Thank you!'
       });
 
-      // Redirect to home page
       router.replace('/');
       
     } catch (error: any) {
       console.error('❌ Error in handleCloseTab:', error);
       
-      // Handle network errors
       if (error.message?.includes('fetch') || error.name === 'TypeError') {
         showToast({
           type: 'error',
@@ -2302,9 +1997,10 @@ const loadNotificationPrefs = async () => {
         });
       }
     }
-  };
+  }, [tab, orders, payments, showToast, router]);
 
-  const handleApproveOrder = async (orderId: string) => {
+  // Approve order
+  const handleApproveOrder = useCallback(async (orderId: string) => {
     if (!tab?.id) return;
 
     setApprovingOrder(orderId);
@@ -2333,7 +2029,6 @@ const loadNotificationPrefs = async () => {
         message: 'Staff order has been approved'
       });
 
-      // Reload orders so the approval button disappears and totals update
       await loadTabData();
 
     } catch (error) {
@@ -2346,24 +2041,17 @@ const loadNotificationPrefs = async () => {
     } finally {
       setApprovingOrder(null);
     }
-  };
+  }, [tab?.id, showToast, loadTabData]);
 
-  const handleRejectOrder = (orderId: string) => {
+  // Reject order
+  const handleRejectOrder = useCallback((orderId: string) => {
     console.log('🚫 handleRejectOrder called with orderId:', orderId);
-    console.log('🚫 Current showRejectModal state before:', showRejectModal);
-    console.log('🚫 Current rejectingOrderId state before:', rejectingOrderId);
-    
     setRejectingOrderId(orderId);
     setSelectedRejectionReason('');
     setShowRejectModal(true);
-    
-    // Force a re-render log
-    setTimeout(() => {
-      console.log('🚫 showRejectModal state after setTimeout should be true');
-    }, 100);
-  };
+  }, []);
 
-  const confirmRejectOrder = async () => {
+  const confirmRejectOrder = useCallback(async () => {
     if (!rejectingOrderId || !selectedRejectionReason) {
       showToast({
         type: 'error',
@@ -2416,45 +2104,13 @@ const loadNotificationPrefs = async () => {
     } finally {
       setApprovingOrder(null);
     }
-  };
+  }, [rejectingOrderId, selectedRejectionReason, tab?.id, showToast, loadTabData]);
 
-  const categoryOptions = ['All', ...new Set(
-    barProducts
-      .map(bp => bp.product?.category)
-      .filter((cat): cat is string => cat !== undefined && cat !== null && cat.trim() !== '')
-  )];
-
-  let filteredProducts = selectedCategory === 'All'
-    ? barProducts
-    : barProducts.filter(bp => bp.product?.category === selectedCategory);
-
-  // Apply search filter
-  if (searchQuery.trim()) {
-    filteredProducts = filteredProducts.filter(bp =>
-      bp.product?.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }
-
-  // Sort alphabetically by product name
-  filteredProducts.sort((a, b) => {
-    const nameA = a.product?.name || '';
-    const nameB = b.product?.name || '';
-    return nameA.localeCompare(nameB);
-  });
-
-  // Derived value: food items first (alphabetical), then drinks (alphabetical)
-  const sortedProducts = [...barProducts].sort((a, b) => {
-    const aIsDrink = isDrinkProduct(a.product);
-    const bIsDrink = isDrinkProduct(b.product);
-    if (aIsDrink !== bIsDrink) return aIsDrink ? 1 : -1; // food before drinks
-    return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
-  });
-
-  const addToCart = (barProduct: BarProduct, priceOverride?: number) => {
+  // Add to cart
+  const addToCart = useCallback((barProduct: BarProduct, priceOverride?: number) => {
     const product = barProduct.product;
     if (!product) return;
     
-    // Always add as a new item (no grouping by product)
     const newItem = {
       bar_product_id: barProduct.id,
       product_id: barProduct.product_id,
@@ -2465,31 +2121,36 @@ const loadNotificationPrefs = async () => {
       quantity: 1
     };
     
-    const newCart = [...cart, newItem];
-    setCart(newCart);
-    sessionStorage.setItem('cart', JSON.stringify(newCart));
+    setCart(prev => {
+      const newCart = [...prev, newItem];
+      sessionStorage.setItem('cart', JSON.stringify(newCart));
+      return newCart;
+    });
     
-    // Show toast notification for cart addition
     showToast({
       type: 'success',
       title: 'Added to Cart! 🛒',
       message: `${product.name} has been added to your cart`
     });
-  };
+  }, [showToast]);
 
-  const updateCartQuantity = (itemIndex: number, delta: number) => {
-    const newCart = cart.map((item, idx) => {
-      if (idx === itemIndex) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
-      }
-      return item;
-    }).filter(item => item.quantity > 0);
-    setCart(newCart);
-    sessionStorage.setItem('cart', JSON.stringify(newCart));
-  };
+  // Update cart quantity
+  const updateCartQuantity = useCallback((itemIndex: number, delta: number) => {
+    setCart(prev => {
+      const newCart = prev.map((item, idx) => {
+        if (idx === itemIndex) {
+          const newQty = item.quantity + delta;
+          return newQty > 0 ? { ...item, quantity: newQty } : item;
+        }
+        return item;
+      }).filter(item => item.quantity > 0);
+      sessionStorage.setItem('cart', JSON.stringify(newCart));
+      return newCart;
+    });
+  }, []);
 
-  const confirmOrder = async () => {
+  // Confirm order
+  const confirmOrder = useCallback(async () => {
     if (cart.length === 0 || !tab?.id) return;
 
     setSubmittingOrder(true);
@@ -2524,15 +2185,31 @@ const loadNotificationPrefs = async () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
       console.error('Error creating order:', error);
-      alert(`Failed to create order: ${error.message}`);
+      showToast({
+        type: 'error',
+        title: 'Failed to Create Order',
+        message: error.message || 'Please try again'
+      });
     } finally {
       setSubmittingOrder(false);
     }
-  };
+  }, [cart, tab?.id, isDrinkItem, notColdPreferences, showToast]);
 
-  const processPayment = async () => {
+  // These must be declared before processPayment which references them in its dependency array
+  const tabTotal = useMemo(() => orders
+    .filter(order => order.status === 'confirmed' && order.status !== 'cancelled')
+    .reduce((sum, order) => sum + parseFloat(order.total), 0), [orders]);
+  const paidTotal = useMemo(() => payments.filter(payment => payment.status === 'success').reduce((sum, payment) => sum + parseFloat(payment.amount), 0), [payments]);
+  const balance = useMemo(() => tabTotal - paidTotal, [tabTotal, paidTotal]);
+
+  // Computed values
+  const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), [cart]);
+  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const pendingStaffOrders = useMemo(() => orders.filter(o => o.status === 'pending' && o.initiated_by === 'staff').length, [orders]);
+
+  // Process payment
+  const processPayment = useCallback(async () => {
     if (activePaymentMethod === 'mpesa') {
-      // Check if tab is loaded
       if (!tab?.id) {
         showToast({
           type: 'error',
@@ -2542,7 +2219,6 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Validate inputs
       if (!phoneNumber.trim()) {
         showToast({
           type: 'error',
@@ -2570,7 +2246,6 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Validate phone number
       const validation = validateMpesaPhoneNumber(phoneNumber);
       if (!validation.isValid) {
         showToast({
@@ -2581,11 +2256,9 @@ const loadNotificationPrefs = async () => {
         return;
       }
 
-      // Process M-Pesa payment
       try {
         setIsProcessing(true);
         
-        // Validate payment context first
         const contextValidation = await validatePaymentContext();
         if (!contextValidation.isValid) {
           console.error('Menu payment context validation failed:', contextValidation.error);
@@ -2593,7 +2266,6 @@ const loadNotificationPrefs = async () => {
           throw new Error(contextValidation.error || 'Unable to initialize payment. Please refresh and try again.');
         }
         
-        // Database-first approach: Get customer identifier from source of truth
         const { resolveCustomerIdentifier } = await import('../../lib/database-customer-identifier');
         const identifierResult = await resolveCustomerIdentifier();
         
@@ -2605,19 +2277,16 @@ const loadNotificationPrefs = async () => {
         
         const { customerIdentifier, barId } = identifierResult;
         
-        // Validate payment amount
         const paymentAmountNum = parseFloat(paymentAmount);
         if (isNaN(paymentAmountNum) || paymentAmountNum <= 0) {
           throw new Error('Invalid payment amount. Please enter a valid number.');
         }
         
-        // Validate phone number format
         const phoneNumberToUse = validation.normalized;
         if (!phoneNumberToUse) {
           throw new Error('Invalid phone number format. Please check and try again.');
         }
         
-        // Prepare payment data with validation
         const paymentData = {
           barId,
           customerIdentifier,
@@ -2625,7 +2294,6 @@ const loadNotificationPrefs = async () => {
           amount: paymentAmountNum
         };
         
-        // Final validation of all required fields
         if (!paymentData.barId || !paymentData.customerIdentifier || !paymentData.phoneNumber || !paymentData.amount) {
           console.error('Missing required payment fields:', paymentData);
           await logPaymentDebugInfo();
@@ -2670,7 +2338,6 @@ const loadNotificationPrefs = async () => {
             paymentData
           });
           
-          // Log debug info for API errors
           if (response.status === 400 && data.error?.includes('Missing required fields')) {
             await logPaymentDebugInfo();
           }
@@ -2685,11 +2352,9 @@ const loadNotificationPrefs = async () => {
           duration: 8000
         });
 
-        // Reset form
         setPhoneNumber('');
         setPaymentAmount('');
         
-        // Refresh tab data to show updated balance
         setTimeout(() => {
           loadTabData();
         }, 3000);
@@ -2719,9 +2384,10 @@ const loadNotificationPrefs = async () => {
         duration: 5000
       });
     }
-  };
+  }, [activePaymentMethod, tab?.id, phoneNumber, paymentAmount, balance, showToast, loadTabData]);
 
-  const sendTelegramMessage = async () => {
+  // Send telegram message
+  const sendTelegramMessage = useCallback(async () => {
     if (!messageInput.trim() || !tab) {
       console.error('❌ No message or tab');
       return;
@@ -2738,16 +2404,12 @@ const loadNotificationPrefs = async () => {
         length: messageInput.trim().length
       });
       
-      // Set bar context for RLS policies
       const { error: contextError } = await (supabase as any).rpc('set_bar_context', { p_bar_id: tab.bar_id });
       
       if (contextError) {
         console.warn('⚠️ Failed to set bar context:', contextError);
       }
       
-      // Use the database function first
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // Note: create_telegram_message is not yet in generated types/supabase.ts — cast to any until types are regenerated
       const { data, error: functionError } = await (supabase as any).rpc(
         'create_telegram_message',
         {
@@ -2763,7 +2425,6 @@ const loadNotificationPrefs = async () => {
         }
       );
       
-      // If function fails, try direct insert
       if (functionError) {
         console.warn('⚠️ Function failed, trying direct insert:', functionError);
         
@@ -2797,37 +2458,35 @@ const loadNotificationPrefs = async () => {
         console.log('✅ Message sent via function:', data);
       }
       
-      // Success - reset form and show confirmation
       setMessageInput('');
       setShowMessageModal(false);
       setMessageSentModal(true);
       
-      // Vibrate for confirmation
       buzz([100]);
       
-      // Auto-hide confirmation after 3 seconds
       setTimeout(() => {
         setMessageSentModal(false);
       }, 3000);
       
-      // Refresh messages immediately
       await loadTelegramMessages();
       
     } catch (error: any) {
       console.error('❌ Error sending message:', error);
-      alert(`Failed to send message: KSh ${error.message || 'Please try again.'}`);
+      showToast({
+        type: 'error',
+        title: 'Failed to Send Message',
+        message: error.message || 'Please try again.'
+      });
     } finally {
       setSendingMessage(false);
     }
-  };
+  }, [messageInput, tab, buzz, showToast]);
 
-  const loadTelegramMessages = async () => {
+  // Load telegram messages
+  const loadTelegramMessages = useCallback(async () => {
     if (!tab) return;
 
     try {
-      // Use service-role API route to bypass RLS — same pattern as orders.
-      // Direct anon-key queries on tab_telegram_messages are blocked by RLS,
-      // causing staff messages to be invisible until the customer refreshes.
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const res = await fetch(`${baseUrl}/api/tabs/${tab.id}/messages`);
       if (!res.ok) {
@@ -2844,7 +2503,6 @@ const loadNotificationPrefs = async () => {
 
         const unreadCount = messages.filter((msg: any) => {
           if (msg.initiated_by !== 'staff') return false;
-          // Only count messages newer than the last time the customer opened the panel
           const lastRead = sessionStorage.getItem('messages_last_read');
           if (!lastRead) return true;
           return new Date(msg.created_at) > new Date(lastRead);
@@ -2854,38 +2512,77 @@ const loadNotificationPrefs = async () => {
     } catch (error) {
       console.error('Error loading messages:', error);
     }
-  };
+  }, [tab]);
 
   useEffect(() => {
     if (tab?.id) {
       loadTelegramMessages();
     }
-  }, [tab?.id]);
+  }, [tab?.id, loadTelegramMessages]);
 
-  const formatTime = (seconds: number) => {
+  // Format time
+  const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const tabTotal = orders
-    .filter(order => order.status === 'confirmed' && order.status !== 'cancelled')
-    .reduce((sum, order) => sum + parseFloat(order.total), 0);
-  const paidTotal = payments.filter(payment => payment.status === 'success').reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-  const balance = tabTotal - paidTotal;
-  const pendingStaffOrders = orders.filter(o => o.status === 'pending' && o.initiated_by === 'staff').length;
-
-  // FIXED: Use currentTime state instead of new Date() for real-time updates
-  const timeAgo = (dateStr: string) => {
+  // Time ago
+  const timeAgo = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     const seconds = Math.floor((currentTime - date.getTime()) / 1000);
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     return `${Math.floor(seconds / 3600)}h ago`;
-  };
+  }, [currentTime]);
 
+    // Category options
+  const categoryOptions = useMemo(() => {
+    return ['All', ...new Set(
+      barProducts
+        .map(bp => bp.product?.category)
+        .filter((cat): cat is string => cat !== undefined && cat !== null && cat.trim() !== '')
+    )];
+  }, [barProducts]);
+
+  // Filtered products
+  const filteredProducts = useMemo(() => {
+    let products = selectedCategory === 'All'
+      ? barProducts
+      : barProducts.filter(bp => bp.product?.category === selectedCategory);
+
+    if (searchQuery.trim()) {
+      products = products.filter(bp =>
+        bp.product?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return products.sort((a, b) => {
+      const nameA = a.product?.name || '';
+      const nameB = b.product?.name || '';
+      return nameA.localeCompare(nameB);
+    });
+  }, [barProducts, selectedCategory, searchQuery]);
+
+  // Sorted products (food first, then drinks)
+  const sortedProducts = useMemo(() => {
+    return [...barProducts].sort((a, b) => {
+      const aIsDrink = isDrinkProduct(a.product);
+      const bIsDrink = isDrinkProduct(b.product);
+      if (aIsDrink !== bIsDrink) return aIsDrink ? 1 : -1;
+      return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
+    });
+  }, [barProducts, isDrinkProduct]);
+
+  // Last order
+  const lastOrder = useMemo(() => orders.filter(order => order.status !== 'cancelled')[0], [orders]);
+  const lastOrderTotal = useMemo(() => lastOrder ? parseFloat(lastOrder.total).toFixed(0) : '0', [lastOrder]);
+  const lastOrderTime = useMemo(() => lastOrder ? timeAgo(lastOrder.created_at) : '', [lastOrder, timeAgo]);
+
+  // Pending order timer
+  const pendingOrderTime = useMemo(() => getPendingOrderTime(), [getPendingOrderTime]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--ink)' }}>
@@ -2916,20 +2613,11 @@ const loadNotificationPrefs = async () => {
   }
 
   const parallaxOffset = scrollY * 0.5;
-  
-  // ✅ FIXED: Use database order_number directly, no client-side numbering
-  const lastOrder = orders.filter(order => order.status !== 'cancelled')[0]; // Most recent non-cancelled order
-  const lastOrderTotal = lastOrder ? parseFloat(lastOrder.total).toFixed(0) : '0';
-  const lastOrderTime = lastOrder ? timeAgo(lastOrder.created_at) : '';
-  
-  // Get pending order timer
-  const pendingOrderTime = getPendingOrderTime();
 
   return (
     <>
       <PWAInstallPrompt />
       <PWAUpdateManager />
-      {/* Mock Mode Indicator */}
       {process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_MPESA_MOCK_MODE === 'true' && (
         <div className="bg-yellow-400 text-yellow-900 px-4 py-2 text-center text-sm font-medium">
           🧪 M-Pesa Mock Mode Active - Payments will be simulated
@@ -2938,7 +2626,6 @@ const loadNotificationPrefs = async () => {
       <div className="min-h-screen" style={{ background: 'var(--ink)' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
-        {/* Top Row: Restaurant Name & Tab Info */}
         <div className="px-4 py-3 border-b border-white border-opacity-20">
           <div className="flex items-center justify-between">
             <div>
@@ -2996,7 +2683,6 @@ const loadNotificationPrefs = async () => {
               </div>
             </div>
             
-            {/* Average Response Time Badge */}
             {averageResponseTime !== null && !responseTimeLoading && (
               <div className="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
                 <Clock size={14} />
@@ -3010,7 +2696,6 @@ const loadNotificationPrefs = async () => {
               </div>
             )}
             
-            {/* Connection Status Indicator */}
             {showConnectionStatus && (
               <div className="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                 <ConnectionStatusIndicator 
@@ -3023,7 +2708,6 @@ const loadNotificationPrefs = async () => {
           </div>
         </div>
         
-        {/* Bottom Row: Quick Actions */}
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <button 
@@ -3037,7 +2721,6 @@ const loadNotificationPrefs = async () => {
               className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
             >
               Orders
-              {/* App-icon style badge */}
               {(pendingStaffOrders > 0 || pendingOrderTime !== null) && (
                 <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold leading-none shadow ${
                   pendingStaffOrders > 0 ? 'bg-yellow-400 text-gray-900' : 'bg-white text-red-600'
@@ -3075,7 +2758,6 @@ const loadNotificationPrefs = async () => {
       {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
         <div className="bg-black px-4 py-6 border-b border-gray-800">
           <div className="max-w-md mx-auto text-center">
-            {/* Badge Image */}
             <div className="mb-3 flex justify-center">
               {globalBadge?.badge_level === 'platinum' && (
                 <img 
@@ -3111,7 +2793,6 @@ const loadNotificationPrefs = async () => {
               )}
             </div>
 
-            {/* Badge Title */}
             <h2 className="text-lg font-bold text-white mb-1">
               {globalBadge?.badge_level === 'platinum' && 'Platinum Status'}
               {globalBadge?.badge_level === 'gold' && 'Gold Status'}
@@ -3119,14 +2800,12 @@ const loadNotificationPrefs = async () => {
               {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze Status'}
             </h2>
 
-            {/* Badge Subtitle */}
             {globalBadge && (
               <p className="text-xs text-gray-400 mb-3">
                 Earned at {globalBadge.earned_at_bar_name}
               </p>
             )}
 
-            {/* Visit Frequency Indicators */}
             {loyaltyData && loyaltyData.visitTier !== 'new' && (
               <div className="flex justify-center gap-2 mb-3">
                 {Array.from({ 
@@ -3140,7 +2819,6 @@ const loadNotificationPrefs = async () => {
               </div>
             )}
 
-            {/* Discount Info */}
             {spendTier && (
               <div className="inline-block bg-[#FF4F00] bg-opacity-20 border border-[#FF4F00] border-opacity-30 rounded-full px-3 py-1.5">
                 <p className="text-[#FF7040] text-xs font-medium">
@@ -3164,7 +2842,7 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
 
-      {/* Unified 2-column product grid — replaces FOOD and DRINKS carousel sections */}
+      {/* Menu Section */}
       {loading ? (
         <div className="px-4 mt-4">
           <div className="flex items-center justify-center py-12">
@@ -3183,9 +2861,7 @@ const loadNotificationPrefs = async () => {
           </div>
         </div>
       ) : (
-        <>
         <div ref={menuRef} className="px-4 mt-4 mb-4">
-          {/* Section header — matches app-wide pattern */}
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
             {spendTier && (
@@ -3195,11 +2871,7 @@ const loadNotificationPrefs = async () => {
             )}
           </div>
 
-          {/* Product grid with inline ad banners after every row.
-              Ad images come from slideshowImages (slideshow) or staticMenuUrl (single image), capped at 5.
-              One ad is placed after each row (every 2 items); ads stop when the image list is exhausted. */}
           {(() => {
-            // Build the ordered list of ad image URLs (max 5)
             const adImages: string[] = slideshowImages.length > 0
               ? slideshowImages.slice(0, 5)
               : staticMenuUrl
@@ -3210,7 +2882,6 @@ const loadNotificationPrefs = async () => {
             let adIndex = 0;
             let drinkDividerInserted = false;
 
-            // Divider between food and drinks (only if there are food items)
             const hasFoodItems = sortedProducts.some(bp => !isDrinkProduct(bp.product));
             if (hasFoodItems) {
               nodes.push(
@@ -3219,12 +2890,9 @@ const loadNotificationPrefs = async () => {
             }
 
             sortedProducts.forEach((bp, idx) => {
-              // Total discount = badge % + visit frequency bonus %
-              // No badge = 0% (normal pricing)
               let totalDiscountPct = 0;
               if (spendTier) {
                 const badgePct = venueDiscounts[spendTier] ?? 0;
-                // Visit frequency bonus: 1x/week, 2x/week, 3x+/week
                 const weekly = loyaltyData?.weeklyVisits ?? 0;
                 const bonusPct = weekly >= 3
                   ? (visitBonuses.thrice_per_week ?? 0)
@@ -3234,21 +2902,6 @@ const loadNotificationPrefs = async () => {
                   ? (visitBonuses.once_per_week ?? 0)
                   : 0;
                 totalDiscountPct = badgePct + bonusPct;
-                
-                // Debug logging for first product only
-                if (idx === 0) {
-                  console.log('💰 Discount calculation (first product):', {
-                    productName: bp.product?.name,
-                    basePrice: bp.sale_price,
-                    spendTier,
-                    badgePct,
-                    weeklyVisits: weekly,
-                    bonusPct,
-                    totalDiscountPct,
-                    venueDiscounts,
-                    visitBonuses
-                  });
-                }
               }
               const displayPrice = totalDiscountPct > 0
                 ? applyDiscount(bp.sale_price, totalDiscountPct)
@@ -3258,10 +2911,8 @@ const loadNotificationPrefs = async () => {
               const IconComponent = getCategoryIcon(bp.product?.category || '');
               const isThisDrink = isDrinkProduct(bp.product);
 
-              // Insert food/drinks divider before the first drink item
               if (isThisDrink && !drinkDividerInserted) {
                 drinkDividerInserted = true;
-                // If we're mid-row (odd index), pad with an empty cell first
                 if (idx % 2 !== 0) {
                   nodes.push(<div key="pad-before-divider" />);
                 }
@@ -3301,7 +2952,6 @@ const loadNotificationPrefs = async () => {
                 </button>
               );
 
-              // After every 2nd item (end of a row), inject the next ad image if available
               const isEndOfRow = (idx + 1) % 2 === 0;
               if (isEndOfRow && adIndex < adImages.length) {
                 const src = adImages[adIndex];
@@ -3325,10 +2975,9 @@ const loadNotificationPrefs = async () => {
             return <div className="grid grid-cols-2 gap-3">{nodes}</div>;
           })()}
         </div>
-        </>
       )}
 
-      {/* Cart Section - Only show when cart has items */}
+      {/* Cart Section */}
       {cart.length > 0 && (
         <div className="p-4 mb-4 bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DF] border-t border-[#FFCDB8]">
           <div className="mb-3">
@@ -3336,115 +2985,111 @@ const loadNotificationPrefs = async () => {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-[#FFCDB8] overflow-hidden">
-              {/* Cart Header */}
-              <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF4F00] text-white p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ShoppingCart size={20} />
-                    <div>
-                      <h3 className="font-bold text-lg">Cart Items</h3>
-                      <p className="text-sm text-[#FFE8DF]">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setCart([])}
-                    className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-[#993000] transition-colors"
-                    title="Clear cart"
-                  >
-                    <X size={18} className="text-white" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Cart Items */}
-              <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
-                {cart.map((item, index) => (
-                  <div key={`cart-item-${index}`} className="bg-[#FFF5F0] rounded-lg border border-[#FFCDB8]">
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#662000]">{item.name}</span>
-                        </div>
-                        <p className="text-sm text-[#FF4F00]">{tempFormatCurrency(item.price)} each</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-[#FFE8DF] border border-[#FF9E7A] rounded-lg">
-                          <button
-                            onClick={() => updateCartQuantity(index, -1)}
-                            className="p-2 hover:bg-[#FFCDB8] transition-colors"
-                          >
-                            <Minus size={16} className="text-[#CC3F00]" />
-                          </button>
-                          <span className="font-bold w-8 text-center text-[#662000]">{item.quantity}</span>
-                          <button
-                            onClick={() => updateCartQuantity(index, 1)}
-                            className="p-2 hover:bg-[#FFCDB8] transition-colors"
-                          >
-                            <Plus size={16} className="text-[#CC3F00]" />
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const newCart = cart.filter((_, idx) => idx !== index);
-                            setCart(newCart);
-                            sessionStorage.setItem('cart', JSON.stringify(newCart));
-                          }}
-                          className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                          title="Remove from cart"
-                        >
-                          <X size={18} className="text-white" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Not Cold Preference for Drinks */}
-                    {isDrinkItem(item) && (
-                      <div className="px-3 pb-3">
-                        <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={notColdPreferences[`cart-item-${index}`] || false}
-                              onChange={() => toggleNotCold(`cart-item-${index}`)}
-                              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                            />
-                            <span className="text-sm text-blue-700 font-medium">Not Cold</span>
-                            <span className="text-xs text-blue-600">(serve at room temperature)</span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Cart Footer */}
-              <div className="border-t border-[#FFCDB8] p-4 bg-[#FFF5F0]">
-                <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF4F00] text-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ShoppingCart size={20} />
                   <div>
-                    <p className="text-sm text-[#FF4F00]">Total</p>
-                    <p className="text-2xl font-bold text-[#662000]">{tempFormatCurrency(cartTotal)}</p>
+                    <h3 className="font-bold text-lg">Cart Items</h3>
+                    <p className="text-sm text-[#FFE8DF]">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
                   </div>
-                  <button
-                    onClick={confirmOrder}
-                    disabled={submittingOrder || cart.length === 0}
-                    className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {submittingOrder ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={18} />
-                        Send Order
-                      </>
-                    )}
-                  </button>
                 </div>
+                <button
+                  onClick={() => setCart([])}
+                  className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-[#993000] transition-colors"
+                  title="Clear cart"
+                >
+                  <X size={18} className="text-white" />
+                </button>
               </div>
             </div>
+
+            <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+              {cart.map((item, index) => (
+                <div key={`cart-item-${index}`} className="bg-[#FFF5F0] rounded-lg border border-[#FFCDB8]">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-[#662000]">{item.name}</span>
+                      </div>
+                      <p className="text-sm text-[#FF4F00]">{tempFormatCurrency(item.price)} each</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 bg-[#FFE8DF] border border-[#FF9E7A] rounded-lg">
+                        <button
+                          onClick={() => updateCartQuantity(index, -1)}
+                          className="p-2 hover:bg-[#FFCDB8] transition-colors"
+                        >
+                          <Minus size={16} className="text-[#CC3F00]" />
+                        </button>
+                        <span className="font-bold w-8 text-center text-[#662000]">{item.quantity}</span>
+                        <button
+                          onClick={() => updateCartQuantity(index, 1)}
+                          className="p-2 hover:bg-[#FFCDB8] transition-colors"
+                        >
+                          <Plus size={16} className="text-[#CC3F00]" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newCart = cart.filter((_, idx) => idx !== index);
+                          setCart(newCart);
+                          sessionStorage.setItem('cart', JSON.stringify(newCart));
+                        }}
+                        className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                        title="Remove from cart"
+                      >
+                        <X size={18} className="text-white" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {isDrinkItem(item) && (
+                    <div className="px-3 pb-3">
+                      <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={notColdPreferences[`cart-item-${index}`] || false}
+                            onChange={() => toggleNotCold(`cart-item-${index}`)}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-blue-700 font-medium">Not Cold</span>
+                          <span className="text-xs text-blue-600">(serve at room temperature)</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-[#FFCDB8] p-4 bg-[#FFF5F0]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm text-[#FF4F00]">Total</p>
+                  <p className="text-2xl font-bold text-[#662000]">{tempFormatCurrency(cartTotal)}</p>
+                </div>
+                <button
+                  onClick={confirmOrder}
+                  disabled={submittingOrder || cart.length === 0}
+                  className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {submittingOrder ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      Send Order
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -3467,8 +3112,8 @@ const loadNotificationPrefs = async () => {
         </button>
       )}
 
+      {/* Orders Section */}
       <div ref={ordersRef} className="p-4">
-        {/* Section Header - NEW */}
         <div className="mb-3">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ORDER HISTORY</h2>
         </div>
@@ -3496,8 +3141,6 @@ const loadNotificationPrefs = async () => {
               const initiatedBy = order.initiated_by || 'customer';
               const isStaffOrder = initiatedBy === 'staff';
               const needsApproval = order.status === 'pending' && isStaffOrder;
-              
-              // ✅ FIXED: Use database order_number directly
               const orderNumber = order.order_number || '?';
               
               return (
@@ -3558,15 +3201,13 @@ const loadNotificationPrefs = async () => {
         </div>
       </div>
 
-      {/* Payment Section - Always Visible */}
+      {/* Payment Section */}
       {balance > 0 && (
         <div ref={paymentRef} className="p-4">
-          {/* Section Header */}
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PAYMENT</h2>
           </div>
           
-          {/* Balance Display */}
           {tab?.id && (
             <div className="mb-4 p-4 bg-blue-50 rounded-lg">
               <div className="text-sm text-gray-600">
@@ -3575,7 +3216,6 @@ const loadNotificationPrefs = async () => {
             </div>
           )}
 
-          {/* Payment History */}
           {payments && payments.length > 0 && (
             <div className="mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="p-3 bg-gray-50 border-b border-gray-200">
@@ -3586,7 +3226,6 @@ const loadNotificationPrefs = async () => {
                   .filter(payment => payment.status === 'success')
                   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   .map((payment, index) => {
-                    // Debug log to see payment data
                     console.log('💳 Payment display data:', {
                       id: payment.id,
                       method: payment.method,
@@ -3835,7 +3474,7 @@ const loadNotificationPrefs = async () => {
               Close My Tab
             </button>
             <button
-              onClick={() => foodMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+              onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
               className="w-full bg-gray-200 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-300"
             >
               Order More Food
@@ -3847,10 +3486,10 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
       
+      {/* Acceptance Modal */}
       {acceptanceModal.show && (
         <div className="fixed inset-x-0 bottom-0 bg-black bg-opacity-50 flex items-end justify-center z-[9999]">
           <div className="bg-white rounded-t-3xl w-full max-w-lg mx-auto shadow-2xl transform animate-slideUp max-h-[80vh] flex flex-col">
-            {/* Header */}
             <div className="flex-shrink-0 p-6 text-center border-b">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={32} className="text-green-500" />
@@ -3859,23 +3498,19 @@ const loadNotificationPrefs = async () => {
               <p className="text-gray-600">{acceptanceModal.message}</p>
             </div>
             
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-[#FFF5F0]0">{formatCurrency(parseFloat(acceptanceModal.orderTotal))}</div>
               </div>
               
-              {/* Order Items - Scrollable if needed */}
               <div className="space-y-3 mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Order Details</h3>
-                {/* You can map through the actual order items here */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600">Order items will appear here when available</p>
                 </div>
               </div>
             </div>
             
-            {/* Footer - Fixed at bottom */}
             <div className="flex-shrink-0 p-6 border-t">
               <button 
                 onClick={() => setAcceptanceModal({ show: false, orderTotal: '', message: '' })}
@@ -4092,12 +3727,11 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
       
-      {/* Close Tab Section - Always Last */}
+      {/* Close Tab Section */}
       <div className="bg-white p-4 border-t">
         <button
           onClick={() => {
             if (balance > 0) {
-              // Show red toast immediately for outstanding balance
               showToast({
                 type: 'error',
                 title: 'Cannot Close Tab',
@@ -4105,7 +3739,6 @@ const loadNotificationPrefs = async () => {
               });
               return;
             }
-            // Show confirmation for green tabs (no balance)
             setShowCloseConfirm(true);
           }}
           className={`w-full py-3 rounded-xl font-medium transition ${
@@ -4163,7 +3796,6 @@ const loadNotificationPrefs = async () => {
               </p>
             </div>
             
-            {/* Table Grid */}
             <div className="grid grid-cols-5 gap-3 mb-6">
               {barTables.map((tableNum) => (
                 <button
@@ -4179,7 +3811,6 @@ const loadNotificationPrefs = async () => {
               ))}
             </div>
             
-            {/* Skip for now (if needed) */}
             <button
               onClick={() => {
                 console.log('🪑 Skip button clicked');
@@ -4193,7 +3824,7 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
 
-      {/* Spend prompt — shown after order acceptance when guest is close to next tier */}
+      {/* Spend prompt */}
       {spendPrompt && (
         <div
           className="fixed bottom-20 left-4 right-4 z-50 animate-fadeIn"
@@ -4215,7 +3846,7 @@ const loadNotificationPrefs = async () => {
         </div>
       )}
 
-      {/* Message Panel Slide-in */}
+      {/* Message Panel */}
       <MessagePanel
         isOpen={showMessagePanel}
         onClose={() => setShowMessagePanel(false)}

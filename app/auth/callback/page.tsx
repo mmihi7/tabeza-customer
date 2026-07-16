@@ -39,6 +39,24 @@ export default function AuthCallbackPage() {
       } else if (type === 'recovery') {
         router.replace('/reset-password')
       } else {
+        // Existing user login via magic link — check for multiple roles
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            const rolesRes = await fetch('/api/auth/roles', {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            })
+            if (rolesRes.ok) {
+              const { roles } = await rolesRes.json()
+              if (roles.length > 1) {
+                router.replace('/select-role')
+                return
+              }
+            }
+          }
+        } catch {
+          // Non-fatal — fall through to start screen
+        }
         // Fallback — go to start screen (StepHome with recent venues)
         router.replace('/start')
       }
