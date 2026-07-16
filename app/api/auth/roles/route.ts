@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Waiter / crew (staff_members) ─────────────────────────────────────
-  const { data: staffMemberRow } = await db
+  const { data: staffMemberRow } = await (db as any)
     .from('staff_members')
     .select('user_id')
     .eq('user_id', userId)
