@@ -38,9 +38,10 @@ export async function GET(req: NextRequest) {
 
   const db = createServiceRoleClient()
 
-  const staffUrl    = process.env.NEXT_PUBLIC_STAFF_APP_URL    || 'https://staff.tabeza.co.ke'
-  const crewUrl     = process.env.NEXT_PUBLIC_CREW_APP_URL     || 'https://crew.tabeza.co.ke'
-  const customerUrl = process.env.NEXT_PUBLIC_CUSTOMER_APP_URL || 'https://app.tabeza.co.ke'
+  const adminUrl    = process.env.NEXT_PUBLIC_ADMIN_APP_URL || 'https://admin.tabeza.co.ke'
+  const staffUrl    = 'https://tabeza.co.ke'
+  const crewUrl     = 'https://crew.tabeza.co.ke'
+  const customerUrl = process.env.NEXT_PUBLIC_APP_URL       || 'https://app.tabeza.co.ke'
 
   const roles: UserRole[] = []
 
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
       type: 'tabeza',
       label: 'Tabeza HQ',
       description: 'Platform owner — full system access',
-      url: `${staffUrl}/system`,
+      url: `${adminUrl}/system`,
     })
   }
 
