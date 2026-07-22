@@ -2,7 +2,7 @@
 
 /**
  * Home page — pure redirect gate.
- * - Unauthenticated → /login
+ * - Unauthenticated → /landing
  * - Authenticated → /start (StepHome: recent venues, scan, enter code)
  *
  * All the old landing page logic has been superseded by the new
@@ -22,7 +22,7 @@ export default function HomePage() {
     if (user) {
       router.replace('/start');
     } else {
-      router.replace('/login');
+      router.replace('/landing');
     }
   }, [user, loading, router]);
 
