@@ -22,7 +22,7 @@ function DesktopGate() {
         {/* Left — branding */}
         <div style={{ flex: 1 }}>
           <div style={{ marginBottom: '2rem' }}>
-            <Logo size="xl" />
+            <Logo size="lg" />
           </div>
           <h1 style={{
             fontFamily: "'Cormorant Garamond', serif",
