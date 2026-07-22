@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';import { useRouter } from 'next/navigation';
 import { ArrowRight, QrCode, Smartphone } from 'lucide-react';
 import Logo from '@/components/Logo';
 
@@ -308,6 +307,31 @@ function MobileLanding() {
         </div>
       </div>
 
+      {/* FAQ Section */}
+      <div style={{ padding: '2rem 1.5rem 0' }}>
+        <p style={{
+          fontSize: '0.6875rem', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          color: 'var(--amber)', marginBottom: '1rem',
+        }}>
+          FAQ
+        </p>
+        <h2 style={{
+          fontSize: '1.5rem', fontWeight: 700,
+          color: 'var(--cream)', marginBottom: '1.5rem',
+          fontFamily: "'Cormorant Garamond', serif",
+        }}>
+          Your questions, answered
+        </h2>
+        <FaqAccordion items={CUSTOMER_FAQS} />
+        <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '1.5rem', marginBottom: '2rem' }}>
+          Still have questions?{' '}
+          <a href="mailto:support@tabeza.co.ke" style={{ color: 'var(--amber)', fontWeight: 600 }}>
+            support@tabeza.co.ke
+          </a>
+        </p>
+      </div>
+
       {/* Footer */}
       <div style={{
         padding: '1.25rem 1.5rem',
@@ -322,6 +346,111 @@ function MobileLanding() {
           <a href="/privacy" style={{ fontSize: '0.75rem', color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Customer FAQ data ─────────────────────────────────────────────────────────
+
+const CUSTOMER_FAQS = [
+  {
+    q: 'What is Tabeza?',
+    a: 'Tabeza lets you open a tab at a bar or club using your phone. Scan a QR code at your table or bar, order what you want, and pay when you\'re ready via M-Pesa or card. No waiting for a waiter, no card to hand over, no surprise bill at the end.',
+  },
+  {
+    q: 'Do I need to create an account?',
+    a: 'No. You can use Tabeza completely without an account — just scan and go.',
+  },
+  {
+    q: 'What is the difference between tracked and untracked?',
+    a: 'When you first use Tabeza you choose how you want to interact. Untracked means your session is completely private — nothing from your visit is saved after you close your tab. Tracked means your visits and spend build a loyalty profile. Your tier grows with every visit and unlocks real perks at venues you return to. You can switch to untracked at any time.',
+  },
+  {
+    q: 'Does the venue know who I am?',
+    a: 'No. The venue sees Tab 01, Tab 02 — a number, not a person. Whether you choose tracked or untracked, your name and personal details are never shared with the venue.',
+  },
+  {
+    q: 'What does tracked actually track?',
+    a: 'Only your spend and visit history within Tabeza — which venues you\'ve visited, what tier you\'ve earned, and your order history for loyalty calculations. This is never sold to third parties or shared with venues.',
+  },
+  {
+    q: 'How do I pay?',
+    a: 'M-Pesa or card, directly from your phone. Your running balance is visible throughout so you always know where you stand.',
+  },
+  {
+    q: 'What is the loyalty system?',
+    a: 'If you choose tracked, you earn towards Bronze, Silver, and Gold tiers based on your spend per visit. Higher tiers unlock discounts, priority service, and recognition at your regular venues. Untracked users enjoy the same ordering and payment experience without the rewards.',
+  },
+  {
+    q: 'Is Tabeza free for customers?',
+    a: 'Yes. Completely free.',
+  },
+  {
+    q: 'What if I have an issue with my order or tab?',
+    a: 'Message your waiter directly from the tab screen. For anything else, contact support@tabeza.co.ke.',
+  },
+];
+
+// ── FAQ Accordion ─────────────────────────────────────────────────────────────
+
+function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
+  const [open, setOpen] = React.useState<number | null>(null);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          style={{
+            border: `1px solid ${open === i ? 'rgba(255,79,0,0.25)' : 'rgba(255,255,255,0.07)'}`,
+            borderRadius: '0.75rem',
+            backgroundColor: open === i ? 'rgba(255,79,0,0.05)' : 'rgba(255,255,255,0.03)',
+            overflow: 'hidden',
+            transition: 'border-color 0.15s, background-color 0.15s',
+          }}
+        >
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.875rem 1rem',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+              gap: '0.75rem',
+            }}
+          >
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--cream)', lineHeight: 1.4 }}>
+              {item.q}
+            </span>
+            <span style={{
+              flexShrink: 0,
+              width: 20, height: 20,
+              borderRadius: '50%',
+              border: '1.5px solid var(--amber)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--amber)',
+              fontSize: '1rem',
+              lineHeight: 1,
+              transition: 'transform 0.2s',
+              transform: open === i ? 'rotate(45deg)' : 'none',
+            }}>
+              +
+            </span>
+          </button>
+          {open === i && (
+            <div style={{ padding: '0 1rem 0.875rem' }}>
+              <p style={{ fontSize: '0.8375rem', color: 'var(--muted)', lineHeight: 1.65 }}>
+                {item.a}
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
