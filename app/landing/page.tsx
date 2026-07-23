@@ -293,7 +293,7 @@ function MobileLanding() {
     }}>
 
       {/* Hero */}
-      <div style={{ padding: '3rem 1.5rem 2rem', flex: 1 }}>
+      <div style={{ padding: '3rem 1.5rem 2rem' }}>
         <div style={{ marginBottom: '2rem' }}>
           <Logo size="lg" />
         </div>
