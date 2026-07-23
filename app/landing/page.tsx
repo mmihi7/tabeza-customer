@@ -348,7 +348,7 @@ function LoyaltyCard({ tier, color, description, perks }: { tier: string; color:
       <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-left" style={{ color: 'var(--muted-2)' }}>
         {perks.map((perk, i) => (
           <li key={i} className="flex items-center gap-2">
-            <CheckCircle size={12 sm:size-14} style={{ color }} />
+            <CheckCircle size={14} style={{ color }} />
             {perk}
           </li>
         ))}
