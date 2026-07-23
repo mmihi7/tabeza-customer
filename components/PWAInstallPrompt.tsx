@@ -5,120 +5,130 @@ import { X, Download, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent {
   readonly prompt: () => Promise<void>;
-  readonly userChoice: Promise<'accepted' | 'dismissed'>;
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-interface PWAInstallPromptProps {
-  className?: string;
-}
-
-export default function PWAInstallPrompt({ className = '' }: PWAInstallPromptProps) {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
+export default function PWAInstallPrompt() {
+  const [show, setShow]             = useState(false);
+  const [prompt, setPrompt]         = useState<BeforeInstallPromptEvent | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (sessionStorage.getItem('customer-pwa-dismissed')) return;
+
     const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('🔔 beforeinstallprompt event fired');
-      
-      // Check if we should show our custom prompt
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const shouldShowCustomPrompt = !isStandalone;
-      
-      if (shouldShowCustomPrompt) {
-        // Only prevent default if we're going to show our custom prompt
-        e.preventDefault();
-        const promptEvent = e as unknown as BeforeInstallPromptEvent;
-        setDeferredPrompt(promptEvent);
-        setShowInstallBanner(true);
-      } else {
-        // Don't prevent default if we're not showing custom prompt
-        console.log('🔔 PWA install prompt not prevented - already installed or letting browser handle it');
-      }
+      e.preventDefault();
+      setPrompt(e as unknown as BeforeInstallPromptEvent);
+      setTimeout(() => setShow(true), 2500);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Check if PWA is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      console.log('📱 PWA is already installed in standalone mode');
-    }
-
-    // Debug browser support
-    console.log('🔍 PWA support check:', {
-      serviceWorker: 'serviceWorker' in navigator,
-      beforeinstallprompt: 'onbeforeinstallprompt' in window,
-      standalone: window.matchMedia('(display-mode: standalone)').matches
-    });
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-
+  async function handleInstall() {
+    if (!prompt) return;
+    setInstalling(true);
     try {
-      // Show the install prompt
-      await deferredPrompt.prompt();
-      
-      // Wait for the user's choice
-      const choice = await deferredPrompt.userChoice;
-      
-      // Close the modal regardless of choice
-      setShowInstallBanner(false);
-      setDeferredPrompt(null);
-      
-      console.log('PWA install choice:', choice);
-    } catch (error) {
-      console.error('PWA install error:', error);
-      // Still close the modal on error
-      setShowInstallBanner(false);
-      setDeferredPrompt(null);
+      await prompt.prompt();
+      await prompt.userChoice;
+    } catch (e) {
+      console.error('[PWA] install error:', e);
+    } finally {
+      setShow(false);
+      setInstalling(false);
     }
-  };
+  }
 
-  const handleDismiss = () => {
-    setShowInstallBanner(false);
-    setDeferredPrompt(null);
-  };
+  function handleDismiss() {
+    setShow(false);
+    sessionStorage.setItem('customer-pwa-dismissed', '1');
+  }
 
-  if (!showInstallBanner) return null;
+  if (!show) return null;
 
   return (
-    <div className={`fixed top-4 left-4 right-4 z-50 p-4 ${className}`}>
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-xl p-4 max-w-md mx-auto">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Smartphone size={24} className="text-blue-100" />
-            <div>
-              <h3 className="font-bold text-lg">Install Tabeza App</h3>
-              <p className="text-sm text-blue-100">Get instant access to your tabs</p>
-            </div>
-          </div>
-          <button
-            onClick={handleDismiss}
-            className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded-full transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <div style={{
+      position: 'fixed',
+      bottom: '1rem',
+      left: '1rem',
+      right: '1rem',
+      zIndex: 9999,
+      maxWidth: 420,
+      margin: '0 auto',
+    }}>
+      <div style={{
+        background: 'var(--ink2)',
+        border: '1px solid rgba(255,79,0,0.25)',
+        borderRadius: 16,
+        padding: '1rem 1.125rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.875rem',
+      }}>
+        {/* Icon */}
+        <div style={{
+          width: 44, height: 44, borderRadius: 10,
+          background: 'rgba(255,79,0,0.12)',
+          border: '1px solid rgba(255,79,0,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Smartphone size={22} style={{ color: 'var(--amber)' }} />
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <button
-            onClick={handleInstallClick}
-            className="flex-1 bg-white text-blue-600 font-semibold py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <Download size={20} />
-            <span>Install App</span>
-          </button>
-          <button
-            onClick={handleDismiss}
-            className="px-4 py-3 text-blue-100 hover:text-white transition-colors"
-          >
-            Maybe Later
-          </button>
+
+        {/* Text */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{
+            fontWeight: 700, fontSize: '0.875rem',
+            color: 'var(--cream)', marginBottom: 2,
+            fontFamily: "'Lato', sans-serif",
+          }}>
+            Add Tabeza to home screen
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+            Faster access, works offline
+          </p>
         </div>
+
+        {/* Install button */}
+        <button
+          onClick={handleInstall}
+          disabled={installing}
+          style={{
+            background: 'var(--amber)',
+            color: 'var(--ink)',
+            border: 'none',
+            borderRadius: 8,
+            padding: '0.5rem 0.875rem',
+            fontWeight: 700,
+            fontSize: '0.8rem',
+            cursor: installing ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: '0.375rem',
+            flexShrink: 0,
+            opacity: installing ? 0.7 : 1,
+            fontFamily: "'Lato', sans-serif",
+          }}
+        >
+          <Download size={14} />
+          {installing ? 'Installing…' : 'Install'}
+        </button>
+
+        {/* Dismiss */}
+        <button
+          onClick={handleDismiss}
+          style={{
+            background: 'none', border: 'none',
+            cursor: 'pointer', padding: 4,
+            color: 'var(--muted)',
+            flexShrink: 0,
+          }}
+          aria-label="Dismiss"
+        >
+          <X size={16} />
+        </button>
       </div>
     </div>
   );
