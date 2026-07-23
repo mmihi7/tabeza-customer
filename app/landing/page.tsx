@@ -1,476 +1,358 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, QrCode, Smartphone } from 'lucide-react';
+import { CheckCircle, Smartphone, QrCode, CreditCard, Shield, Star, ArrowRight, Menu, X, Clock, MapPin } from 'lucide-react';
 import Logo from '@/components/Logo';
 
-// ── Desktop gate — shown on screens wider than 768px ─────────────────────────
-function DesktopGate() {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'var(--ink)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2rem',
-      fontFamily: "'Lato', sans-serif",
-    }}>
-      <div style={{ display: 'flex', gap: '6rem', alignItems: 'center', maxWidth: 900, width: '100%' }}>
-
-        {/* Left — branding */}
-        <div style={{ flex: 1 }}>
-          <div style={{ marginBottom: '2rem' }}>
-            <Logo size="lg" />
-          </div>
-          <h1 style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: '3.5rem',
-            fontWeight: 600,
-            color: 'var(--cream)',
-            lineHeight: 1.1,
-            marginBottom: '1.25rem',
-          }}>
-            Your tab.<br />
-            <span style={{ color: 'var(--amber)' }}>On your phone.</span>
-          </h1>
-          <p style={{
-            fontSize: '1.0625rem',
-            color: 'var(--muted)',
-            lineHeight: 1.65,
-            marginBottom: '2rem',
-            maxWidth: 380,
-          }}>
-            Tabeza is a mobile experience — open tabs, order drinks, and pay securely from your phone at any Tabeza venue.
-          </p>
-
-          {/* Steps */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {[
-              { n: '1', text: 'Scan the QR code with your phone' },
-              { n: '2', text: 'Open your tab at the venue' },
-              { n: '3', text: 'Order and pay from your seat' },
-            ].map(({ n, text }) => (
-              <div key={n} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: 'var(--amber)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 700, fontSize: '0.8rem',
-                  color: 'var(--ink)',
-                  flexShrink: 0,
-                }}>
-                  {n}
-                </div>
-                <span style={{ fontSize: '0.9375rem', color: 'var(--cream2)' }}>{text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right — phone mockup + QR */}
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-          {/* Phone frame */}
-          <div style={{
-            width: 240,
-            height: 420,
-            borderRadius: 36,
-            border: '8px solid rgba(255,255,255,0.15)',
-            background: 'var(--ink2)',
-            position: 'relative',
-            overflow: 'hidden',
-            boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
-          }}>
-            {/* Notch */}
-            <div style={{
-              position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-              width: 80, height: 20, borderRadius: 10,
-              background: 'rgba(0,0,0,0.8)',
-              zIndex: 2,
-            }} />
-            {/* Screen content */}
-            <div style={{
-              padding: '48px 16px 20px',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-            }}>
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--amber)' }}>TABEZA</span>
-                <span style={{ fontSize: '0.6rem', color: 'var(--muted)', fontFamily: 'monospace' }}>Tab #42</span>
-              </div>
-              {/* Venue name */}
-              <div style={{
-                background: 'rgba(255,79,0,0.1)',
-                border: '1px solid rgba(255,79,0,0.2)',
-                borderRadius: 10, padding: '0.625rem',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--cream)' }}>The Alchemist</div>
-                <div style={{ fontSize: '0.6rem', color: 'var(--muted)', marginTop: 2 }}>Westlands, Nairobi</div>
-              </div>
-              {/* Order items */}
-              {[
-                { name: 'Tusker Lager', price: '450' },
-                { name: 'Mojito', price: '800' },
-                { name: 'Nachos', price: '650' },
-              ].map(item => (
-                <div key={item.name} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  padding: '0.5rem 0.625rem',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: 8,
-                }}>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--cream2)' }}>{item.name}</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--amber)', fontWeight: 700 }}>KSh {item.price}</span>
-                </div>
-              ))}
-              {/* Balance */}
-              <div style={{
-                marginTop: 'auto',
-                background: 'var(--amber)',
-                borderRadius: 10,
-                padding: '0.625rem',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontSize: '0.6rem', color: 'rgba(0,0,0,0.6)', fontWeight: 600 }}>BALANCE</div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--ink)' }}>KSh 1,900</div>
-              </div>
-            </div>
-          </div>
-
-          {/* QR code box */}
-          <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            padding: '1.25rem',
-            textAlign: 'center',
-            width: '100%',
-          }}>
-            <div style={{
-              width: 96, height: 96,
-              background: '#fff',
-              borderRadius: 10,
-              margin: '0 auto 0.75rem',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <QrCode size={64} style={{ color: '#000' }} />
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.4 }}>
-              Point your phone camera here<br />to open Tabeza
-            </p>
-            <p style={{ fontSize: '0.6875rem', color: 'var(--amber)', marginTop: '0.375rem', fontWeight: 600 }}>
-              app.tabeza.co.ke
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Customer FAQ data ─────────────────────────────────────────────────────────
-
-const CUSTOMER_FAQS = [
-  {
-    q: 'What is Tabeza?',
-    a: 'Tabeza lets you open a tab at a bar or club using your phone. Scan a QR code at your table or bar, order what you want, and pay when you\'re ready via M-Pesa or card. No waiting for a waiter, no card to hand over, no surprise bill at the end.',
-  },
-  {
-    q: 'Do I need to create an account?',
-    a: 'No. You can use Tabeza completely without an account — just scan and go.',
-  },
-  {
-    q: 'What is the difference between tracked and untracked?',
-    a: 'When you first use Tabeza you choose how you want to interact. Untracked means your session is completely private — nothing from your visit is saved after you close your tab. Tracked means your visits and spend build a loyalty profile. Your tier grows with every visit and unlocks real perks at venues you return to. You can switch to untracked at any time.',
-  },
-  {
-    q: 'Does the venue know who I am?',
-    a: 'No. The venue sees Tab 01, Tab 02 — a number, not a person. Whether you choose tracked or untracked, your name and personal details are never shared with the venue.',
-  },
-  {
-    q: 'What does tracked actually track?',
-    a: 'Only your spend and visit history within Tabeza — which venues you\'ve visited, what tier you\'ve earned, and your order history for loyalty calculations. This is never sold to third parties or shared with venues.',
-  },
-  {
-    q: 'How do I pay?',
-    a: 'M-Pesa or card, directly from your phone. Your running balance is visible throughout so you always know where you stand.',
-  },
-  {
-    q: 'What is the loyalty system?',
-    a: 'If you choose tracked, you earn towards Bronze, Silver, and Gold tiers based on your spend per visit. Higher tiers unlock discounts, priority service, and recognition at your regular venues. Untracked users enjoy the same ordering and payment experience without the rewards.',
-  },
-  {
-    q: 'Is Tabeza free for customers?',
-    a: 'Yes. Completely free.',
-  },
-  {
-    q: 'What if I have an issue with my order or tab?',
-    a: 'Message your waiter directly from the tab screen. For anything else, contact support@tabeza.co.ke.',
-  },
-];
-
-// ── FAQ Accordion ─────────────────────────────────────────────────────────────
-
-function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
-  const [open, setOpen] = useState<number | null>(null);
+export default function LandingPage() {
+  const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {items.map((item, i) => (
-        <div
-          key={i}
-          style={{
-            border: `1px solid ${open === i ? 'rgba(255,79,0,0.25)' : 'rgba(255,255,255,0.07)'}`,
-            borderRadius: '0.75rem',
-            backgroundColor: open === i ? 'rgba(255,79,0,0.05)' : 'rgba(255,255,255,0.03)',
-            overflow: 'hidden',
-            transition: 'border-color 0.15s, background-color 0.15s',
-          }}
-        >
-          <button
-            onClick={() => setOpen(open === i ? null : i)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '0.875rem 1rem',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              textAlign: 'left',
-              gap: '0.75rem',
-            }}
-          >
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--cream)', lineHeight: 1.4 }}>
-              {item.q}
-            </span>
-            <span style={{
-              flexShrink: 0,
-              width: 20, height: 20,
-              borderRadius: '50%',
-              border: '1.5px solid var(--amber)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--amber)',
-              fontSize: '1rem',
-              lineHeight: 1,
-              transition: 'transform 0.2s',
-              transform: open === i ? 'rotate(45deg)' : 'none',
-            }}>
-              +
-            </span>
-          </button>
-          {open === i && (
-            <div style={{ padding: '0 1rem 0.875rem' }}>
-              <p style={{ fontSize: '0.8375rem', color: 'var(--muted)', lineHeight: 1.65 }}>
-                {item.a}
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--ink)' }}>
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50" style={{ backgroundColor: 'rgba(10,10,12,0.95)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2">
+              <Logo size="md" />
+              <span className="text-white font-semibold text-lg">Tabeza</span>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#how-it-works" className="text-sm" style={{ color: 'var(--muted)' }}>How it works</a>
+              <a href="#features" className="text-sm" style={{ color: 'var(--muted)' }}>Features</a>
+              <a href="#loyalty" className="text-sm" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              <button
+                onClick={() => router.push('/login')}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)' }}
+              >
+                Sign In
+              </button>
+            </div>
+            <button
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X size={24} style={{ color: 'var(--cream)' }} /> : <Menu size={24} style={{ color: 'var(--cream)' }} />}
+            </button>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden px-4 py-4" style={{ backgroundColor: 'rgba(10,10,12,0.98)' }}>
+            <div className="flex flex-col gap-4">
+              <a href="#how-it-works" className="text-sm py-2" style={{ color: 'var(--muted)' }}>How it works</a>
+              <a href="#features" className="text-sm py-2" style={{ color: 'var(--muted)' }}>Features</a>
+              <a href="#loyalty" className="text-sm py-2" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              <button
+                onClick={() => router.push('/login')}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-center"
+                style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)' }}
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Hero Section */}
+      <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6" style={{ color: 'var(--cream)', lineHeight: 1.1 }}>
+                Your Tab.
+                <span style={{ color: 'var(--amber)' }}> Your Phone.</span>
+              </h1>
+              <p className="text-base sm:text-lg mb-6 sm:mb-8" style={{ color: 'var(--muted)', lineHeight: 1.6 }}>
+                Open tabs, order drinks, and pay securely — all from your phone. No more waiting for the bill, no more disputes. Just seamless hospitality at your favorite venues.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <button
+                  onClick={() => router.push('/signup')}
+                  className="px-5 py-4 sm:px-6 sm:py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-base sm:text-sm"
+                  style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)', minHeight: '48px' }}
+                >
+                  Get Started <ArrowRight size={18} />
+                </button>
+                <button
+                  onClick={() => router.push('/login')}
+                  className="px-5 py-4 sm:px-6 sm:py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-base sm:text-sm"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.16)', minHeight: '48px' }}
+                >
+                  Sign In
+                </button>
+              </div>
+              <p className="text-sm mt-4" style={{ color: 'var(--muted-2)' }}>
+                Available at 200+ venues across Kenya
               </p>
             </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Mobile landing page ───────────────────────────────────────────────────────
-function MobileLanding() {
-  const router = useRouter();
-
-  return (
-    <div style={{
-      minHeight: '100dvh',
-      background: 'var(--ink)',
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: "'Lato', sans-serif",
-      overflowX: 'hidden',
-    }}>
-
-      {/* Hero */}
-      <div style={{ padding: '3rem 1.5rem 2rem' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <Logo size="lg" />
-        </div>
-
-        <h1 style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: '2.625rem',
-          fontWeight: 600,
-          color: 'var(--cream)',
-          lineHeight: 1.1,
-          marginBottom: '1rem',
-        }}>
-          Your tab.<br />
-          <span style={{ color: 'var(--amber)' }}>Your phone.</span>
-        </h1>
-
-        <p style={{
-          fontSize: '1rem',
-          color: 'var(--muted)',
-          lineHeight: 1.6,
-          marginBottom: '2.5rem',
-        }}>
-          Open tabs, order drinks, and pay securely — all from your phone at any Tabeza venue.
-        </p>
-
-        {/* CTA buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', marginBottom: '3rem' }}>
-          <button
-            onClick={() => router.push('/signup')}
-            style={{
-              width: '100%', padding: '1rem',
-              background: 'var(--amber)', color: 'var(--ink)',
-              border: 'none', borderRadius: 12,
-              fontSize: '1rem', fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-              cursor: 'pointer',
-            }}
-          >
-            Get started <ArrowRight size={18} />
-          </button>
-          <button
-            onClick={() => router.push('/login')}
-            style={{
-              width: '100%', padding: '1rem',
-              background: 'transparent', color: 'var(--cream)',
-              border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12,
-              fontSize: '1rem', fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Sign in
-          </button>
-        </div>
-
-        {/* How it works */}
-        <div style={{ marginBottom: '3rem' }}>
-          <p style={{
-            fontSize: '0.6875rem', fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.1em',
-            color: 'var(--amber)', marginBottom: '1.25rem',
-          }}>
-            How it works
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {[
-              { icon: <QrCode size={20} />, title: 'Scan at the venue', desc: 'Find the Tabeza QR code at your table or bar' },
-              { icon: <Smartphone size={20} />, title: 'Order from your seat', desc: 'Browse the menu and add items directly from your phone' },
-              { icon: '💳', title: 'Pay when ready', desc: 'Settle with M-Pesa or card — no waiting for the bill' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem',
-                padding: '1rem',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 12,
-              }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: 'rgba(255,79,0,0.12)',
-                  border: '1px solid rgba(255,79,0,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--amber)', fontSize: '1.125rem',
-                  flexShrink: 0,
-                }}>
-                  {item.icon}
-                </div>
-                <div>
-                  <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--cream)', marginBottom: '0.2rem' }}>{item.title}</p>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.4 }}>{item.desc}</p>
+            <div className="order-last lg:order-first">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'var(--amber)', opacity: 0.1, filter: 'blur(40px)' }} />
+                <div className="relative rounded-2xl p-4 sm:p-6 lg:p-8" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--amber)' }}>
+                        <QrCode size={28} style={{ color: 'var(--ink)' }} />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm" style={{ color: 'var(--cream)' }}>Scan QR Code</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>Open your tab instantly</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--amber)' }}>
+                        <Smartphone size={28} style={{ color: 'var(--ink)' }} />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm" style={{ color: 'var(--cream)' }}>Order from Phone</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>Browse menu & order drinks</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--amber)' }}>
+                        <CreditCard size={28} style={{ color: 'var(--ink)' }} />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm" style={{ color: 'var(--cream)' }}>Pay Securely</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>M-Pesa & card payments</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Loyalty teaser */}
-        <div style={{
-          padding: '1.25rem',
-          background: 'linear-gradient(135deg, rgba(255,79,0,0.12) 0%, rgba(255,79,0,0.04) 100%)',
-          border: '1px solid rgba(255,79,0,0.2)',
-          borderRadius: 16,
-          marginBottom: '2rem',
-        }}>
-          <p style={{
-            fontSize: '0.6875rem', fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.1em',
-            color: 'var(--amber)', marginBottom: '0.625rem',
-          }}>
-            Loyalty rewards
-          </p>
-          <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--cream)', marginBottom: '0.375rem' }}>
-            Earn badges at every visit
-          </p>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.5 }}>
-            Bronze → Silver → Gold. The more you visit, the more you unlock — discounts, priority service, and VIP perks.
-          </p>
+      {/* How it Works Section */}
+      <section id="how-it-works" className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--cream)' }}>
+              How Tabeza works for you
+            </h2>
+            <p className="text-base sm:text-lg" style={{ color: 'var(--muted)' }}>
+              Open a tab in 3 simple steps
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <StepCard
+              step="1"
+              icon={<QrCode size={32} style={{ color: 'var(--amber)' }} />}
+              title="Scan QR Code"
+              description="Find the Tabeza QR code at your venue. Scan it with your phone camera to open a tab instantly."
+            />
+            <StepCard
+              step="2"
+              icon={<Smartphone size={32} style={{ color: 'var(--amber)' }} />}
+              title="Browse & Order"
+              description="View the full menu on your phone. Add items to your tab and send orders to staff with one tap."
+            />
+            <StepCard
+              step="3"
+              icon={<CreditCard size={32} style={{ color: 'var(--amber)' }} />}
+              title="Pay & Go"
+              description="View your live balance and pay securely via M-Pesa or card. No waiting for the bill."
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* FAQ Section */}
-      <div style={{ padding: '2rem 1.5rem 0' }}>
-        <p style={{
-          fontSize: '0.6875rem', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em',
-          color: 'var(--amber)', marginBottom: '1rem',
-        }}>
-          FAQ
-        </p>
-        <h2 style={{
-          fontSize: '1.5rem', fontWeight: 700,
-          color: 'var(--cream)', marginBottom: '1.5rem',
-          fontFamily: "'Cormorant Garamond', serif",
-        }}>
-          Your questions, answered
-        </h2>
-        <FaqAccordion items={CUSTOMER_FAQS} />
-        <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '1.5rem', marginBottom: '2rem' }}>
-          Still have questions?{' '}
-          <a href="mailto:support@tabeza.co.ke" style={{ color: 'var(--amber)', fontWeight: 600 }}>
-            support@tabeza.co.ke
-          </a>
-        </p>
-      </div>
+      {/* Features Section */}
+      <section id="features" className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--cream)' }}>
+              Features you'll love
+            </h2>
+            <p className="text-base sm:text-lg" style={{ color: 'var(--muted)' }}>
+              Designed for the modern guest experience
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <FeatureCard
+              icon={<Clock size={32} style={{ color: 'var(--amber)' }} />}
+              title="Real-time Balance"
+              description="See your live tab balance as you order. No surprises when it's time to pay."
+            />
+            <FeatureCard
+              icon={<Shield size={32} style={{ color: 'var(--amber)' }} />}
+              title="Secure Payments"
+              description="Pay via M-Pesa or card directly in the app. Your payment info stays secure."
+            />
+            <FeatureCard
+              icon={<MapPin size={32} style={{ color: 'var(--amber)' }} />}
+              title="Find Venues"
+              description="Discover new venues near you that accept Tabeza. Save your favorites for quick access."
+            />
+            <FeatureCard
+              icon={<Smartphone size={32} style={{ color: 'var(--amber)' }} />}
+              title="Message Staff"
+              description="Need something? Send a message to staff directly from your tab. They'll respond instantly."
+            />
+            <FeatureCard
+              icon={<CheckCircle size={32} style={{ color: 'var(--amber)' }} />}
+              title="Order Tracking"
+              description="Track your orders in real-time. Know exactly when your drinks are ready."
+            />
+            <FeatureCard
+              icon={<Star size={32} style={{ color: 'var(--amber)' }} />}
+              title="Loyalty Rewards"
+              description="Earn badges and unlock exclusive perks as a regular at your favorite venues."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Loyalty Section */}
+      <section id="loyalty" className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--cream)' }}>
+              Earn loyalty at every visit
+            </h2>
+            <p className="text-base sm:text-lg" style={{ color: 'var(--muted)' }}>
+              The more you visit, the more you're rewarded
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <LoyaltyCard
+              tier="Bronze"
+              color="#cd7f32"
+              description="Spend KSh 1,000+ in one sitting"
+              perks={['Welcome recognition', 'Basic perks', 'Venue tracking']}
+            />
+            <LoyaltyCard
+              tier="Silver"
+              color="#c0c0c0"
+              description="Spend KSh 3,000+ in one sitting"
+              perks={['All Bronze perks', 'Enhanced discounts', 'Priority service']}
+            />
+            <LoyaltyCard
+              tier="Gold"
+              color="#ffd700"
+              description="Spend KSh 5,000+ in one sitting"
+              perks={['All Silver perks', 'Maximum discounts', 'VIP treatment']}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(255,79,0,0.1)' }}>
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--cream)' }}>
+            Ready to transform your night out?
+          </h2>
+          <p className="text-base sm:text-lg mb-6 sm:mb-8" style={{ color: 'var(--muted)' }}>
+            Join thousands of Kenyans who've already switched to Tabeza. Open your first tab today.
+          </p>
+          <button
+            onClick={() => router.push('/signup')}
+            className="px-6 sm:px-8 py-4 rounded-lg font-medium text-base sm:text-lg w-full sm:w-auto"
+            style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)' }}
+          >
+            Create Your Account
+          </button>
+        </div>
+      </section>
 
       {/* Footer */}
-      <div style={{
-        padding: '1.25rem 1.5rem',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>© 2025 Tabeza</p>
-        <div style={{ display: 'flex', gap: '1.25rem' }}>
-          <a href="/terms" style={{ fontSize: '0.75rem', color: 'var(--muted)', textDecoration: 'none' }}>Terms</a>
-          <a href="/privacy" style={{ fontSize: '0.75rem', color: 'var(--muted)', textDecoration: 'none' }}>Privacy</a>
+      <footer className="py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Logo size="sm" />
+                <span className="font-semibold" style={{ color: 'var(--cream)' }}>Tabeza</span>
+              </div>
+              <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                The digital tab experience for modern hospitality.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4" style={{ color: 'var(--cream)' }}>Product</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
+                <li><a href="#how-it-works" className="hover:text-white transition-colors">How it works</a></li>
+                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="#loyalty" className="hover:text-white transition-colors">Loyalty</a></li>
+                <li><a href="https://tabeza.co.ke" className="hover:text-white transition-colors">For Venues</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4" style={{ color: 'var(--cream)' }}>Company</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
+                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
+                <li><a href="/terms" className="hover:text-white transition-colors">Terms</a></li>
+                <li><a href="/privacy" className="hover:text-white transition-colors">Privacy</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4" style={{ color: 'var(--cream)' }}>Contact</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
+                <li><a href="mailto:hello@tabeza.co.ke" className="hover:text-white transition-colors">hello@tabeza.co.ke</a></li>
+                <li>Nairobi, Kenya</li>
+              </ul>
+            </div>
+          </div>
+          <div className="pt-8 text-center text-sm" style={{ color: 'var(--muted-2)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            © 2024 Tabeza. All rights reserved. Built with ❤️ in Kenya.
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
 
-// ── Root export — detects screen width and shows correct version ──────────────
-export default function LandingPage() {
-  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="p-4 sm:p-6 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="mb-3 sm:mb-4">{icon}</div>
+      <h3 className="text-base sm:text-lg font-semibold mb-2" style={{ color: 'var(--cream)' }}>{title}</h3>
+      <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>{description}</p>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+function StepCard({ step, icon, title, description }: { step: string; icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="text-center">
+      <div
+        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4"
+        style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)' }}
+      >
+        {icon}
+      </div>
+      <h3 className="text-base sm:text-lg font-semibold mb-2" style={{ color: 'var(--cream)' }}>{title}</h3>
+      <p className="text-xs sm:text-sm" style={{ color: 'var(--muted)' }}>{description}</p>
+    </div>
+  );
+}
 
-  // Avoid flash — wait for client to determine screen size
-  if (isDesktop === null) {
-    return <div style={{ minHeight: '100dvh', background: 'var(--ink)' }} />;
-  }
-
-  return isDesktop ? <DesktopGate /> : <MobileLanding />;
+function LoyaltyCard({ tier, color, description, perks }: { tier: string; color: string; description: string; perks: string[] }) {
+  return (
+    <div className="p-4 sm:p-6 rounded-xl text-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div
+        className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 text-2xl sm:text-3xl font-bold"
+        style={{ backgroundColor: color, color: 'var(--ink)' }}
+      >
+        {tier[0]}
+      </div>
+      <h3 className="text-lg sm:text-xl font-semibold mb-2" style={{ color: 'var(--cream)' }}>{tier}</h3>
+      <p className="text-xs sm:text-sm mb-3 sm:mb-4" style={{ color: 'var(--muted)' }}>{description}</p>
+      <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-left" style={{ color: 'var(--muted-2)' }}>
+        {perks.map((perk, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <CheckCircle size={12 sm:size-14} style={{ color }} />
+            {perk}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
