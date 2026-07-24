@@ -22,7 +22,7 @@ export default function HomePage() {
     if (user) {
       router.replace('/start');
     } else {
-      router.replace('/login');
+      router.replace('/landing');
     }
   }, [user, loading, router]);
 
