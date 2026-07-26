@@ -262,17 +262,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: 'var(--cream)' }}>
+              Frequently asked questions
+            </h2>
+            <p className="text-base" style={{ color: 'var(--muted)' }}>
+              Everything you need to know about using Tabeza.
+            </p>
+          </div>
+          <FaqAccordion items={CUSTOMER_FAQS} />
+          <p className="text-center text-sm mt-8" style={{ color: 'var(--muted)' }}>
+            Still have questions?{' '}
+            <a href="mailto:hello@tabeza.co.ke" style={{ color: 'var(--amber)', fontWeight: 600 }}>
+              hello@tabeza.co.ke
+            </a>
+          </p>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <footer className="py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(10,10,12,0.98)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="max-w-7xl mx-auto">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Logo size="sm" />
+                <Logo size="md" />
                 <span className="font-semibold" style={{ color: 'var(--cream)' }}>Tabeza</span>
               </div>
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                The digital tab experience for modern hospitality.
+                Open tabs, order drinks, pay seamlessly. The modern way to enjoy hospitality.
               </p>
             </div>
             <div>
@@ -305,6 +326,102 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// ── Customer FAQ data ─────────────────────────────────────────────────────────────
+
+const CUSTOMER_FAQS = [
+  {
+    q: 'What is Tabeza?',
+    a: 'Tabeza is a digital tab system for bars and restaurants. Open a tab with your phone, browse the menu, place orders, and pay seamlessly—all without waiting for a waiter.',
+  },
+  {
+    q: 'How do I open a tab?',
+    a: 'Scan the venue\'s QR code or enter the venue code shown on your table. You\'ll be prompted to sign in or create an account, then your tab opens instantly.',
+  },
+  {
+    q: 'Do I need to download an app?',
+    a: 'No. Tabeza works in your browser—just scan the QR code and you\'re in. You can also add it to your home screen for a native app experience.',
+  },
+  {
+    q: 'How do I pay?',
+    a: 'Pay directly in the app using M-Pesa or card. Your payment is processed instantly and your tab closes automatically.',
+  },
+  {
+    q: 'What are loyalty badges?',
+    a: 'As you spend at venues, you earn badges—Bronze, Silver, Gold. Higher badges unlock better pricing and exclusive perks at participating venues.',
+  },
+  {
+    q: 'Is my data secure?',
+    a: 'Yes. We use industry-standard encryption and never share your personal data with third parties. Your payment information is processed securely through M-Pesa.',
+  },
+  {
+    q: 'Can I split the bill with friends?',
+    a: 'Currently, tabs are individual. Each person opens their own tab and pays for their own orders. We\'re working on group tab features for the future.',
+  },
+];
+
+// ── FAQ Accordion Component ───────────────────────────────────────────────────
+
+function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          style={{
+            border: `1px solid ${open === i ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: '0.75rem',
+            backgroundColor: open === i ? 'rgba(245,158,11,0.05)' : 'rgba(255,255,255,0.02)',
+            overflow: 'hidden',
+            transition: 'border-color 0.15s, background-color 0.15s',
+          }}
+        >
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '1rem 1.25rem',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              textAlign: 'left',
+              gap: '1rem',
+            }}
+          >
+            <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--cream)', lineHeight: 1.4 }}>
+              {item.q}
+            </span>
+            <span style={{
+              flexShrink: 0,
+              width: 22, height: 22,
+              borderRadius: '50%',
+              border: '1.5px solid var(--amber)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--amber)',
+              fontSize: '0.75rem',
+              transition: 'transform 0.15s',
+              transform: open === i ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}>
+              ▼
+            </span>
+          </button>
+          {open === i && (
+            <div style={{ padding: '0 1.25rem 1rem 1.25rem' }}>
+              <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--muted)' }}>
+                {item.a}
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
