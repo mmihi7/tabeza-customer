@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Smartphone, QrCode, CreditCard, Shield, Star, ArrowRight, Menu, X, Clock, MapPin } from 'lucide-react';
 import Logo from '@/components/Logo';
@@ -8,6 +8,15 @@ import Logo from '@/components/Logo';
 export default function LandingPage() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.add('landing-page');
+    document.documentElement.classList.add('landing-page');
+    return () => {
+      document.body.classList.remove('landing-page');
+      document.documentElement.classList.remove('landing-page');
+    };
+  }, []);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--ink)' }}>
@@ -89,7 +98,7 @@ export default function LandingPage() {
                 Available at 200+ venues across Kenya
               </p>
             </div>
-            <div className="order-last lg:order-first">
+            <div className="order-first lg:order-last">
               <div className="relative">
                 <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'var(--amber)', opacity: 0.1, filter: 'blur(40px)' }} />
                 <div className="relative rounded-2xl p-4 sm:p-6 lg:p-8" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>

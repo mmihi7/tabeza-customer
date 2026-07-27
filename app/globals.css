@@ -56,19 +56,19 @@ body {
 
 /* ── Mobile shell (desktop preview) ───────────────────────────────────────── */
 @media (min-width: 768px) {
-  body {
+  body:not(.landing-page) {
     max-width: 428px;
     margin: 0 auto;
     box-shadow: 0 0 60px rgba(255,79,0,0.15);
     background: var(--ink);
   }
-  html {
+  html:not(.landing-page) {
     background: #060402;
   }
 }
 
 @media (min-width: 1024px) {
-  body {
+  body:not(.landing-page) {
     max-width: 390px;
     margin: 2rem auto;
     border-radius: 40px;
