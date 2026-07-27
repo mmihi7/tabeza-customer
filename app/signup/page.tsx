@@ -133,7 +133,10 @@ function SignupContent() {
     setStep('success')
   }
 
-  const handleConnect = () => router.push('/start')
+  const handleConnect = () => {
+    // Pass mode=code to show StepHome with recent venues and manual code entry after signup
+    router.push('/start?mode=code')
+  }
 
   return (
     <div 
