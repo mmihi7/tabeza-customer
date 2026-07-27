@@ -1062,7 +1062,15 @@ function ConsentContent() {
         onIdentityModeChange={setIdentityMode}
         onNicknameChange={setWizardNickname}
         onConfirm={() => setWizardStep(2)}
-        onBack={() => setWizardStep(0)}
+        onBack={() => {
+          // Clear venue state to allow StepHome to render properly
+          setBarSlug(null);
+          setBarId(null);
+          setBarName('Default Bar Name');
+          setSelectedVenue(null);
+          sessionStorage.removeItem('scanned_bar_slug');
+          setWizardStep(0);
+        }}
       />
     )
   }
@@ -1092,7 +1100,15 @@ function ConsentContent() {
         weeklyVisits={0}
         identityLabel={identityLabel}
         onConfirm={handleStartTab}
-        onBack={() => setWizardStep(1)}
+        onBack={() => {
+          // Clear venue state to allow StepHome to render properly
+          setBarSlug(null);
+          setBarId(null);
+          setBarName('Default Bar Name');
+          setSelectedVenue(null);
+          sessionStorage.removeItem('scanned_bar_slug');
+          setWizardStep(0);
+        }}
         onChangeIdentity={() => setWizardStep(1)}
         creating={creating}
       />
