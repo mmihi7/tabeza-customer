@@ -253,6 +253,7 @@ export default function MenuPage() {
     vibrationEnabled: true
   });
 
+  const [isFavorited, setIsFavorited] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [barTables, setBarTables] = useState<number[]>([]);
@@ -263,9 +264,11 @@ export default function MenuPage() {
   const loadAttempted = useRef(false);
 
   // Refs for scrolling
+  const promoRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const ordersRef = useRef<HTMLDivElement>(null);
   const paymentRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
   // Helper functions - memoized for performance
   const getDisplayImage = useCallback((product: any) => {
@@ -351,6 +354,12 @@ export default function MenuPage() {
   const isFoodProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
     return !drinkCategories.includes(product.category);
+  }, []);
+
+  const isCocktailProduct = useCallback((product: any): boolean => {
+    if (!product?.category) return false;
+    const cat = product.category.toLowerCase();
+    return cat.includes('cocktail') || cat.includes('mixology');
   }, []);
 
   const toggleNotCold = useCallback((itemId: string | number) => {
@@ -755,12 +764,55 @@ export default function MenuPage() {
     );
   }, [globalBadge, loyaltyData]);
 
+  // Check favorite status
+  const checkFavorite = useCallback(async () => {
+    if (!tab?.customer_id || !tab?.bar_id) return;
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch(`${baseUrl}/api/customer/saved-bars?customerId=${tab.customer_id}`);
+      if (res.ok) {
+        const { savedBars } = await res.json();
+        setIsFavorited(savedBars?.some((s: any) => s.bar.id === tab.bar_id) ?? false);
+      }
+    } catch { /* ignore */ }
+  }, [tab?.customer_id, tab?.bar_id]);
+
+  // Toggle favorite with unsave warning
+  const [unsaveConfirm, setUnsaveConfirm] = useState(false);
+  const toggleFavorite = useCallback(async () => {
+    if (!tab?.customer_id || !tab?.bar_id) return;
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    try {
+      if (isFavorited) {
+        if (!unsaveConfirm) {
+          setUnsaveConfirm(true);
+          showToast({ type: 'warning', title: 'Unsave?', message: `Tap again to remove ${barName} from saved places`, duration: 3000 });
+          setTimeout(() => setUnsaveConfirm(false), 3000);
+          return;
+        }
+        await fetch(`${baseUrl}/api/customer/saved-bars?customerId=${tab.customer_id}&barId=${tab.bar_id}`, { method: 'DELETE' });
+        setIsFavorited(false);
+        setUnsaveConfirm(false);
+        showToast({ type: 'info', title: 'Removed from Saved', message: `${barName} removed from your saved places` });
+      } else {
+        await fetch(`${baseUrl}/api/customer/saved-bars`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId: tab.customer_id, barId: tab.bar_id }),
+        });
+        setIsFavorited(true);
+        showToast({ type: 'success', title: 'Saved!', message: `${barName} added to your saved places` });
+      }
+    } catch { /* ignore */ }
+  }, [tab?.customer_id, tab?.bar_id, isFavorited, barName, showToast, unsaveConfirm]);
+
   // Load loyalty data and venue discounts when tab changes
   useEffect(() => {
     if (!tab?.bar_id) return;
     calculateAverageResponseTime(tab.bar_id);
     loadLoyaltyData();
-  }, [tab?.bar_id, tab?.customer_id, calculateAverageResponseTime, loadLoyaltyData]);
+    checkFavorite();
+  }, [tab?.bar_id, tab?.customer_id, calculateAverageResponseTime, loadLoyaltyData, checkFavorite]);
 
   // Load notification preferences
   const loadNotificationPrefs = useCallback(async () => {
@@ -1638,12 +1690,8 @@ export default function MenuPage() {
               
               const isNewTab = sessionStorage.getItem('just_created_tab') === 'true';
               if (!hasTableAssigned && isNewTab) {
-                console.log('⏰ New tab — setting up table selection modal with delay...');
-                const modalTimeout = setTimeout(() => {
-                  console.log('🪑 Showing table selection modal');
-                  setShowTableModal(true);
-                }, 2000);
-                (window as any).tableSelectionTimeouts = [modalTimeout];
+                console.log('🪑 New tab — showing table selection modal immediately');
+                setShowTableModal(true);
               }
             } else {
               console.log('❌ Table setup not enabled or no tables configured');
@@ -2633,22 +2681,19 @@ export default function MenuPage() {
                 <h1 className="text-xl font-bold">{displayName}</h1>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleFavorite}
+                  className="p-1 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors"
+                  title={isFavorited ? 'Remove from saved' : 'Save this place'}
+                >
+                  <Star
+                    size={20}
+                    fill={isFavorited ? '#FFD700' : 'transparent'}
+                    stroke={isFavorited ? '#FFD700' : '#fff'}
+                    strokeWidth={2}
+                  />
+                </button>
                 <p className="text-xs text-white text-opacity-90">{barName}</p>
-                {crewMember && (
-                  <>
-                    <span className="text-xs text-white text-opacity-60">•</span>
-                    <div className="flex items-center gap-1">
-                      {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
-                        <img
-                          src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
-                          alt={crewMember.display_name}
-                          className="w-5 h-5 rounded-full object-cover border border-white border-opacity-30"
-                        />
-                      ) : null}
-                      <p className="text-xs text-white text-opacity-90">Your waiter: {crewMember.display_name}</p>
-                    </div>
-                  </>
-                )}
                 {selectedTable && (
                   <>
                     <span className="text-xs text-white text-opacity-60">•</span>
@@ -2711,14 +2756,25 @@ export default function MenuPage() {
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <button 
+              onClick={() => promoRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+            >
+              Promo
+            </button>
+            <button 
               onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
               className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
             >
               Menu
             </button>
             <button 
-              onClick={() => ordersRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
+              onClick={() => orders.length > 0 && ordersRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              disabled={orders.length === 0}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all relative ${
+                orders.length === 0
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30'
+              }`}
             >
               Orders
               {(pendingStaffOrders > 0 || pendingOrderTime !== null) && (
@@ -2730,117 +2786,95 @@ export default function MenuPage() {
               )}
             </button>
             <button 
-              onClick={() => paymentRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+              onClick={() => balance > 0 && paymentRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              disabled={balance <= 0 && tabTotal <= 0}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                (balance <= 0 && tabTotal <= 0)
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30'
+              }`}
             >
               Pay
-            </button>
-            <button 
-              onClick={() => { 
-                setShowMessagePanel(true); 
-                setUnreadMessagesCount(0);
-                sessionStorage.setItem('messages_last_read', new Date().toISOString());
-              }}
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
-            >
-              Messages
-              {unreadMessagesCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold leading-none shadow bg-yellow-400 text-gray-900">
-                  {unreadMessagesCount}
-                </span>
-              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Prominent Badge Display Section */}
-      {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
-        <div className="bg-black px-4 py-6 border-b border-gray-800">
-          <div className="max-w-md mx-auto text-center">
-            <div className="mb-3 flex justify-center">
-              {globalBadge?.badge_level === 'platinum' && (
-                <img 
-                  src="/gold.png" 
-                  alt="Platinum Badge" 
-                  className="w-24 h-auto drop-shadow-2xl"
-                  style={{ filter: 'hue-rotate(270deg) saturate(1.5)', maxWidth: '96px' }}
-                />
-              )}
-              {globalBadge?.badge_level === 'gold' && (
-                <img 
-                  src="/gold.png" 
-                  alt="Gold Badge" 
-                  className="w-24 h-auto drop-shadow-2xl"
-                  style={{ maxWidth: '96px' }}
-                />
-              )}
-              {globalBadge?.badge_level === 'silver' && (
-                <img 
-                  src="/silver.png" 
-                  alt="Silver Badge" 
-                  className="w-24 h-auto drop-shadow-2xl"
-                  style={{ maxWidth: '96px' }}
-                />
-              )}
-              {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && (
-                <img 
-                  src="/bronze.png" 
-                  alt="Bronze Badge" 
-                  className="w-24 h-auto drop-shadow-2xl"
-                  style={{ maxWidth: '96px' }}
-                />
+      {/* Crew + User Info Strip — below header, above menu */}
+      {(crewMember || globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
+        <div className="bg-[#1a1a2e] border-b border-gray-800 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Crew member */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              {crewMember ? (
+                <>
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
+                      <img
+                        src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
+                        alt={crewMember.display_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User size={16} className="text-white/50" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-white/60 leading-tight">Your waiter</p>
+                    <p className="text-sm text-white font-medium truncate">{crewMember.display_name}</p>
+                  </div>
+                </>
+              ) : (
+                <div />
               )}
             </div>
 
-            <h2 className="text-lg font-bold text-white mb-1">
-              {globalBadge?.badge_level === 'platinum' && 'Platinum Status'}
-              {globalBadge?.badge_level === 'gold' && 'Gold Status'}
-              {globalBadge?.badge_level === 'silver' && 'Silver Status'}
-              {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze Status'}
-            </h2>
-
-            {globalBadge && (
-              <p className="text-xs text-gray-400 mb-3">
-                Earned at {globalBadge.earned_at_bar_name}
-              </p>
-            )}
-
-            {loyaltyData && loyaltyData.visitTier !== 'new' && (
-              <div className="flex justify-center gap-2 mb-3">
-                {Array.from({ 
-                  length: loyaltyData.visitTier === 'gold' ? 3 : loyaltyData.visitTier === 'silver' ? 2 : 1 
-                }).map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="w-2 h-2 rounded-full bg-[#FF4F00]"
-                  />
-                ))}
-              </div>
-            )}
-
-            {spendTier && (
-              <div className="inline-block bg-[#FF4F00] bg-opacity-20 border border-[#FF4F00] border-opacity-30 rounded-full px-3 py-1.5">
-                <p className="text-[#FF7040] text-xs font-medium">
-                  {(() => {
-                    const badgePct = venueDiscounts[spendTier] ?? 0;
-                    const weekly = loyaltyData?.weeklyVisits ?? 0;
-                    const bonusPct = weekly >= 3
-                      ? (visitBonuses.thrice_per_week ?? 0)
-                      : weekly >= 2
-                      ? (visitBonuses.twice_per_week ?? 0)
-                      : weekly >= 1
-                      ? (visitBonuses.once_per_week ?? 0)
-                      : 0;
-                    const totalDiscountPct = badgePct + bonusPct;
-                    return `${totalDiscountPct.toFixed(1)}% off every order`;
-                  })()}
-                </p>
+            {/* Right: User badge */}
+            {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1">
+                  {globalBadge?.badge_level === 'gold' && (
+                    <Crown size={18} className="text-yellow-400" strokeWidth={2} />
+                  )}
+                  {globalBadge?.badge_level === 'silver' && (
+                    <Shield size={18} className="text-gray-300" strokeWidth={2} />
+                  )}
+                  {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && (
+                    <Circle size={18} className="text-amber-400" strokeWidth={2} />
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 leading-tight">
+                    {globalBadge?.badge_level === 'gold' && 'Gold'}
+                    {globalBadge?.badge_level === 'silver' && 'Silver'}
+                    {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze'}
+                  </p>
+                  {spendTier && (
+                    <p className="text-xs text-amber-400 font-medium">
+                      {(() => {
+                        const badgePct = venueDiscounts[spendTier] ?? 0;
+                        const weekly = loyaltyData?.weeklyVisits ?? 0;
+                        const bonusPct = weekly >= 3
+                          ? (visitBonuses.thrice_per_week ?? 0)
+                          : weekly >= 2
+                          ? (visitBonuses.twice_per_week ?? 0)
+                          : weekly >= 1
+                          ? (visitBonuses.once_per_week ?? 0)
+                          : 0;
+                        const totalDiscountPct = badgePct + bonusPct;
+                        return `${totalDiscountPct.toFixed(1)}% off`;
+                      })()}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* Promo anchor */}
+      <div ref={promoRef} />
 
       {/* Menu Section */}
       {loading ? (
@@ -2872,24 +2906,19 @@ export default function MenuPage() {
           </div>
 
           {(() => {
-            const adImages: string[] = slideshowImages.length > 0
-              ? slideshowImages.slice(0, 5)
-              : staticMenuUrl
-              ? [staticMenuUrl]
-              : [];
+            // Group products by category, preserving the sort order (food first, then drinks)
+            const categoryGroups: Record<string, BarProduct[]> = {};
+            const categoryOrder: string[] = [];
+            sortedProducts.forEach((bp) => {
+              const cat = bp.product?.category || 'Other';
+              if (!categoryGroups[cat]) {
+                categoryGroups[cat] = [];
+                categoryOrder.push(cat);
+              }
+              categoryGroups[cat].push(bp);
+            });
 
-            const nodes: React.ReactNode[] = [];
-            let adIndex = 0;
-            let drinkDividerInserted = false;
-
-            const hasFoodItems = sortedProducts.some(bp => !isDrinkProduct(bp.product));
-            if (hasFoodItems) {
-              nodes.push(
-                <div key="divider-food" className="col-span-2 mb-1" />
-              );
-            }
-
-            sortedProducts.forEach((bp, idx) => {
+            const computePrice = (bp: BarProduct) => {
               let totalDiscountPct = 0;
               if (spendTier) {
                 const badgePct = venueDiscounts[spendTier] ?? 0;
@@ -2907,72 +2936,147 @@ export default function MenuPage() {
                 ? applyDiscount(bp.sale_price, totalDiscountPct)
                 : bp.sale_price;
               const showStrikethrough = totalDiscountPct > 0 && displayPrice !== bp.sale_price;
-              const imageUrl = getDisplayImage(bp.product);
-              const IconComponent = getCategoryIcon(bp.product?.category || '');
-              const isThisDrink = isDrinkProduct(bp.product);
+              return { displayPrice, showStrikethrough, totalDiscountPct };
+            };
 
-              if (isThisDrink && !drinkDividerInserted) {
-                drinkDividerInserted = true;
-                if (idx % 2 !== 0) {
-                  nodes.push(<div key="pad-before-divider" />);
-                }
-                nodes.push(
-                  <div key="divider-drinks" className="col-span-2 mt-4" />
-                );
-              }
+            return (
+              <div className="flex flex-col gap-4">
+                {categoryOrder.map((cat) => {
+                  const items = categoryGroups[cat];
+                  const isBeverage = isDrinkProduct(items[0]?.product) && !isCocktailProduct(items[0]?.product);
+                  const isCocktail = isCocktailProduct(items[0]?.product);
+                  const IconComponent = getCategoryIcon(cat);
 
-              nodes.push(
-                <button
-                  key={bp.id}
-                  onClick={() => addToCart(bp, displayPrice)}
-                  className="flex flex-col rounded-lg overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
-                >
-                  <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
-                    {imageUrl ? (
-                      <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <IconComponent className="w-10 h-10 text-gray-300" />
-                    )}
-                  </div>
-                  <div className="p-2 flex flex-col gap-0.5">
-                    <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
-                      {bp.product?.name}
-                    </span>
-                    <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
-                      {showStrikethrough && (
-                        <span className="text-gray-400 text-xs line-through">
-                          {tempFormatCurrency(bp.sale_price)}
-                        </span>
+                  return (
+                    <div key={cat}>
+                      {/* Category header */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <IconComponent size={14} className="text-gray-500" />
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat}</h3>
+                      </div>
+
+                      {/* Beverages: compact list, no images */}
+                      {isBeverage && (
+                        <div className="flex flex-col divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 overflow-hidden">
+                          {items.map((bp) => {
+                            const { displayPrice, showStrikethrough } = computePrice(bp);
+                            return (
+                              <button
+                                key={bp.id}
+                                onClick={() => addToCart(bp, displayPrice)}
+                                className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                              >
+                                <span className="text-sm text-gray-800 font-medium truncate flex-1 mr-2">
+                                  {bp.product?.name}
+                                </span>
+                                <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                                  {showStrikethrough && (
+                                    <span className="text-gray-400 text-xs line-through">
+                                      {tempFormatCurrency(bp.sale_price)}
+                                    </span>
+                                  )}
+                                  <span className="text-[#FF4F00] text-sm font-semibold">
+                                    {tempFormatCurrency(displayPrice)}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
-                      <span className="text-[#FFF5F0]0 text-sm font-semibold">
-                        {tempFormatCurrency(displayPrice)}
-                      </span>
+
+                      {/* Cocktails: keep images, 2-column grid */}
+                      {isCocktail && (
+                        <div className="grid grid-cols-2 gap-3">
+                          {items.map((bp) => {
+                            const { displayPrice, showStrikethrough } = computePrice(bp);
+                            const imageUrl = getDisplayImage(bp.product);
+                            return (
+                              <button
+                                key={bp.id}
+                                onClick={() => addToCart(bp, displayPrice)}
+                                className="flex flex-col overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
+                              >
+                                <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
+                                  {imageUrl ? (
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <Martini size={28} className="text-gray-300" />
+                                  )}
+                                </div>
+                                <div className="p-2.5 flex flex-col gap-0.5">
+                                  <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
+                                    {bp.product?.name}
+                                  </span>
+                                  {bp.product?.description && (
+                                    <p className="text-xs text-gray-500 line-clamp-3">{bp.product.description}</p>
+                                  )}
+                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+                                    {showStrikethrough && (
+                                      <span className="text-gray-400 text-xs line-through">
+                                        {tempFormatCurrency(bp.sale_price)}
+                                      </span>
+                                    )}
+                                    <span className="text-[#FF4F00] text-sm font-semibold">
+                                      {tempFormatCurrency(displayPrice)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Food: full-width cards, image width-to-width */}
+                      {!isBeverage && !isCocktail && (
+                        <div className="flex flex-col gap-3">
+                          {items.map((bp) => {
+                            const { displayPrice, showStrikethrough } = computePrice(bp);
+                            const imageUrl = getDisplayImage(bp.product);
+                            return (
+                              <button
+                                key={bp.id}
+                                onClick={() => addToCart(bp, displayPrice)}
+                                className="flex flex-col overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
+                              >
+                                {imageUrl && (
+                                  <div className="w-full aspect-[16/9] bg-gray-50 overflow-hidden">
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                                <div className="p-3 flex items-center justify-between gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
+                                      {bp.product?.name}
+                                    </span>
+                                    {bp.product?.description && (
+                                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-3">
+                                        {bp.product.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                                    {showStrikethrough && (
+                                      <span className="text-gray-400 text-xs line-through">
+                                        {tempFormatCurrency(bp.sale_price)}
+                                      </span>
+                                    )}
+                                    <span className="text-[#FF4F00] text-sm font-semibold">
+                                      {tempFormatCurrency(displayPrice)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </button>
-              );
-
-              const isEndOfRow = (idx + 1) % 2 === 0;
-              if (isEndOfRow && adIndex < adImages.length) {
-                const src = adImages[adIndex];
-                nodes.push(
-                  <div
-                    key={`ad-${adIndex}`}
-                    className="col-span-2 flex justify-center"
-                    aria-label="Advertisement"
-                  >
-                    <img
-                      src={src}
-                      alt="Ad"
-                      style={{ width: 320, height: 50, objectFit: 'contain', display: 'block' }}
-                    />
-                  </div>
-                );
-                adIndex++;
-              }
-            });
-
-            return <div className="grid grid-cols-2 gap-3">{nodes}</div>;
+                  );
+                })}
+              </div>
+            );
           })()}
         </div>
       )}
@@ -3846,14 +3950,77 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Message Panel */}
-      <MessagePanel
-        isOpen={showMessagePanel}
-        onClose={() => setShowMessagePanel(false)}
-        tabId={tab!.id}
-        initialMessages={telegramMessages}
-        onMessageSent={loadTelegramMessages}
-      />
+      {/* Inline Messages Section */}
+      <div ref={messagesRef} className="p-4">
+        <div className="mb-3">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MESSAGES</h2>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-100 p-4">
+          {/* Message input */}
+          <div className="flex gap-2 mb-4">
+            <input
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              placeholder="Ask staff anything..."
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:outline-none"
+              maxLength={500}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (messageInput.trim()) {
+                    sendTelegramMessage();
+                  }
+                }
+              }}
+            />
+            <button
+              onClick={sendTelegramMessage}
+              disabled={!messageInput.trim() || sendingMessage}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {sendingMessage ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Send size={16} />
+              )}
+            </button>
+          </div>
+
+          {/* Message list */}
+          {telegramMessages.length === 0 ? (
+            <div className="text-center py-6 text-gray-400">
+              <MessageCircle size={24} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No messages yet. Send a message to the staff.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {[...telegramMessages].reverse().map((msg, i) => {
+                const isFromStaff = msg.initiated_by === 'staff';
+                return (
+                  <div
+                    key={msg.id || i}
+                    className={`flex ${isFromStaff ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                        isFromStaff
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-blue-500 text-white'
+                      }`}
+                    >
+                      <p>{msg.message}</p>
+                      <p className={`text-xs mt-1 ${isFromStaff ? 'text-gray-400' : 'text-blue-200'}`}>
+                        {timeAgo(msg.created_at)}
+                        {msg.status === 'acknowledged' && ' · Seen'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
     </>
   );

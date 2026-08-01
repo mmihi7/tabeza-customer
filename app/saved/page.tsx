@@ -1,43 +1,118 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
-import { Star, MapPin, ChevronRight } from 'lucide-react'
+import { Star, MapPin, ChevronRight, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
-// Mock data for saved restaurants (replace with real data from API)
-const mockSavedRestaurants = [
-  { id: '1', name: 'Sunset Lounge', location: 'Westlands', slug: 'sunset-lounge', lastVisited: '2 days ago' },
-  { id: '2', name: 'Brew & Bites', location: 'Kilimani', slug: 'brew-bites', lastVisited: '1 week ago' },
-  { id: '3', name: 'The Velvet Room', location: 'CBD', slug: 'velvet-room', lastVisited: '3 weeks ago' },
-]
+interface SavedBar {
+  id: string
+  savedAt: string
+  bar: {
+    id: string
+    name: string
+    slug: string
+    logoUrl?: string
+    city?: string
+    neighborhood?: string
+  }
+}
 
 export default function SavedRestaurantsPage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const { user, loading } = useAuth()
-  const [savedRestaurants, setSavedRestaurants] = useState(mockSavedRestaurants)
+  const { user, loading: authLoading } = useAuth()
+  const [savedBars, setSavedBars] = useState<SavedBar[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // TODO: Fetch saved restaurants from API
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+
+  /** Resolve customer_id from user.id */
+  const resolveCustomerId = useCallback(async (userId: string): Promise<string | null> => {
+    try {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      return data?.id ?? null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const loadSavedBars = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const customerId = await resolveCustomerId(user.id)
+      if (!customerId) {
+        setError('Could not find your account. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      const res = await fetch(`${baseUrl}/api/customer/saved-bars?customerId=${customerId}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Failed to load saved places')
+      }
+
+      const { savedBars } = await res.json()
+      setSavedBars(savedBars ?? [])
+    } catch (err: any) {
+      console.error('[saved page] Error loading saved bars:', err)
+      setError(err.message || 'Failed to load saved places')
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, baseUrl, resolveCustomerId])
+
   useEffect(() => {
-    if (!user) return
-    // fetchSavedRestaurants()
-  }, [user])
+    if (!authLoading && user) {
+      loadSavedBars()
+    } else if (!authLoading && !user) {
+      setLoading(false)
+    }
+  }, [authLoading, user, loadSavedBars])
 
   const handleQuickConnect = (slug: string) => {
     router.push(`/?bar=${slug}`)
   }
 
-  const handleRemoveSaved = (id: string) => {
-    setSavedRestaurants(prev => prev.filter(r => r.id !== id))
-    showToast({
-      type: 'success',
-      title: 'Removed',
-      message: 'Restaurant removed from saved list',
-    })
+  const handleRemoveSaved = async (barId: string) => {
+    if (!user?.id) return
+    const customerId = await resolveCustomerId(user.id)
+    if (!customerId) return
+
+    try {
+      const res = await fetch(`${baseUrl}/api/customer/saved-bars?customerId=${customerId}&barId=${barId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Failed to remove')
+      setSavedBars(prev => prev.filter(s => s.bar.id !== barId))
+      showToast({
+        type: 'success',
+        title: 'Removed',
+        message: 'Restaurant removed from saved list',
+      })
+    } catch {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to remove. Please try again.',
+      })
+    }
   }
 
   return (
@@ -48,8 +123,8 @@ export default function SavedRestaurantsPage() {
           <div className="flex items-center gap-4">
             <Logo size="md" className="text-white" />
             <div>
-              <h1 className="text-2xl font-bold text-white">Saved Restaurants</h1>
-              <p className="text-white/80 text-sm">Quickly connect to your favorite places</p>
+              <h1 className="text-2xl font-bold text-white">Saved Places</h1>
+              <p className="text-white/80 text-sm">Quickly connect to your favorite venues</p>
             </div>
           </div>
           <button
@@ -62,12 +137,36 @@ export default function SavedRestaurantsPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {!user ? (
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white/80">Loading saved places...</p>
+          </div>
+        )}
+
+        {/* Error */}
+        {!loading && error && (
+          <div className="bg-white rounded-2xl p-8 text-center">
+            <X size={48} className="mx-auto text-red-400 mb-4" />
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={loadSavedBars}
+              className="px-6 py-3 bg-[#FF4F00] text-white rounded-xl font-semibold hover:bg-[#CC3F00] transition"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Not authenticated */}
+        {!loading && !error && !user && (
           <div className="bg-white rounded-2xl p-8 text-center">
             <Star size={48} className="mx-auto text-gray-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Sign in to save restaurants</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Sign in to see saved places</h2>
             <p className="text-gray-600 mb-6">
-              Create an account or sign in with Google to save your favorite restaurants for quick access.
+              Create an account or sign in to save your favorite venues for quick access.
             </p>
             <button
               onClick={() => router.push('/login')}
@@ -76,56 +175,78 @@ export default function SavedRestaurantsPage() {
               Sign In
             </button>
           </div>
-        ) : savedRestaurants.length === 0 ? (
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && user && savedBars.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center">
             <Star size={48} className="mx-auto text-gray-300 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">No saved restaurants yet</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">No saved places yet</h2>
             <p className="text-gray-600 mb-6">
-              When you visit a bar, you can save it here for quick connections later.
+              When you visit a venue, tap the star to save it here for quick connections later.
             </p>
             <button
               onClick={() => router.push('/')}
               className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition"
             >
-              Explore Bars
+              Explore Venues
             </button>
           </div>
-        ) : (
+        )}
+
+        {/* Saved bars list */}
+        {!loading && !error && savedBars.length > 0 && (
           <div className="grid gap-6">
-            {savedRestaurants.map((restaurant) => (
+            {savedBars.map((saved) => (
               <div
-                key={restaurant.id}
+                key={saved.id}
                 className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-12 h-12 bg-[#FFE8DF] rounded-xl flex items-center justify-center">
-                        <Star size={24} className="text-[#FF4F00]" />
+                        {saved.bar.logoUrl ? (
+                          <img
+                            src={saved.bar.logoUrl}
+                            alt={saved.bar.name}
+                            className="w-full h-full object-cover rounded-xl"
+                          />
+                        ) : (
+                          <Star size={24} className="text-[#FF4F00]" />
+                        )}
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-800">{restaurant.name}</h3>
+                        <h3 className="text-xl font-bold text-gray-800">{saved.bar.name}</h3>
                         <div className="flex items-center gap-2 text-gray-600">
                           <MapPin size={16} />
-                          <span>{restaurant.location}</span>
-                          <span className="text-sm text-gray-500">• Last visited {restaurant.lastVisited}</span>
+                          <span>
+                            {[saved.bar.neighborhood, saved.bar.city].filter(Boolean).join(', ') || 'Nairobi'}
+                          </span>
                         </div>
                       </div>
                     </div>
                     <p className="text-gray-600 mt-4">
-                      Quickly open a tab at this restaurant without scanning a QR code.
+                      Open a tab instantly at this venue without scanning a QR code.
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Saved {new Date(saved.savedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 ml-4">
                     <button
-                      onClick={() => handleQuickConnect(restaurant.slug)}
+                      onClick={() => handleQuickConnect(saved.bar.slug)}
                       className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition flex items-center justify-center gap-2"
                     >
                       <span>Quick Connect</span>
                       <ChevronRight size={20} />
                     </button>
                     <button
-                      onClick={() => handleRemoveSaved(restaurant.id)}
+                      onClick={() => handleRemoveSaved(saved.bar.id)}
                       className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition"
                     >
                       Remove
@@ -136,34 +257,6 @@ export default function SavedRestaurantsPage() {
             ))}
           </div>
         )}
-
-        {/* How it works section */}
-        <div className="mt-12 bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6">How Saved Restaurants Work</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-white/20 p-6 rounded-xl">
-              <div className="text-white text-3xl font-bold mb-2">1</div>
-              <h3 className="text-white font-semibold text-lg mb-2">Visit a Bar</h3>
-              <p className="text-white/80">
-                Scan a bar's QR code or enter its code to open a tab.
-              </p>
-            </div>
-            <div className="bg-white/20 p-6 rounded-xl">
-              <div className="text-white text-3xl font-bold mb-2">2</div>
-              <h3 className="text-white font-semibold text-lg mb-2">Save for Later</h3>
-              <p className="text-white/80">
-                While at the bar, tap "Save this restaurant" to add it to your list.
-              </p>
-            </div>
-            <div className="bg-white/20 p-6 rounded-xl">
-              <div className="text-white text-3xl font-bold mb-2">3</div>
-              <h3 className="text-white font-semibold text-lg mb-2">Quick Connect</h3>
-              <p className="text-white/80">
-                Return anytime and open a tab instantly without scanning.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )

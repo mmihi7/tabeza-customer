@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { getCachedOrFetch } from '@/lib/cache';
 
 const DEFAULTS = {
   spend_tiers:  { bronze: 1.5, silver: 3.0, gold: 5.0 },
@@ -24,19 +25,25 @@ export async function GET(
       return NextResponse.json({ error: 'bar_id is required' }, { status: 400 });
     }
 
-    const db = createServiceRoleClient();
-    const { data, error } = await (db as any)
-      .from('venue_discount_settings')
-      .select('spend_tiers, visit_bonuses')
-      .eq('bar_id', bar_id)
-      .maybeSingle();
+    const cacheKey = `venue:discounts:${bar_id}`;
 
-    if (error) {
-      console.error('[venue-discounts customer GET]', error);
-      return NextResponse.json(DEFAULTS);
-    }
+    const result = await getCachedOrFetch(cacheKey, 60, async () => {
+      const db = createServiceRoleClient();
+      const { data, error } = await (db as any)
+        .from('venue_discount_settings')
+        .select('spend_tiers, visit_bonuses')
+        .eq('bar_id', bar_id)
+        .maybeSingle();
 
-    return NextResponse.json(data ?? DEFAULTS);
+      if (error) {
+        console.error('[venue-discounts customer GET]', error);
+        return DEFAULTS;
+      }
+
+      return data ?? DEFAULTS;
+    });
+
+    return NextResponse.json(result);
   } catch (err) {
     console.error('[venue-discounts customer GET] unhandled', err);
     return NextResponse.json(DEFAULTS);

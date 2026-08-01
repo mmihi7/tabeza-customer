@@ -14,6 +14,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { publishEvent } from '@/lib/pubsub';
+import { orderPlacementLimiter, applyRateLimit } from '@/lib/ratelimit';
 
 export async function GET(
   request: NextRequest,
@@ -65,6 +67,10 @@ export async function POST(
       return NextResponse.json({ error: 'tabId, items and total are required' }, { status: 400 });
     }
 
+    // Rate limit: 10 orders per 30s per tab
+    const rateLimitResponse = await applyRateLimit(orderPlacementLimiter, `tab:${tabId}`);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const supabase = createServiceRoleClient();
 
     const { data: order, error } = await supabase
@@ -83,6 +89,15 @@ export async function POST(
       console.error('❌ Error creating order:', error);
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
+
+    // Publish cross-app event: order placed by customer
+    await publishEvent('orders', 'placed', {
+      tabId,
+      orderId: order.id,
+      total,
+      itemCount: items?.length ?? 0,
+      initiatedBy: initiated_by,
+    });
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
@@ -137,6 +152,13 @@ export async function PATCH(
       console.error('❌ Error updating order:', error);
       return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
     }
+
+    // Publish cross-app event: order confirmed or cancelled
+    await publishEvent('orders', status === 'confirmed' ? 'confirmed' : 'cancelled', {
+      tabId,
+      orderId,
+      rejectionReason: rejectionReason ?? null,
+    });
 
     return NextResponse.json({ order: updatedOrder });
   } catch (error) {
