@@ -73,6 +73,34 @@ export async function POST(
 
     const supabase = createServiceRoleClient();
 
+    // Customer ordering is venue-controlled (issue 5):
+    // if the venue disabled customer ordering, only staff-initiated orders are allowed.
+    if (initiated_by !== 'staff') {
+      const { data: tab } = await supabase
+        .from('tabs')
+        .select('bar_id, status')
+        .eq('id', tabId)
+        .single();
+
+      if (tab) {
+        // new venue columns not yet in generated types — cast for now
+        const { data: bar } = await (supabase
+          .from('bars')
+          .select('customer_ordering_enabled, show_customer_ordering')
+          .eq('id', tab.bar_id)
+          .single() as any);
+
+        const orderingEnabled = bar?.customer_ordering_enabled !== false
+          && bar?.show_customer_ordering !== false;
+
+        if (!orderingEnabled) {
+          return NextResponse.json({
+            error: 'This venue has disabled customer ordering. Please ask staff to place your order.',
+          }, { status: 403 });
+        }
+      }
+    }
+
     const { data: order, error } = await supabase
       .from('tab_orders')
       .insert({

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
-  Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid,
+  Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
   Crown, Shield, Circle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
@@ -168,6 +168,11 @@ export default function MenuPage() {
   });
   const [loadingPaymentSettings, setLoadingPaymentSettings] = useState(true);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+  const [venueControls, setVenueControls] = useState({
+    showCustomerMenu: true,
+    showCustomerPromos: true,
+    showCustomerOrdering: true
+  });
 
   const handleBalanceChange = (newBalance: number, previousBalance: number) => {
     console.log('💰 Balance changed:', { newBalance, previousBalance });
@@ -1478,7 +1483,7 @@ export default function MenuPage() {
       console.log('💳 Loading payment settings for bar:', barId);
       const { data, error } = await supabase
         .from('bars')
-        .select('mpesa_enabled, payment_cash_enabled, payment_card_enabled')
+        .select('mpesa_enabled, payment_cash_enabled, payment_card_enabled, show_customer_menu, show_customer_promos, show_customer_ordering')
         .eq('id', barId)
         .single();
 
@@ -1495,11 +1500,19 @@ export default function MenuPage() {
           mpesa_enabled?: boolean;
           payment_cash_enabled?: boolean;
           payment_card_enabled?: boolean;
+          show_customer_menu?: boolean;
+          show_customer_promos?: boolean;
+          show_customer_ordering?: boolean;
         };
         setPaymentSettings({
           mpesa_enabled: paymentData.mpesa_enabled ?? false,
           card_enabled: paymentData.payment_card_enabled ?? false,
           cash_enabled: paymentData.payment_cash_enabled ?? true
+        });
+        setVenueControls({
+          showCustomerMenu: paymentData.show_customer_menu ?? true,
+          showCustomerPromos: paymentData.show_customer_promos ?? true,
+          showCustomerOrdering: paymentData.show_customer_ordering ?? true
         });
 
         if (paymentData.mpesa_enabled) {
@@ -2158,6 +2171,15 @@ export default function MenuPage() {
   const addToCart = useCallback((barProduct: BarProduct, priceOverride?: number) => {
     const product = barProduct.product;
     if (!product) return;
+
+    if (!venueControls.showCustomerOrdering) {
+      showToast({
+        type: 'info',
+        title: 'Menu viewing only',
+        message: 'This venue has disabled customer ordering. Please ask staff to place your order.'
+      });
+      return;
+    }
     
     const newItem = {
       bar_product_id: barProduct.id,
@@ -2180,7 +2202,7 @@ export default function MenuPage() {
       title: 'Added to Cart! 🛒',
       message: `${product.name} has been added to your cart`
     });
-  }, [showToast]);
+  }, [showToast, venueControls.showCustomerOrdering]);
 
   // Update cart quantity
   const updateCartQuantity = useCallback((itemIndex: number, delta: number) => {
@@ -2755,18 +2777,22 @@ export default function MenuPage() {
         
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between gap-3">
-            <button 
-              onClick={() => promoRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            >
-              Promo
-            </button>
-            <button 
-              onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            >
-              Menu
-            </button>
+            {venueControls.showCustomerPromos && (
+              <button 
+                onClick={() => promoRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+              >
+                Promo
+              </button>
+            )}
+            {venueControls.showCustomerMenu && (
+              <button 
+                onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+              >
+                Menu
+              </button>
+            )}
             <button 
               onClick={() => orders.length > 0 && ordersRef.current?.scrollIntoView({ behavior: 'smooth' })}
               disabled={orders.length === 0}
@@ -2877,7 +2903,16 @@ export default function MenuPage() {
       <div ref={promoRef} />
 
       {/* Menu Section */}
-      {loading ? (
+      {!venueControls.showCustomerMenu ? (
+        <div ref={menuRef} className="px-4 mt-4 mb-4">
+          <div className="flex items-center justify-center py-10">
+            <div className="text-center max-w-xs">
+              <UtensilsCrossed size={28} className="mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-600 text-sm">The menu for this venue is not shown in the app right now. Please ask staff for the menu.</p>
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="px-4 mt-4">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
