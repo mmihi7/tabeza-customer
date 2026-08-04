@@ -30,7 +30,7 @@ export async function GET(
       .from('tabs')
       .select(`
         *,
-        bar:bars(id, name, location),
+        bar:bars(id, name, location, logo_url),
         crew_member:crew_members!tabs_current_staff_id_fkey(id, display_name, face_photo_url, face_thumbnail_url)
       `)
       .eq('id', tabId)

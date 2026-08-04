@@ -19,6 +19,7 @@ import { TokenNotifications, useTokenNotifications } from '../../components/Toke
 import PWAInstallPrompt from '../../components/PWAInstallPrompt';
 import PWAUpdateManager from '../../components/PWAUpdateManager';
 import MessagePanel from './MessagePanel';
+import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
 
@@ -173,6 +174,8 @@ export default function MenuPage() {
     showCustomerPromos: true,
     showCustomerOrdering: true
   });
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState<any>(null);
 
   const handleBalanceChange = (newBalance: number, previousBalance: number) => {
     console.log('💰 Balance changed:', { newBalance, previousBalance });
@@ -217,6 +220,9 @@ export default function MenuPage() {
   const [staticMenuType, setStaticMenuType] = useState<'pdf' | 'image' | 'slideshow' | null>(null);
   const [showStaticMenu, setShowStaticMenu] = useState(false);
   const [imageScale, setImageScale] = useState(1);
+
+  const [menuPlan, setMenuPlan] = useState<'basic' | 'standard' | null>(null);
+  const [barCategories, setBarCategories] = useState<{ id: string; name: string; kind: 'food' | 'drink'; sort_order: number }[]>([]);
 
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
   const [slideshowSettings, setSlideshowSettings] = useState<Record<string, any> | null>(null);
@@ -1273,6 +1279,17 @@ export default function MenuPage() {
                 console.log('🏆 Executing delayed badge recalculation');
                 loadLoyaltyData();
               }, 2000);
+
+              setReceiptPayment({
+                id: payment.id,
+                amount: paymentAmount,
+                method: paymentMethod,
+                status: payment.status,
+                reference: payment.reference,
+                mpesa_receipt_number: mpesaReceipt,
+                timestamp: payment.created_at || new Date().toISOString(),
+              });
+              setTimeout(() => setShowReceipt(true), 1500);
             }
             
             else if (payment?.status === 'failed' && 
@@ -1535,6 +1552,22 @@ export default function MenuPage() {
     }
   }, []);
 
+  // Load menu configuration (menu plan + user-defined categories) — Redis-first via API route
+  const loadMenuConfig = useCallback(async (barId: string) => {
+    try {
+      const response = await fetch(`/api/menu/config/${barId}`);
+      if (!response.ok) {
+        console.warn('Failed to load menu config:', response.status);
+        return;
+      }
+      const data = await response.json();
+      setMenuPlan(data.menu_plan === 'basic' ? 'basic' : 'standard');
+      setBarCategories(data.bar_categories ?? []);
+    } catch (error) {
+      console.error('Error loading menu config:', error);
+    }
+  }, []);
+
   // Load tab data
   const loadTabData = useCallback(async () => {
     console.log('📋 Menu page: loadTabData called');
@@ -1594,6 +1627,7 @@ export default function MenuPage() {
       
       if ((fullTab as any).bar?.id) {
         loadPaymentSettings((fullTab as any).bar.id);
+        await loadMenuConfig((fullTab as any).bar.id);
       }
       
       let name = 'Your Tab';
@@ -1831,7 +1865,7 @@ export default function MenuPage() {
       setLoading(false);
     }
     getPendingOrderTime();
-  }, [router, loadPaymentSettings, barProducts, getPendingOrderTime]);
+  }, [router, loadPaymentSettings, loadMenuConfig, barProducts, getPendingOrderTime]);
 
   useEffect(() => {
     if (loadAttempted.current) {
@@ -2921,6 +2955,30 @@ export default function MenuPage() {
             </div>
           </div>
         </div>
+      ) : menuPlan === 'basic' ? (
+        <div ref={menuRef} className="px-4 mt-4 mb-4">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">MENU</h2>
+          {staticMenuType === 'slideshow' && slideshowImages.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {slideshowImages.map((url, i) => (
+                <img key={i} src={url} alt={`Menu page ${i + 1}`} className="w-full h-auto rounded-lg border border-gray-100 shadow-sm" />
+              ))}
+            </div>
+          ) : staticMenuUrl ? (
+            staticMenuType === 'pdf' ? (
+              <iframe src={staticMenuUrl} title="Venue menu" className="w-full h-[70vh] rounded-lg border border-gray-100" />
+            ) : (
+              <img src={staticMenuUrl} alt="Venue menu" className="w-full h-auto rounded-lg border border-gray-100 shadow-sm" />
+            )
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center max-w-xs">
+                <UtensilsCrossed size={28} className="mx-auto mb-3 text-gray-400" />
+                <p className="text-gray-600 text-sm">This venue&apos;s menu is available at the venue. Please ask staff for the menu.</p>
+              </div>
+            </div>
+          )}
+        </div>
       ) : sortedProducts.length === 0 ? (
         <div className="px-4 mt-4">
           <div className="flex items-center justify-center py-12">
@@ -2940,18 +2998,68 @@ export default function MenuPage() {
             )}
           </div>
 
+          {categoryOptions.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+              {categoryOptions.map((cat) => {
+                const Icon = getCategoryIcon(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                      selectedCategory === cat
+                        ? 'bg-[#FF4F00] text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Icon size={12} />
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {(() => {
-            // Group products by category, preserving the sort order (food first, then drinks)
+            // Group products by category. Food is grouped by the venue's
+            // user-defined categories (bar_categories, in bar-defined order);
+            // drinks keep their product category.
+            const foodCategoryNames = barCategories
+              .filter((c) => c.kind === 'food')
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((c) => c.name);
+            const hasDefinedFoodCategories = foodCategoryNames.length > 0;
+            const foodCatSet = new Set(foodCategoryNames);
+
+            // Apply category filter while preserving the food-first sort
+            const displayProducts = selectedCategory === 'All'
+              ? sortedProducts
+              : sortedProducts.filter(bp => bp.product?.category === selectedCategory);
+
             const categoryGroups: Record<string, BarProduct[]> = {};
             const categoryOrder: string[] = [];
-            sortedProducts.forEach((bp) => {
-              const cat = bp.product?.category || 'Other';
+            displayProducts.forEach((bp) => {
+              const isDrink = isDrinkProduct(bp.product);
+              const rawCat = bp.product?.category || 'Other';
+              const cat = (!isDrink && hasDefinedFoodCategories)
+                ? (foodCatSet.has(rawCat) ? rawCat : 'Other')
+                : rawCat;
               if (!categoryGroups[cat]) {
                 categoryGroups[cat] = [];
                 categoryOrder.push(cat);
               }
               categoryGroups[cat].push(bp);
             });
+
+            // Reorder: user-defined food categories first (bar order),
+            // then 'Other', then drink categories.
+            if (hasDefinedFoodCategories) {
+              const ordered: string[] = [];
+              foodCategoryNames.forEach((name) => { if (categoryGroups[name]) ordered.push(name); });
+              if (categoryGroups['Other']) ordered.push('Other');
+              categoryOrder.forEach((cat) => { if (!ordered.includes(cat)) ordered.push(cat); });
+              categoryOrder.splice(0, categoryOrder.length, ...ordered);
+            }
 
             const computePrice = (bp: BarProduct) => {
               let totalDiscountPct = 0;
@@ -4057,6 +4165,18 @@ export default function MenuPage() {
         </div>
       </div>
     </div>
+    <ReceiptModal
+      isOpen={showReceipt}
+      onClose={() => setShowReceipt(false)}
+      tabNumber={tab?.tab_number ?? 0}
+      tabId={tab?.id ?? ''}
+      venueName={tab?.bar?.name ?? barName}
+      venueLogo={tab?.bar?.logo_url ?? undefined}
+      customerName={displayName}
+      orders={orders}
+      payment={receiptPayment || { id: '', amount: 0, method: '', status: '', timestamp: '' }}
+      openedAt={tab?.opened_at ?? ''}
+    />
     </>
   );
 }

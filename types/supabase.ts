@@ -308,6 +308,19 @@ export type Database = {
           updated_at: string | null
           venue_mode: Database["public"]["Enums"]["venue_mode_enum"] | null
           webhook_url: string | null
+          customer_ordering_enabled: boolean | null
+          feature_analytics_enabled: boolean | null
+          feature_promos_enabled: boolean | null
+          main_bar_crew_id: string | null
+          menu_plan: 'basic' | 'standard' | null
+          plan_activated_at: string | null
+          plan_expires_at: string | null
+          plan_status: string | null
+          pos_receipt_credits: number | null
+          show_customer_menu: boolean | null
+          show_customer_ordering: boolean | null
+          show_customer_promos: boolean | null
+          venue_plan: string | null
         }
         Insert: {
           active?: boolean | null
@@ -374,6 +387,19 @@ export type Database = {
           updated_at?: string | null
           venue_mode?: Database["public"]["Enums"]["venue_mode_enum"] | null
           webhook_url?: string | null
+          customer_ordering_enabled?: boolean | null
+          feature_analytics_enabled?: boolean | null
+          feature_promos_enabled?: boolean | null
+          main_bar_crew_id?: string | null
+          menu_plan?: 'basic' | 'standard' | null
+          plan_activated_at?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string | null
+          pos_receipt_credits?: number | null
+          show_customer_menu?: boolean | null
+          show_customer_ordering?: boolean | null
+          show_customer_promos?: boolean | null
+          venue_plan?: string | null
         }
         Update: {
           active?: boolean | null
@@ -440,6 +466,19 @@ export type Database = {
           updated_at?: string | null
           venue_mode?: Database["public"]["Enums"]["venue_mode_enum"] | null
           webhook_url?: string | null
+          customer_ordering_enabled?: boolean | null
+          feature_analytics_enabled?: boolean | null
+          feature_promos_enabled?: boolean | null
+          main_bar_crew_id?: string | null
+          menu_plan?: 'basic' | 'standard' | null
+          plan_activated_at?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string | null
+          pos_receipt_credits?: number | null
+          show_customer_menu?: boolean | null
+          show_customer_ordering?: boolean | null
+          show_customer_promos?: boolean | null
+          venue_plan?: string | null
         }
         Relationships: []
       }
