@@ -67,10 +67,12 @@ interface Tab {
   notifications_enabled?: boolean;
   sound_enabled?: boolean;
   vibration_enabled?: boolean;
+  opened_at?: string;
   bar?: {
     id: string;
     name: string;
     location?: string;
+    logo_url?: string;
   };
 }
 

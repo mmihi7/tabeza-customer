@@ -18,7 +18,7 @@ const CACHE_TTL_S = 60;
 /** Resolve customer_id from Supabase auth user ID */
 async function resolveCustomerId(userId: string): Promise<string | null> {
   const supabase = createServiceRoleClient();
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('customers')
     .select('id')
     .eq('user_id', userId)
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     const result = await getCachedOrFetch(cacheKey, CACHE_TTL_S, async () => {
       const supabase = createServiceRoleClient();
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('customer_saved_bars')
         .select(`
           id,
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('customer_saved_bars')
       .upsert(
         { customer_id: customerId, bar_id: barId, saved_at: new Date().toISOString() },
@@ -144,7 +144,7 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('customer_saved_bars')
       .delete()
       .eq('customer_id', customerId)
