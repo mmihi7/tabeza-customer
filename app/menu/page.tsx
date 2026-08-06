@@ -2993,10 +2993,10 @@ export default function MenuPage() {
             {(() => {
               const events: { id: string; time: Date; icon: React.ReactNode; message: React.ReactNode }[] = [];
               
-              if (tab?.created_at) {
+              if (tab?.opened_at) {
                 events.push({
                   id: 'tab-created',
-                  time: new Date(tab.created_at),
+                  time: new Date(tab.opened_at),
                   icon: <LogIn size={14} className="text-green-400" />,
                   message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Connected to <span style={{ color: 'var(--cream)' }}>{tab.bar?.name || barName}</span></span>,
                 });
