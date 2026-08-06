@@ -4234,7 +4234,7 @@ export default function MenuPage() {
           </div>
         </div>
       )}
-
+    </div>
     <ReceiptModal
       isOpen={showReceipt}
       onClose={() => setShowReceipt(false)}
