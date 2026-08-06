@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Crown, Shield, Circle } from 'lucide-react';
+  Crown, Shield, Circle, Bell, LogIn } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -2938,6 +2938,147 @@ export default function MenuPage() {
       {/* Promo anchor */}
       <div ref={promoRef} />
 
+      {/* Alert Waiter Button — large red 3D button for basic tier */}
+      {menuPlan === 'basic' && (
+        <div className="flex justify-center py-6">
+          <button
+            onClick={async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                const alertTime = new Date().toISOString();
+                if (tab?.id) {
+                  await supabase.from('tab_telegram_messages').insert({
+                    tab_id: tab.id,
+                    message: 'Customer needs assistance',
+                    initiated_by: 'customer',
+                    customer_name: displayName,
+                    status: 'pending',
+                  });
+                }
+                // Store alert in sessionStorage for activity log
+                const key = `tab-alerts-${tab?.id}`;
+                const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
+                existing.push({ time: alertTime });
+                sessionStorage.setItem(key, JSON.stringify(existing));
+                showToast({
+                  type: 'success',
+                  title: 'Alert Sent',
+                  message: 'A waiter has been notified and will assist you shortly.',
+                });
+              } catch {
+                showToast({ type: 'error', title: 'Failed', message: 'Could not send alert. Please ask staff directly.' });
+              }
+            }}
+            className="rounded-full flex items-center justify-center transition-transform active:scale-95 hover:scale-105"
+            style={{
+              width: '80px',
+              height: '80px',
+              background: 'radial-gradient(circle at 35% 30%, #ff5555, #cc0000)',
+              boxShadow: '0 8px 24px rgba(200,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.2)',
+              border: '3px solid rgba(255,255,255,0.15)',
+            }}
+          >
+            <Bell size={32} style={{ color: 'white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+          </button>
+        </div>
+      )}
+
+      {/* Activity Log */}
+      {menuPlan === 'basic' && (
+        <div className="px-4 mb-4">
+          <div className="mb-3">
+            <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>ACTIVITY</h2>
+          </div>
+          <div className="rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {(() => {
+              const events: { id: string; time: Date; icon: React.ReactNode; message: React.ReactNode }[] = [];
+              
+              if (tab?.created_at) {
+                events.push({
+                  id: 'tab-created',
+                  time: new Date(tab.created_at),
+                  icon: <LogIn size={14} className="text-green-400" />,
+                  message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Connected to <span style={{ color: 'var(--cream)' }}>{tab.bar?.name || barName}</span></span>,
+                });
+              }
+              
+              if (typeof window !== 'undefined') {
+                const alertLog = sessionStorage.getItem(`tab-alerts-${tab?.id}`);
+                if (alertLog) {
+                  try {
+                    JSON.parse(alertLog).forEach((entry: any) => {
+                      events.push({
+                        id: `alert-${entry.time}`,
+                        time: new Date(entry.time),
+                        icon: <Bell size={14} className="text-red-400" />,
+                        message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Alert sent to waiter</span>,
+                      });
+                    });
+                  } catch {}
+                }
+              }
+              
+              orders.filter(o => o.status !== 'cancelled').forEach(order => {
+                const orderNumber = order.order_number || '?';
+                if (order.status === 'served') {
+                  events.push({
+                    id: `served-${order.id}`,
+                    time: new Date(order.updated_at || order.created_at),
+                    icon: <CheckCircle size={14} className="text-green-400" />,
+                    message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Order #{orderNumber} served · {tempFormatCurrency(order.total)}</span>,
+                  });
+                } else if (order.status === 'pending') {
+                  const isStaffOrder = order.initiated_by === 'staff';
+                  events.push({
+                    id: `pending-${order.id}`,
+                    time: new Date(order.created_at),
+                    icon: <Clock size={14} className="text-yellow-400" />,
+                    message: isStaffOrder ? (
+                      <span className="text-xs" style={{ color: 'var(--amber)' }}>
+                        Order #{orderNumber} awaiting approval
+                      </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--amber)' }}>
+                        Order #{orderNumber} awaiting acceptance
+                      </span>
+                    ),
+                  });
+                }
+              });
+              
+              telegramMessages.filter(m => m.initiated_by === 'staff').forEach(msg => {
+                events.push({
+                  id: `msg-${msg.id}`,
+                  time: new Date(msg.created_at),
+                  icon: <MessageCircle size={14} className="text-blue-400" />,
+                  message: <span className="text-xs" style={{ color: 'var(--cream)' }}>Staff: {msg.message}</span>,
+                });
+              });
+              
+              events.sort((a, b) => b.time.getTime() - a.time.getTime());
+              
+              if (events.length === 0) {
+                return <div className="text-center py-4"><p className="text-xs" style={{ color: 'var(--muted)' }}>No activity yet</p></div>;
+              }
+              
+              return events.map(event => (
+                <div key={event.id} className="flex items-start gap-2 py-1">
+                  <div className="mt-0.5 flex-shrink-0">{event.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {event.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {event.message}
+                    </div>
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Menu Section */}
       {!venueControls.showCustomerMenu ? (
         <div ref={menuRef} className="px-4 mt-4 mb-4">
@@ -3368,20 +3509,20 @@ export default function MenuPage() {
         </div>
         
         {orders.length > 0 && (
-          <div className="flex items-center justify-between mb-4 bg-white rounded-lg border border-gray-100 p-4">
+          <div className="flex items-center justify-between mb-4 rounded-lg p-4" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Last Order</p>
-              <p className="text-2xl font-bold text-gray-900">{tempFormatCurrency(lastOrderTotal)}</p>
+              <p className="text-2xl font-bold text-white">{tempFormatCurrency(lastOrderTotal)}</p>
               <p className="text-xs text-gray-400 mt-1">{lastOrderTime}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Orders</p>
-              <p className="text-2xl font-bold text-[#FFF5F0]0">{tempFormatCurrency(tabTotal)}</p>
+              <p className="text-2xl font-bold text-[#FF4F00]">{tempFormatCurrency(tabTotal)}</p>
               <p className="text-xs text-transparent mt-1">-</p>
             </div>
           </div>
         )}
-        <div className="bg-white rounded-lg border border-gray-100 p-4 space-y-0">
+        <div className="rounded-lg p-4 space-y-0" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           {orders.length === 0 ? (
             <div className="text-center py-8 text-gray-500"><p>No orders yet</p></div>
           ) : (
@@ -3397,16 +3538,16 @@ export default function MenuPage() {
                   <div className="py-4">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium text-gray-900">Order #{orderNumber}</span>
+                        <span className="text-sm font-medium" style={{ color: 'var(--cream)' }}>Order #{orderNumber}</span>
                         <span className="text-xs text-gray-400">{timeAgo(order.created_at)}</span>
                       </div>
-                      <p className="text-sm font-medium text-gray-900">{tempFormatCurrency(order.total)}</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--cream)' }}>{tempFormatCurrency(order.total)}</p>
                     </div>
                     <div className="space-y-1">
                       {items.map((item: any, i: number) => (
                         <div key={i} className="flex justify-between">
-                          <p className="text-xs text-gray-600">{item.quantity}x {item.name}</p>
-                          <p className="text-xs text-gray-500">{tempFormatCurrency(item.total)}</p>
+                          <p className="text-xs" style={{ color: 'var(--muted)' }}>{item.quantity}x {item.name}</p>
+                          <p className="text-xs" style={{ color: 'var(--muted)' }}>{tempFormatCurrency(item.total)}</p>
                         </div>
                       ))}
                     </div>
@@ -3441,7 +3582,7 @@ export default function MenuPage() {
                     )}
                   </div>
                   {index < orders.length - 1 && (
-                    <div className="border-b border-gray-100"></div>
+                    <div className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}></div>
                   )}
                 </div>
               );
@@ -3977,7 +4118,7 @@ export default function MenuPage() {
       )}
       
       {/* Close Tab Section */}
-      <div className="bg-white p-4 border-t">
+      <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <button
           onClick={() => {
             if (balance > 0) {
@@ -3990,13 +4131,12 @@ export default function MenuPage() {
             }
             setShowCloseConfirm(true);
           }}
-          className={`w-full py-3 rounded-xl font-medium transition ${
-            orders.filter(order => order.status === 'confirmed').length === 0 
-              ? 'text-green-600 hover:bg-green-50' 
-              : balance > 0 
-                ? 'text-red-600 hover:bg-red-50'
-                : 'text-green-600 hover:bg-green-50'
-          }`}
+          className="w-full py-3 rounded-xl font-medium transition"
+          style={{
+            backgroundColor: balance > 0 ? 'rgba(255,79,0,0.1)' : 'var(--amber)',
+            color: balance > 0 ? 'var(--amber)' : 'var(--ink)',
+            border: balance > 0 ? '1px solid var(--amber)' : 'none',
+          }}
         >
           Close Tab
         </button>
@@ -4095,78 +4235,6 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Inline Messages Section */}
-      <div ref={messagesRef} className="p-4">
-        <div className="mb-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MESSAGES</h2>
-        </div>
-        <div className="bg-white rounded-lg border border-gray-100 p-4">
-          {/* Message input */}
-          <div className="flex gap-2 mb-4">
-            <input
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder="Ask staff anything..."
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:outline-none"
-              maxLength={500}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (messageInput.trim()) {
-                    sendTelegramMessage();
-                  }
-                }
-              }}
-            />
-            <button
-              onClick={sendTelegramMessage}
-              disabled={!messageInput.trim() || sendingMessage}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              {sendingMessage ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Send size={16} />
-              )}
-            </button>
-          </div>
-
-          {/* Message list */}
-          {telegramMessages.length === 0 ? (
-            <div className="text-center py-6 text-gray-400">
-              <MessageCircle size={24} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No messages yet. Send a message to the staff.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {[...telegramMessages].reverse().map((msg, i) => {
-                const isFromStaff = msg.initiated_by === 'staff';
-                return (
-                  <div
-                    key={msg.id || i}
-                    className={`flex ${isFromStaff ? 'justify-start' : 'justify-end'}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                        isFromStaff
-                          ? 'bg-gray-100 text-gray-800'
-                          : 'bg-blue-500 text-white'
-                      }`}
-                    >
-                      <p>{msg.message}</p>
-                      <p className={`text-xs mt-1 ${isFromStaff ? 'text-gray-400' : 'text-blue-200'}`}>
-                        {timeAgo(msg.created_at)}
-                        {msg.status === 'acknowledged' && ' · Seen'}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
     <ReceiptModal
       isOpen={showReceipt}
       onClose={() => setShowReceipt(false)}
