@@ -132,6 +132,18 @@ body {
 }
 .animate-bounce-once { animation: bounceOnce 0.45s ease-out; }
 
+@keyframes popIn {
+  0%   { transform: scale(0.3) translateX(40px); opacity: 0; }
+  60%  { transform: scale(1.1) translateX(0); opacity: 1; }
+  100% { transform: scale(1) translateX(0); opacity: 1; }
+}
+.animate-pop-in { animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes morphIn {
+  0%   { opacity: 0; transform: scale(0.8) translateY(-10px); filter: blur(4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60%  { transform: translateX(-6px); }

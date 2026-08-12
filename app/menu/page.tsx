@@ -2862,90 +2862,72 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Crew + User Info Strip — below header, above menu */}
-      {(crewMember || globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
-        <div className="bg-[#1a1a2e] border-b border-gray-800 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            {/* Left: Crew member */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              {crewMember ? (
-                <>
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
-                      <img
-                        src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
-                        alt={crewMember.display_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User size={16} className="text-white/50" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-white/60 leading-tight">Your waiter</p>
-                    <p className="text-sm text-white font-medium truncate">{crewMember.display_name}</p>
-                  </div>
-                </>
-              ) : (
-                <div />
+      {/* Crew + Call Button Section — animated on mount */}
+      <div className="bg-[#1a1a2e] border-b border-gray-800 px-4 py-3" style={{
+        animation: 'morphIn 0.7s 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+      }}>
+        <div className="flex items-center justify-center gap-4">
+          {/* Left: Waiter profile */}
+          {crewMember ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0,
+            }}>
+              <div style={{
+                width: 80, height: 80, borderRadius: '50%',
+                background: 'radial-gradient(circle at 35% 30%, rgba(134,239,172,0.3), rgba(16,185,129,0.15))',
+                boxShadow: '0 4px 16px rgba(16,185,129,0.25), 0 1px 3px rgba(0,0,0,0.2)',
+                border: '3px solid rgba(134,239,172,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden', flexShrink: 0,
+              }}>
+                {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
+                  <img
+                    src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
+                    alt={crewMember.display_name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <User size={32} style={{ color: 'rgba(134,239,172,0.6)' }} />
+                )}
+              </div>
+              <div style={{ minWidth: 0, maxWidth: 100 }}>
+                <p className="text-xs text-white/60 leading-tight">Your waiter</p>
+                <p className="text-sm text-white font-medium truncate">{crewMember.display_name}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Center: Badge */}
+          {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ fontSize: '1.25rem' }}>
+                {globalBadge?.badge_level === 'gold' && <Crown size={20} className="text-yellow-400" strokeWidth={2} />}
+                {globalBadge?.badge_level === 'silver' && <Shield size={20} className="text-gray-300" strokeWidth={2} />}
+                {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && <Circle size={20} className="text-amber-400" strokeWidth={2} />}
+              </div>
+              <p className="text-xs text-white/60 leading-tight">
+                {globalBadge?.badge_level === 'gold' && 'Gold'}
+                {globalBadge?.badge_level === 'silver' && 'Silver'}
+                {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze'}
+              </p>
+              {spendTier && (
+                <p className="text-xs text-amber-400 font-medium">
+                  {(() => {
+                    const badgePct = venueDiscounts[spendTier] ?? 0;
+                    const weekly = loyaltyData?.weeklyVisits ?? 0;
+                    const bonusPct = weekly >= 3 ? (visitBonuses.thrice_per_week ?? 0) : weekly >= 2 ? (visitBonuses.twice_per_week ?? 0) : weekly >= 1 ? (visitBonuses.once_per_week ?? 0) : 0;
+                    return `${(badgePct + bonusPct).toFixed(1)}% off`;
+                  })()}
+                </p>
               )}
             </div>
+          )}
 
-            {/* Right: User badge */}
-            {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="flex items-center gap-1">
-                  {globalBadge?.badge_level === 'gold' && (
-                    <Crown size={18} className="text-yellow-400" strokeWidth={2} />
-                  )}
-                  {globalBadge?.badge_level === 'silver' && (
-                    <Shield size={18} className="text-gray-300" strokeWidth={2} />
-                  )}
-                  {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && (
-                    <Circle size={18} className="text-amber-400" strokeWidth={2} />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-white/60 leading-tight">
-                    {globalBadge?.badge_level === 'gold' && 'Gold'}
-                    {globalBadge?.badge_level === 'silver' && 'Silver'}
-                    {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze'}
-                  </p>
-                  {spendTier && (
-                    <p className="text-xs text-amber-400 font-medium">
-                      {(() => {
-                        const badgePct = venueDiscounts[spendTier] ?? 0;
-                        const weekly = loyaltyData?.weeklyVisits ?? 0;
-                        const bonusPct = weekly >= 3
-                          ? (visitBonuses.thrice_per_week ?? 0)
-                          : weekly >= 2
-                          ? (visitBonuses.twice_per_week ?? 0)
-                          : weekly >= 1
-                          ? (visitBonuses.once_per_week ?? 0)
-                          : 0;
-                        const totalDiscountPct = badgePct + bonusPct;
-                        return `${totalDiscountPct.toFixed(1)}% off`;
-                      })()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Promo anchor */}
-      <div ref={promoRef} />
-
-      {/* Alert Waiter Button — large red 3D button for basic tier */}
-      {menuPlan === 'basic' && (
-        <div className="flex justify-center py-6">
+          {/* Right: Call button */}
           <button
             onClick={async () => {
               try {
                 const { data: { user } } = await supabase.auth.getUser();
-                const alertTime = new Date().toISOString();
                 if (tab?.id) {
                   await supabase.from('tab_telegram_messages').insert({
                     tab_id: tab.id,
@@ -2955,33 +2937,33 @@ export default function MenuPage() {
                     status: 'pending',
                   });
                 }
-                // Store alert in sessionStorage for activity log
-                const key = `tab-alerts-${tab?.id}`;
-                const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
-                existing.push({ time: alertTime });
-                sessionStorage.setItem(key, JSON.stringify(existing));
                 showToast({
                   type: 'success',
                   title: 'Alert Sent',
                   message: 'A waiter has been notified and will assist you shortly.',
                 });
               } catch {
-                showToast({ type: 'error', title: 'Failed', message: 'Could not send alert. Please ask staff directly.' });
+                showToast({ type: 'error', title: 'Failed', message: 'Could not send alert.' });
               }
             }}
-            className="rounded-full flex items-center justify-center transition-transform active:scale-95 hover:scale-105"
             style={{
-              width: '80px',
-              height: '80px',
+              width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
               background: 'radial-gradient(circle at 35% 30%, #ff5555, #cc0000)',
               boxShadow: '0 8px 24px rgba(200,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.2)',
-              border: '3px solid rgba(255,255,255,0.15)',
+              border: '3px solid rgba(255,255,255,0.15)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'transform 0.15s',
             }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
           >
             <Bell size={32} style={{ color: 'white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
           </button>
         </div>
-      )}
+      </div>
+
+      {/* Promo anchor */}
+      <div ref={promoRef} />
 
       {/* Activity Log */}
       {menuPlan === 'basic' && (
