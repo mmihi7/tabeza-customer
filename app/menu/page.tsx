@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Crown, Shield, Circle, Bell, LogIn } from 'lucide-react';
+  Crown, Shield, Circle, Bell, LogIn, UserCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -3035,6 +3035,27 @@ export default function MenuPage() {
                   icon: <MessageCircle size={14} className="text-blue-400" />,
                   message: <span className="text-xs" style={{ color: 'var(--cream)' }}>Staff: {msg.message}</span>,
                 });
+              });
+
+              // System messages: staff_assigned, acknowledged
+              telegramMessages.filter(m => m.initiated_by === 'system').forEach(msg => {
+                const meta = (msg as any).message_metadata || {};
+                if (meta.event === 'staff_assigned') {
+                  events.push({
+                    id: `assigned-${msg.id}`,
+                    time: new Date(msg.created_at),
+                    icon: <UserCheck size={14} className="text-green-400" />,
+                    message: <span className="text-xs" style={{ color: 'var(--muted)' }}>You are being served by <span style={{ color: 'var(--cream)' }}>{meta.staff_name || 'staff'}</span> 👋</span>,
+                  });
+                }
+                if (msg.status === 'acknowledged') {
+                  events.push({
+                    id: `ack-${msg.id}`,
+                    time: new Date(msg.created_at),
+                    icon: <CheckCircle size={14} className="text-green-400" />,
+                    message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Waiter confirmed — help is on the way</span>,
+                  });
+                }
               });
               
               events.sort((a, b) => b.time.getTime() - a.time.getTime());
