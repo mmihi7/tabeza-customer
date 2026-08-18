@@ -26,12 +26,14 @@ import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import StepHome from './StepHome';
 import StepIdentity from './StepIdentity';
 import StepConfirm from './StepConfirm';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 function ConsentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { flags } = usePlatformSettings();
   
   // Customer app origin for QR code validation
   const customerOrigin = process.env.NEXT_PUBLIC_CUSTOMER_ORIGIN || 'https://app.tabeza.co.ke';
@@ -1111,6 +1113,7 @@ function ConsentContent() {
         }}
         onChangeIdentity={() => setWizardStep(1)}
         creating={creating}
+        showLoyalty={flags.loyalty_enabled}
       />
     )
   }

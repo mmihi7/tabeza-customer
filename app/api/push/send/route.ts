@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import webpush from 'web-push';
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:hello@tabeza.co.ke';
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { title, body, icon, badge, tag, data, deviceIds } = await request.json();
+    const { title, body, tag, data, deviceIds } = await request.json();
 
     if (!title || !deviceIds || !deviceIds.length) {
       return NextResponse.json(
@@ -12,12 +21,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+      console.error('❌ VAPID keys not configured');
+      return NextResponse.json(
+        { error: 'Push notifications not configured' },
+        { status: 500 }
+      );
+    }
+
     const supabase = createServiceRoleClient();
 
-    // Get subscriptions for the specified devices
     const { data: subscriptions, error } = await supabase
       .from('push_subscriptions' as any)
-      .select('endpoint, p256dh, auth')
+      .select('endpoint, p256dh, auth_secret')
       .in('device_id', deviceIds);
 
     if (error) {
@@ -28,53 +44,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send push notifications to all specified devices
+    if (!subscriptions || (subscriptions as any[]).length === 0) {
+      return NextResponse.json({
+        message: 'No push subscriptions found for devices',
+        success: false,
+        sent: 0
+      });
+    }
+
+    const payload = JSON.stringify({
+      title,
+      body: body || '',
+      tag: tag || 'tabeza-notification',
+      data: data || {}
+    });
+
     const results = await Promise.allSettled(
-      (subscriptions as any[]).map(async (subscription) => {
+      (subscriptions as any[]).map(async (sub) => {
         try {
-          const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-            method: 'POST',
-            headers: {
-              'Authorization': `key=${process.env.FIREBASE_SERVER_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              to: subscription.endpoint,
-              notification: {
-                title: title,
-                body: body,
-                icon: icon,
-                badge: badge,
-                tag: tag,
-                data: data,
-                actions: data?.actions || []
-              }
-            })
-          });
-
-          if (!response.ok) {
-            console.error('❌ Failed to send push notification to:', subscription.endpoint);
-            return { success: false, error: 'Failed to send' };
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_secret } },
+            payload
+          );
+          return { success: true };
+        } catch (err: any) {
+          if (err.statusCode === 410) {
+            await supabase
+              .from('push_subscriptions' as any)
+              .delete()
+              .eq('endpoint', sub.endpoint);
           }
-
-          const result = await response.json();
-          console.log('✅ Push notification sent to:', subscription.endpoint);
-          return { success: true, messageId: result.message_id };
-        } catch (error) {
-          console.error('❌ Error sending push notification to:', subscription.endpoint);
-          return { success: false, error: (error as Error).message };
+          return { success: false, error: err.message };
         }
       })
     );
 
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const failed = results.length - successful;
+    const successful = results.filter(r => r.status === 'fulfilled' && (r as any).value.success).length;
 
     return NextResponse.json({
-      message: `Push notifications sent to ${successful} devices, ${failed} failed`,
+      message: `Push notifications sent to ${successful} device(s)`,
       success: successful > 0,
-      failed: failed,
-      results: results
+      sent: successful
     });
   } catch (error) {
     console.error('❌ Push notification send error:', error);

@@ -9,6 +9,7 @@ import CashPaymentTab from '@/components/CashPaymentTab';
 import MpesaPaymentTab from '@/components/MpesaPaymentTab';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function PaymentPage() {
   const [paymentSettings, setPaymentSettings] = useState<any>(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const { showToast } = useToast();
+  const { flags } = usePlatformSettings();
 
   // Tab-based state structure with enhanced isolation
   const [activeTab, setActiveTab] = useState<'cash' | 'mpesa'>('cash');
@@ -106,7 +108,7 @@ export default function PaymentPage() {
       setPaymentSettings(data);
       
       // Set default payment method based on availability
-      if (data.paymentMethods?.mpesa?.available) {
+      if (flags.mpesa_enabled && data.paymentMethods?.mpesa?.available) {
         setActiveTab('mpesa');
       } else {
         setActiveTab('cash');
@@ -267,9 +269,9 @@ export default function PaymentPage() {
           <PaymentTabs
             activeTab={activeTab}
             onTabChange={handleTabChange}
-            mpesaAvailable={paymentSettings?.paymentMethods?.mpesa?.available || false}
+            mpesaAvailable={flags.mpesa_enabled && (paymentSettings?.paymentMethods?.mpesa?.available || false)}
           >
-            {activeTab === 'cash' ? (
+            {activeTab === 'cash' || !flags.mpesa_enabled ? (
               <CashPaymentTab
                 amount={cashPaymentState.amount}
                 onAmountChange={handleCashAmountChange}

@@ -17,14 +17,16 @@ export async function POST(request: NextRequest) {
 
     const { error } = await supabase
       .from('push_subscriptions' as any)
-      .upsert({
-        device_id: deviceId,
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .upsert(
+        {
+          device_id: deviceId,
+          endpoint: subscription.endpoint,
+          p256dh: subscription.keys.p256dh,
+          auth_secret: subscription.keys.auth,
+          last_used_at: new Date().toISOString()
+        },
+        { onConflict: 'endpoint' }
+      )
       .select();
 
     if (error) {

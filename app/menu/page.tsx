@@ -23,6 +23,15 @@ import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 // Temporary format function to bypass import issue
 const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
   const number = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -68,6 +77,7 @@ interface Tab {
   sound_enabled?: boolean;
   vibration_enabled?: boolean;
   opened_at?: string;
+  device_identifier?: string | null;
   bar?: {
     id: string;
     name: string;
@@ -1879,6 +1889,46 @@ export default function MenuPage() {
     loadTabData();
   }, [loadTabData]);
 
+  // Subscribe to push notifications when tab is loaded
+  useEffect(() => {
+    if (!tab?.id || !tab?.device_identifier) return;
+
+    const subscribeToPush = async () => {
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidKey) return;
+
+        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceId: tab.device_identifier,
+            subscription: subscription.toJSON()
+          })
+        });
+        console.log('✅ Push subscription registered');
+      } catch (err) {
+        console.log('ℹ️ Push subscription skipped:', err);
+      }
+    };
+
+    subscribeToPush();
+  }, [tab?.id, tab?.device_identifier]);
+
   // Select table
   const selectTable = useCallback(async (tableNumber: number | null) => {
     console.log('🪑 selectTable called with:', tableNumber);
@@ -2965,9 +3015,43 @@ export default function MenuPage() {
       {/* Promo anchor */}
       <div ref={promoRef} />
 
-      {/* Activity Log */}
-      {menuPlan === 'basic' && (
-        <div className="px-4 mb-4">
+      {/* Notification Settings */}
+      <div className="px-4 mb-3">
+        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>NOTIFICATIONS</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: 'var(--cream)' }}>Push alerts</span>
+            <button
+              onClick={async () => {
+                const next = !notificationPrefs.notificationsEnabled;
+                setNotificationPrefs(p => ({ ...p, notificationsEnabled: next }));
+                if (tab?.id) {
+                  await fetch(`/api/tabs/${tab.id}/notification-settings`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notificationsEnabled: next })
+                  });
+                }
+                if (next && 'Notification' in window) {
+                  await Notification.requestPermission();
+                }
+              }}
+              className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              style={{ backgroundColor: notificationPrefs.notificationsEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)' }}
+            >
+              <span
+                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                style={{ transform: notificationPrefs.notificationsEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Log — shown across all menu plans */}
+      <div className="px-4 mb-4">
           <div className="mb-3">
             <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>ACTIVITY</h2>
           </div>
@@ -3025,7 +3109,23 @@ export default function MenuPage() {
                       </span>
                     ),
                   });
+                } else if (order.status === 'confirmed') {
+                  events.push({
+                    id: `confirmed-${order.id}`,
+                    time: new Date(order.approved_at || order.updated_at || order.created_at),
+                    icon: <CheckCircle size={14} className="text-green-400" />,
+                    message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Order #{orderNumber} approved · {tempFormatCurrency(order.total)}</span>,
+                  });
                 }
+              });
+
+              payments.filter(p => p.status === 'success').forEach(payment => {
+                events.push({
+                  id: `payment-${payment.id}`,
+                  time: new Date(payment.created_at),
+                  icon: <CreditCard size={14} className="text-emerald-400" />,
+                  message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Payment received · {tempFormatCurrency(payment.amount)}</span>,
+                });
               });
               
               telegramMessages.filter(m => m.initiated_by === 'staff').forEach(msg => {
@@ -3080,7 +3180,6 @@ export default function MenuPage() {
             })()}
           </div>
         </div>
-      )}
 
       {/* Menu Section */}
       {!venueControls.showCustomerMenu ? (
@@ -3107,7 +3206,13 @@ export default function MenuPage() {
           {staticMenuType === 'slideshow' && slideshowImages.length > 0 ? (
             <div className="flex flex-col gap-3">
               {slideshowImages.map((url, i) => (
-                <img key={i} src={url} alt={`Menu page ${i + 1}`} className="w-full h-auto rounded-lg border border-gray-100 shadow-sm" />
+                <div
+                  key={i}
+                  className="w-full overflow-hidden rounded-lg border border-gray-100 shadow-sm"
+                  style={{ aspectRatio: '9 / 16', backgroundColor: '#000' }}
+                >
+                  <img src={url} alt={`Menu page ${i + 1}`} className="w-full h-full object-contain" />
+                </div>
               ))}
             </div>
           ) : staticMenuUrl ? (

@@ -98,3 +98,37 @@ define(['./workbox-16a1d834'], (function (workbox) { 'use strict';
   }), 'GET');
 
 }));
+
+// Push notification handler
+self.addEventListener('push', function(event) {
+  if (!event.data) return;
+  var data = {};
+  try { data = event.data.json(); } catch (e) { return; }
+  var title = data.title || 'Tabeza';
+  var options = {
+    body: data.body || '',
+    icon: '/icon-192x192.png',
+    badge: '/badge-72x72.png',
+    tag: data.tag || 'tabeza-notification',
+    data: data.data || {},
+    vibrate: [200, 100, 200]
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification click handler — focus existing tab or open new
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  var url = (event.notification.data && event.notification.data.url) || '/menu';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
+        if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
+});

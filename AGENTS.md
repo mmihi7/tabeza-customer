@@ -113,6 +113,17 @@ Four separate channels — each must have a unique `channelName`:
 - `tab-payments-{id}` — payment events
 - `tab-messages-{id}` — telegram messages
 
+### Push Notifications (alerts that arrive when the app is closed)
+Customer-facing alerts use the shared push system — **DB trigger → `customer_notifications` queue → `customer-notification-sender` edge function → web-push** (see workspace root `AGENTS.md`).
+
+- Subscribe: `POST /api/push/subscribe` stores the web-push subscription into the shared `push_subscriptions` table, keyed by `device_id` (`auth_secret`, NOT `auth`). Called automatically on the menu page when a tab is loaded.
+- Send: `POST /api/push/send` sends to `device_id`s. Admin-facing and internal uses only.
+- Service worker: `public/sw.js` listens for `push` events, shows the notification, and routes notification-click to the payload `url`.
+- Opt-in: the menu page "NOTIFICATIONS" toggle calls `PATCH /api/tabs/[id]/notification-settings`, which stores `notes.notifications_enabled` (with `sound_enabled` / `vibration_enabled`). The DB trigger honoring this toggle is `on_customer_order_approval` in tabeza-staff.
+- In-app (app open): realtime order events for `initiated_by='staff'` alert via `playCustomerNotification`.
+
+**Rule**: do NOT build parallel push systems. Adding a new customer alert = add a DB trigger in tabeza-staff that queues into `customer_notifications`.
+
 ### Payments (RLS bypass)
 All `tab_payments` reads use `/api/tabs/[id]/payments` (service role) — direct anon queries are blocked by RLS.
 
