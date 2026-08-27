@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase'
+import { getUserFromRequest } from '@/lib/auth-server'
 
 // GET /api/crew/profile/[id]
-// Returns public crew profile for customer view
+// Returns public crew profile for customer view.
+// customer_crew_ratings is not yet in the generated types — uses `as any` casts.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,17 +13,15 @@ export async function GET(
   const { id } = await params
 
   if (!id) {
-    return NextResponse.json({ error: 'Crew member ID required' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing crew member id' }, { status: 400 })
   }
 
-  // Get crew member public profile
   const { data: crew, error: crewError } = await supabase
     .from('crew_members')
     .select(`
       id,
       display_name,
       bio,
-      badge_tier,
       performance_score,
       total_shifts_completed,
       total_approved_orders,
@@ -30,9 +30,7 @@ export async function GET(
       preferred_locations,
       face_photo_url,
       face_thumbnail_url,
-      half_body_photo_url,
-      average_rating,
-      total_ratings
+      half_body_photo_url
     `)
     .eq('id', id)
     .single()
@@ -41,31 +39,35 @@ export async function GET(
     return NextResponse.json({ error: 'Crew member not found' }, { status: 404 })
   }
 
-  // Get recent ratings (last 5)
-  const { data: recentRatings } = await supabase
+  // Ratings table not yet in generated types — cast to any
+  const { data: recentRatings } = await (supabase as any)
     .from('customer_crew_ratings')
     .select('rating, comment, created_at')
     .eq('crew_member_id', id)
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Get rating distribution
-  const { data: ratingDist } = await supabase
+  const { data: ratingDist } = await (supabase as any)
     .from('customer_crew_ratings')
     .select('rating')
     .eq('crew_member_id', id)
 
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-  for (const r of ratingDist || []) {
-    distribution[r.rating as keyof typeof distribution]++
+  for (const r of (ratingDist as any[]) || []) {
+    const key = r.rating as keyof typeof distribution
+    if (key in distribution) distribution[key]++
   }
+
+  const totalRatings = ((ratingDist as any[]) ?? []).length
+  const avgRating = totalRatings > 0
+    ? ((ratingDist as any[]) ?? []).reduce((sum: number, r: any) => sum + r.rating, 0) / totalRatings
+    : null
 
   return NextResponse.json({
     profile: {
       id: crew.id,
       display_name: crew.display_name,
       bio: crew.bio,
-      badge_tier: crew.badge_tier,
       performance_score: crew.performance_score,
       total_shifts_completed: crew.total_shifts_completed,
       total_approved_orders: crew.total_approved_orders,
@@ -75,9 +77,9 @@ export async function GET(
       face_photo_url: crew.face_photo_url,
       face_thumbnail_url: crew.face_thumbnail_url,
       half_body_photo_url: crew.half_body_photo_url,
-      average_rating: crew.average_rating,
-      total_ratings: crew.total_ratings,
-      recent_ratings: recentRatings || [],
+      average_rating: avgRating,
+      total_ratings: totalRatings,
+      recent_ratings: (recentRatings as any[]) || [],
       rating_distribution: distribution,
     }
   })

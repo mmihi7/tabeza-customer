@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceRoleClient, getUserFromRequest } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase'
+import { getUserFromRequest } from '@/lib/auth-server'
 
 // GET /api/crew/current
 // Returns the crew member assigned to the customer's active tab
 export async function GET(req: NextRequest) {
   const supabase = createServiceRoleClient()
   const user = await getUserFromRequest(req)
-  
+
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -32,15 +33,17 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .single()
 
-  if (tabError || !tab || !tab.current_crew_id) {
+  if (tabError || !tab || !(tab as any).current_crew_id) {
     return NextResponse.json({ crew: null })
   }
+
+  const crewId = (tab as any).current_crew_id as string
 
   // Get crew member details
   const { data: crew, error: crewError } = await supabase
     .from('crew_members')
-    .select('id, display_name, face_photo_url, face_thumbnail_url, badge_tier, performance_score, total_shifts_completed, average_rating')
-    .eq('id', tab.current_crew_id)
+    .select('id, display_name, face_photo_url, face_thumbnail_url, performance_score, total_shifts_completed')
+    .eq('id', crewId)
     .single()
 
   if (crewError || !crew) {
@@ -53,10 +56,8 @@ export async function GET(req: NextRequest) {
       display_name: crew.display_name,
       face_photo_url: crew.face_photo_url,
       face_thumbnail_url: crew.face_thumbnail_url,
-      badge_tier: crew.badge_tier,
       performance_score: crew.performance_score,
       total_shifts_completed: crew.total_shifts_completed,
-      average_rating: crew.average_rating,
       bar_id: tab.bar_id,
       tab_id: tab.id,
     }
