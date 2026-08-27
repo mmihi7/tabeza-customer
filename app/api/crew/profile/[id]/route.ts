@@ -5,10 +5,10 @@ import { createServiceRoleClient } from '@/lib/supabase'
 // Returns public crew profile for customer view
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = createServiceRoleClient()
-  const { id } = params
+  const { id } = await params
 
   if (!id) {
     return NextResponse.json({ error: 'Crew member ID required' }, { status: 400 })
