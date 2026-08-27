@@ -22,6 +22,7 @@ import MessagePanel from './MessagePanel';
 import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
+import { CrewAvatar, CrewTipButton, CrewRatingModal, CrewProfileView, type CrewMember } from '@/components/crew';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -141,7 +142,9 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('Your Tab');
   const [barName, setBarName] = useState('Loading...');
-  const [crewMember, setCrewMember] = useState<{ display_name: string; face_photo_url?: string; face_thumbnail_url?: string } | null>(null);
+  const [crewMember, setCrewMember] = useState<CrewMember | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showProfileView, setShowProfileView] = useState(false);
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
@@ -2919,31 +2922,13 @@ export default function MenuPage() {
         <div className="flex items-center justify-center gap-4">
           {/* Left: Waiter profile */}
           {crewMember ? (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0,
-            }}>
-              <div style={{
-                width: 80, height: 80, borderRadius: '50%',
-                background: 'radial-gradient(circle at 35% 30%, rgba(134,239,172,0.3), rgba(16,185,129,0.15))',
-                boxShadow: '0 4px 16px rgba(16,185,129,0.25), 0 1px 3px rgba(0,0,0,0.2)',
-                border: '3px solid rgba(134,239,172,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                {crewMember.face_thumbnail_url || crewMember.face_photo_url ? (
-                  <img
-                    src={crewMember.face_thumbnail_url || crewMember.face_photo_url}
-                    alt={crewMember.display_name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <User size={32} style={{ color: 'rgba(134,239,172,0.6)' }} />
-                )}
-              </div>
-              <div style={{ minWidth: 0, maxWidth: 100 }}>
-                <p className="text-xs text-white/60 leading-tight">Your waiter</p>
-                <p className="text-sm text-white font-medium truncate">{crewMember.display_name}</p>
-              </div>
+            <div style={{ flexShrink: 0 }}>
+              <CrewAvatar
+                crew={crewMember}
+                onRate={() => setShowRatingModal(true)}
+                onTip={() => setShowRatingModal(true)}
+                showActions={true}
+              />
             </div>
           ) : null}
 
@@ -3954,6 +3939,31 @@ export default function MenuPage() {
           </div>
         </div>
       )}
+
+      {/* Crew Tip Section - Show when there's a crew member and tab is paid */}
+      {crewMember && balance === 0 && (
+        <div className="p-4">
+          <div className="mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">TIP YOUR CREW</h2>
+          </div>
+          <CrewTipButton
+            crewName={crewMember.display_name}
+            onTip={async (amount) => {
+              const res = await fetch('/api/crew/tip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  crew_member_id: crewMember.id,
+                  amount,
+                }),
+              })
+              const data = await res.json()
+              if (!res.ok) throw new Error(data.error || 'Failed to process tip')
+              showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` })
+            }}
+          />
+        </div>
+      )}
       
       {balance === 0 && orders.filter(order => order.status === 'confirmed').length > 0 && (
         <div className="bg-white p-4">
@@ -4343,6 +4353,35 @@ export default function MenuPage() {
         </div>
       )}
     </div>
+
+    {/* Crew Rating Modal */}
+    <CrewRatingModal
+      isOpen={showRatingModal}
+      onClose={() => setShowRatingModal(false)}
+      crewName={crewMember?.display_name || 'your crew member'}
+      onSubmit={async (rating, comment) => {
+        const res = await fetch('/api/crew/rate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tab_id: tab?.id,
+            rating,
+            comment,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to submit rating')
+        showToast({ type: 'success', title: 'Rating submitted!', message: 'Thank you for your feedback' })
+      }}
+    />
+
+    {/* Crew Profile View */}
+    <CrewProfileView
+      isOpen={showProfileView}
+      onClose={() => setShowProfileView(false)}
+      crewId={crewMember?.id || ''}
+    />
+
     <ReceiptModal
       isOpen={showReceipt}
       onClose={() => setShowReceipt(false)}
