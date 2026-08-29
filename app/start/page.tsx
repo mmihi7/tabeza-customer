@@ -23,17 +23,16 @@ import { requestSystemPermissions, checkPermissions } from '@/lib/permissions';
 import { isWithinBusinessHours } from '@/lib/business-hours';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
+import { IdentityLinkPrompt } from '@/components/IdentityLinkPrompt';
 import StepHome from './StepHome';
 import StepIdentity from './StepIdentity';
 import StepConfirm from './StepConfirm';
-import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 function ConsentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const { user, loading: authLoading } = useAuth();
-  const { flags } = usePlatformSettings();
   
   // Customer app origin for QR code validation
   const customerOrigin = process.env.NEXT_PUBLIC_CUSTOMER_ORIGIN || 'https://app.tabeza.co.ke';
@@ -1049,6 +1048,7 @@ function ConsentContent() {
             await loadBarInfo(slug);
           }}
         />
+        <IdentityLinkPrompt />
       </>
     );
   }
@@ -1084,22 +1084,10 @@ function ConsentContent() {
       identityMode === 'nickname'  ? (wizardNickname || 'Nickname') :
       (user?.user_metadata?.first_name || user?.email || 'You')
 
-    // Badge is earned via spend threshold in a single tab session — not tab count.
-    // A new user at a venue has no badge yet. Show 'New' until loyalty API confirms otherwise.
-    const spendTiers = [
-      { label: 'Bronze', here: false },
-      { label: 'Silver', here: false },
-      { label: 'Gold',   here: false },
-    ]
-
     return (
       <StepConfirm
         venueName={selectedVenue.name}
         venueMeta={selectedVenue.category ?? ''}
-        badgeLabel="New"
-        spendTiers={spendTiers}
-        tierDescription="Your first visit here. Spend KES 3,000 or more in one session to earn Bronze."
-        weeklyVisits={0}
         identityLabel={identityLabel}
         onConfirm={handleStartTab}
         onBack={() => {
@@ -1113,7 +1101,6 @@ function ConsentContent() {
         }}
         onChangeIdentity={() => setWizardStep(1)}
         creating={creating}
-        showLoyalty={flags.loyalty_enabled}
       />
     )
   }

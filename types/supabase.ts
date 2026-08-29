@@ -10,10 +10,31 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      anon_customer_map: {
+        Row: {
+          anon_customer_id: string
+          created_at: string
+          customer_id: string
+          id: string
+        }
+        Insert: {
+          anon_customer_id: string
+          created_at?: string
+          customer_id: string
+          id?: string
+        }
+        Update: {
+          anon_customer_id?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -103,6 +124,55 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      bar_categories: {
+        Row: {
+          bar_id: string
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          bar_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          bar_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bar_categories_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_categories_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "bar_categories_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bar_products: {
         Row: {
@@ -242,6 +312,53 @@ export type Database = {
           },
         ]
       }
+      bar_suppliers: {
+        Row: {
+          bar_id: string
+          created_at: string
+          supplier_id: string
+        }
+        Insert: {
+          bar_id: string
+          created_at?: string
+          supplier_id: string
+        }
+        Update: {
+          bar_id?: string
+          created_at?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bar_suppliers_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_suppliers_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "bar_suppliers_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bars: {
         Row: {
           active: boolean | null
@@ -256,6 +373,7 @@ export type Database = {
           authority_mode:
             | Database["public"]["Enums"]["authority_mode_enum"]
             | null
+          billing_parent_bar_id: string | null
           bronze_threshold: number
           business_24_hours: boolean | null
           business_hours_advanced: Json | null
@@ -263,16 +381,25 @@ export type Database = {
           business_hours_simple: Json | null
           card_provider: string | null
           created_at: string | null
+          customer_ordering_enabled: boolean
           drink_discount_percent: number | null
           email: string | null
+          feature_analytics_enabled: boolean
+          feature_promos_enabled: boolean
           food_discount_percent: number | null
           gold_threshold: number
           id: string
           last_cleanup_at: string | null
           latitude: number | null
           location: string | null
+          logo_url: string | null
           longitude: number | null
+          main_bar_crew_id: string | null
+          max_menu_categories_override: number | null
+          max_menu_products_override: number | null
+          max_staff_seats: number
           menu_enabled: boolean | null
+          menu_plan: string
           menu_type: string | null
           mode_last_changed_at: string | null
           mpesa_business_shortcode: string | null
@@ -293,9 +420,16 @@ export type Database = {
           payment_cash_enabled: boolean | null
           pdf_menu_url: string | null
           phone: string | null
+          plan_activated_at: string | null
+          plan_expires_at: string | null
+          plan_status: string
           pos_integration_enabled: boolean | null
+          pos_receipt_credits: number
           printer_required: boolean | null
           qr_code_url: string | null
+          show_customer_menu: boolean
+          show_customer_ordering: boolean
+          show_customer_promos: boolean
           silver_threshold: number
           slideshow_settings: Json | null
           slug: string | null
@@ -307,20 +441,10 @@ export type Database = {
           timezone: string | null
           updated_at: string | null
           venue_mode: Database["public"]["Enums"]["venue_mode_enum"] | null
+          venue_plan: string
+          venue_type: string
           webhook_url: string | null
-          customer_ordering_enabled: boolean | null
-          feature_analytics_enabled: boolean | null
-          feature_promos_enabled: boolean | null
-          main_bar_crew_id: string | null
-          menu_plan: 'basic' | 'standard' | null
-          plan_activated_at: string | null
-          plan_expires_at: string | null
-          plan_status: string | null
-          pos_receipt_credits: number | null
-          show_customer_menu: boolean | null
-          show_customer_ordering: boolean | null
-          show_customer_promos: boolean | null
-          venue_plan: string | null
+          webhooks_enabled: boolean
         }
         Insert: {
           active?: boolean | null
@@ -335,6 +459,7 @@ export type Database = {
           authority_mode?:
             | Database["public"]["Enums"]["authority_mode_enum"]
             | null
+          billing_parent_bar_id?: string | null
           bronze_threshold?: number
           business_24_hours?: boolean | null
           business_hours_advanced?: Json | null
@@ -342,16 +467,25 @@ export type Database = {
           business_hours_simple?: Json | null
           card_provider?: string | null
           created_at?: string | null
+          customer_ordering_enabled?: boolean
           drink_discount_percent?: number | null
           email?: string | null
+          feature_analytics_enabled?: boolean
+          feature_promos_enabled?: boolean
           food_discount_percent?: number | null
           gold_threshold?: number
           id?: string
           last_cleanup_at?: string | null
           latitude?: number | null
           location?: string | null
+          logo_url?: string | null
           longitude?: number | null
+          main_bar_crew_id?: string | null
+          max_menu_categories_override?: number | null
+          max_menu_products_override?: number | null
+          max_staff_seats?: number
           menu_enabled?: boolean | null
+          menu_plan?: string
           menu_type?: string | null
           mode_last_changed_at?: string | null
           mpesa_business_shortcode?: string | null
@@ -372,9 +506,16 @@ export type Database = {
           payment_cash_enabled?: boolean | null
           pdf_menu_url?: string | null
           phone?: string | null
+          plan_activated_at?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string
           pos_integration_enabled?: boolean | null
+          pos_receipt_credits?: number
           printer_required?: boolean | null
           qr_code_url?: string | null
+          show_customer_menu?: boolean
+          show_customer_ordering?: boolean
+          show_customer_promos?: boolean
           silver_threshold?: number
           slideshow_settings?: Json | null
           slug?: string | null
@@ -386,20 +527,10 @@ export type Database = {
           timezone?: string | null
           updated_at?: string | null
           venue_mode?: Database["public"]["Enums"]["venue_mode_enum"] | null
+          venue_plan?: string
+          venue_type?: string
           webhook_url?: string | null
-          customer_ordering_enabled?: boolean | null
-          feature_analytics_enabled?: boolean | null
-          feature_promos_enabled?: boolean | null
-          main_bar_crew_id?: string | null
-          menu_plan?: 'basic' | 'standard' | null
-          plan_activated_at?: string | null
-          plan_expires_at?: string | null
-          plan_status?: string | null
-          pos_receipt_credits?: number | null
-          show_customer_menu?: boolean | null
-          show_customer_ordering?: boolean | null
-          show_customer_promos?: boolean | null
-          venue_plan?: string | null
+          webhooks_enabled?: boolean
         }
         Update: {
           active?: boolean | null
@@ -414,6 +545,7 @@ export type Database = {
           authority_mode?:
             | Database["public"]["Enums"]["authority_mode_enum"]
             | null
+          billing_parent_bar_id?: string | null
           bronze_threshold?: number
           business_24_hours?: boolean | null
           business_hours_advanced?: Json | null
@@ -421,16 +553,25 @@ export type Database = {
           business_hours_simple?: Json | null
           card_provider?: string | null
           created_at?: string | null
+          customer_ordering_enabled?: boolean
           drink_discount_percent?: number | null
           email?: string | null
+          feature_analytics_enabled?: boolean
+          feature_promos_enabled?: boolean
           food_discount_percent?: number | null
           gold_threshold?: number
           id?: string
           last_cleanup_at?: string | null
           latitude?: number | null
           location?: string | null
+          logo_url?: string | null
           longitude?: number | null
+          main_bar_crew_id?: string | null
+          max_menu_categories_override?: number | null
+          max_menu_products_override?: number | null
+          max_staff_seats?: number
           menu_enabled?: boolean | null
+          menu_plan?: string
           menu_type?: string | null
           mode_last_changed_at?: string | null
           mpesa_business_shortcode?: string | null
@@ -451,9 +592,16 @@ export type Database = {
           payment_cash_enabled?: boolean | null
           pdf_menu_url?: string | null
           phone?: string | null
+          plan_activated_at?: string | null
+          plan_expires_at?: string | null
+          plan_status?: string
           pos_integration_enabled?: boolean | null
+          pos_receipt_credits?: number
           printer_required?: boolean | null
           qr_code_url?: string | null
+          show_customer_menu?: boolean
+          show_customer_ordering?: boolean
+          show_customer_promos?: boolean
           silver_threshold?: number
           slideshow_settings?: Json | null
           slug?: string | null
@@ -465,22 +613,69 @@ export type Database = {
           timezone?: string | null
           updated_at?: string | null
           venue_mode?: Database["public"]["Enums"]["venue_mode_enum"] | null
+          venue_plan?: string
+          venue_type?: string
           webhook_url?: string | null
-          customer_ordering_enabled?: boolean | null
-          feature_analytics_enabled?: boolean | null
-          feature_promos_enabled?: boolean | null
-          main_bar_crew_id?: string | null
-          menu_plan?: 'basic' | 'standard' | null
-          plan_activated_at?: string | null
-          plan_expires_at?: string | null
-          plan_status?: string | null
-          pos_receipt_credits?: number | null
-          show_customer_menu?: boolean | null
-          show_customer_ordering?: boolean | null
-          show_customer_promos?: boolean | null
-          venue_plan?: string | null
+          webhooks_enabled?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bars_billing_parent_bar_id_fkey"
+            columns: ["billing_parent_bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bars_billing_parent_bar_id_fkey"
+            columns: ["billing_parent_bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "bars_billing_parent_bar_id_fkey"
+            columns: ["billing_parent_bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bars_main_bar_crew_id_fkey"
+            columns: ["main_bar_crew_id"]
+            isOneToOne: false
+            referencedRelation: "crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bars_main_bar_crew_id_fkey"
+            columns: ["main_bar_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "bars_main_bar_crew_id_fkey"
+            columns: ["main_bar_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bars_main_bar_crew_id_fkey"
+            columns: ["main_bar_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bars_venue_plan_fk"
+            columns: ["venue_plan"]
+            isOneToOne: false
+            referencedRelation: "venue_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bars_slug_backup: {
         Row: {
@@ -521,28 +716,171 @@ export type Database = {
         }
         Relationships: []
       }
+      check_in_requests: {
+        Row: {
+          bar_id: string
+          created_at: string
+          crew_member_id: string
+          id: string
+          requested_at: string
+          responded_at: string | null
+          responded_by: string | null
+          shift_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bar_id: string
+          created_at?: string
+          crew_member_id: string
+          id?: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          shift_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bar_id?: string
+          created_at?: string
+          crew_member_id?: string
+          id?: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          shift_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_in_requests_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "v_staff_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_in_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_shift_summary"
+            referencedColumns: ["shift_id"]
+          },
+        ]
+      }
       consent_records: {
         Row: {
           app_version: string
+          birthday_day: number | null
+          birthday_month: number | null
+          birthday_year: number | null
           consented_at: string
           decision: string
           id: string
+          outbound_promo_opted_in: boolean
           user_id: string
           withdrawn_at: string | null
         }
         Insert: {
           app_version?: string
+          birthday_day?: number | null
+          birthday_month?: number | null
+          birthday_year?: number | null
           consented_at?: string
           decision: string
           id?: string
+          outbound_promo_opted_in?: boolean
           user_id: string
           withdrawn_at?: string | null
         }
         Update: {
           app_version?: string
+          birthday_day?: number | null
+          birthday_month?: number | null
+          birthday_year?: number | null
           consented_at?: string
           decision?: string
           id?: string
+          outbound_promo_opted_in?: boolean
           user_id?: string
           withdrawn_at?: string | null
         }
@@ -594,8 +932,15 @@ export type Database = {
             foreignKeyName: "staff_availability_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "staff_availability_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "staff_availability_staff_member_id_fkey"
@@ -613,19 +958,25 @@ export type Database = {
           availability_status: string
           bio: string | null
           created_at: string
+          credentials: Json | null
           display_name: string
           face_photo_url: string | null
           face_thumbnail_url: string | null
           half_body_photo_url: string | null
           id: string
           latitude: number | null
+          location: string | null
           longitude: number | null
           marketplace_visible: boolean
           onboarding_status: string
           performance_score: number | null
           phone_number: string
-          preferred_locations: string[] | null
+          photo_crop_x: number | null
+          photo_crop_y: number | null
+          photo_focus_mode: string | null
+          photo_zoom: number | null
           preferred_roles: string[] | null
+          skills: Json | null
           total_approved_orders: number
           total_likes: number
           total_shifts_completed: number
@@ -639,19 +990,25 @@ export type Database = {
           availability_status?: string
           bio?: string | null
           created_at?: string
+          credentials?: Json | null
           display_name: string
           face_photo_url?: string | null
           face_thumbnail_url?: string | null
           half_body_photo_url?: string | null
           id?: string
           latitude?: number | null
+          location?: string | null
           longitude?: number | null
           marketplace_visible?: boolean
           onboarding_status?: string
           performance_score?: number | null
           phone_number: string
-          preferred_locations?: string[] | null
+          photo_crop_x?: number | null
+          photo_crop_y?: number | null
+          photo_focus_mode?: string | null
+          photo_zoom?: number | null
           preferred_roles?: string[] | null
+          skills?: Json | null
           total_approved_orders?: number
           total_likes?: number
           total_shifts_completed?: number
@@ -665,19 +1022,25 @@ export type Database = {
           availability_status?: string
           bio?: string | null
           created_at?: string
+          credentials?: Json | null
           display_name?: string
           face_photo_url?: string | null
           face_thumbnail_url?: string | null
           half_body_photo_url?: string | null
           id?: string
           latitude?: number | null
+          location?: string | null
           longitude?: number | null
           marketplace_visible?: boolean
           onboarding_status?: string
           performance_score?: number | null
           phone_number?: string
-          preferred_locations?: string[] | null
+          photo_crop_x?: number | null
+          photo_crop_y?: number | null
+          photo_focus_mode?: string | null
+          photo_zoom?: number | null
           preferred_roles?: string[] | null
+          skills?: Json | null
           total_approved_orders?: number
           total_likes?: number
           total_shifts_completed?: number
@@ -699,6 +1062,7 @@ export type Database = {
           id: string
           notification_type: string
           priority: string
+          push_sent_at: string | null
           read_at: string | null
           related_entity_id: string | null
           related_entity_type: string | null
@@ -715,6 +1079,7 @@ export type Database = {
           id?: string
           notification_type: string
           priority?: string
+          push_sent_at?: string | null
           read_at?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
@@ -731,6 +1096,7 @@ export type Database = {
           id?: string
           notification_type?: string
           priority?: string
+          push_sent_at?: string | null
           read_at?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
@@ -769,8 +1135,15 @@ export type Database = {
             foreignKeyName: "staff_notifications_recipient_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "staff_notifications_recipient_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "staff_notifications_recipient_id_fkey"
@@ -858,8 +1231,15 @@ export type Database = {
             foreignKeyName: "staff_performance_events_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "staff_performance_events_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "staff_performance_events_staff_member_id_fkey"
@@ -930,8 +1310,15 @@ export type Database = {
             foreignKeyName: "staff_profile_photos_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "staff_profile_photos_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "staff_profile_photos_staff_member_id_fkey"
@@ -1001,8 +1388,15 @@ export type Database = {
             foreignKeyName: "staff_tips_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "staff_tips_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "staff_tips_staff_member_id_fkey"
@@ -1220,8 +1614,15 @@ export type Database = {
             foreignKeyName: "customer_staff_ratings_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "customer_staff_ratings_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "customer_staff_ratings_staff_member_id_fkey"
@@ -1283,6 +1684,231 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customer_favorites_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_notifications: {
+        Row: {
+          action_url: string | null
+          bar_id: string | null
+          body: string
+          created_at: string
+          device_id: string | null
+          id: string
+          notification_type: string
+          push_sent_at: string | null
+          tab_id: string | null
+          title: string
+        }
+        Insert: {
+          action_url?: string | null
+          bar_id?: string | null
+          body: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          notification_type: string
+          push_sent_at?: string | null
+          tab_id?: string | null
+          title: string
+        }
+        Update: {
+          action_url?: string | null
+          bar_id?: string | null
+          body?: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          notification_type?: string
+          push_sent_at?: string | null
+          tab_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notifications_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notifications_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "customer_notifications_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notifications_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tab_balances"
+            referencedColumns: ["tab_id"]
+          },
+          {
+            foreignKeyName: "customer_notifications_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_product_units: {
+        Row: {
+          anon_customer_id: string
+          created_at: string
+          id: string
+          period: string
+          product_id: string
+          supplier_id: string | null
+          units: number
+        }
+        Insert: {
+          anon_customer_id: string
+          created_at?: string
+          id?: string
+          period: string
+          product_id: string
+          supplier_id?: string | null
+          units?: number
+        }
+        Update: {
+          anon_customer_id?: string
+          created_at?: string
+          id?: string
+          period?: string
+          product_id?: string
+          supplier_id?: string | null
+          units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_units_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_promo_consent: {
+        Row: {
+          bar_id: string
+          consented_at: string
+          customer_id: string | null
+          device_id: string
+          id: string
+          scope: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          bar_id: string
+          consented_at?: string
+          customer_id?: string | null
+          device_id: string
+          id?: string
+          scope: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          bar_id?: string
+          consented_at?: string
+          customer_id?: string | null
+          device_id?: string
+          id?: string
+          scope?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_promo_consent_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_promo_consent_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "customer_promo_consent_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_saved_bars: {
+        Row: {
+          bar_id: string
+          customer_id: string
+          id: string
+          saved_at: string
+        }
+        Insert: {
+          bar_id: string
+          customer_id: string
+          id?: string
+          saved_at?: string
+        }
+        Update: {
+          bar_id?: string
+          customer_id?: string
+          id?: string
+          saved_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_saved_bars_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_saved_bars_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "customer_saved_bars_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_saved_bars_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
@@ -1960,8 +2586,15 @@ export type Database = {
             foreignKeyName: "hire_requests_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "hire_requests_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "hire_requests_staff_member_id_fkey"
@@ -2130,6 +2763,87 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          admob_ads_enabled: boolean
+          api_version: string
+          crew_marketplace_enabled: boolean
+          customer_ordering_enabled: boolean
+          digest_frequency: string
+          early_access_enabled: boolean
+          email_alerts_enabled: boolean
+          global_products_enabled: boolean
+          id: number
+          ip_allowlist: string
+          loyalty_enabled: boolean
+          maintenance_mode: boolean
+          media_system_enabled: boolean
+          meta_ads_enabled: boolean
+          mfa_required: boolean
+          mpesa_enabled: boolean
+          platform_env: string
+          pos_printer_enabled: boolean
+          promotions_ai_enabled: boolean
+          session_timeout_minutes: number
+          slack_alerts_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+          webhooks_enabled: boolean
+        }
+        Insert: {
+          admob_ads_enabled?: boolean
+          api_version?: string
+          crew_marketplace_enabled?: boolean
+          customer_ordering_enabled?: boolean
+          digest_frequency?: string
+          early_access_enabled?: boolean
+          email_alerts_enabled?: boolean
+          global_products_enabled?: boolean
+          id?: number
+          ip_allowlist?: string
+          loyalty_enabled?: boolean
+          maintenance_mode?: boolean
+          media_system_enabled?: boolean
+          meta_ads_enabled?: boolean
+          mfa_required?: boolean
+          mpesa_enabled?: boolean
+          platform_env?: string
+          pos_printer_enabled?: boolean
+          promotions_ai_enabled?: boolean
+          session_timeout_minutes?: number
+          slack_alerts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          webhooks_enabled?: boolean
+        }
+        Update: {
+          admob_ads_enabled?: boolean
+          api_version?: string
+          crew_marketplace_enabled?: boolean
+          customer_ordering_enabled?: boolean
+          digest_frequency?: string
+          early_access_enabled?: boolean
+          email_alerts_enabled?: boolean
+          global_products_enabled?: boolean
+          id?: number
+          ip_allowlist?: string
+          loyalty_enabled?: boolean
+          maintenance_mode?: boolean
+          media_system_enabled?: boolean
+          meta_ads_enabled?: boolean
+          mfa_required?: boolean
+          mpesa_enabled?: boolean
+          platform_env?: string
+          pos_printer_enabled?: boolean
+          promotions_ai_enabled?: boolean
+          session_timeout_minutes?: number
+          slack_alerts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          webhooks_enabled?: boolean
+        }
+        Relationships: []
+      }
       pos_parse_failures: {
         Row: {
           ai_attempted: boolean | null
@@ -2250,7 +2964,7 @@ export type Database = {
           parsing_method: string
           raw_receipt_id: string
           receipt_number: string | null
-          status: Database["public"]["Enums"]["receipt_status"]
+          status: string | null
           subtotal: number
           tax: number
           template_version: number | null
@@ -2271,7 +2985,7 @@ export type Database = {
           parsing_method: string
           raw_receipt_id: string
           receipt_number?: string | null
-          status?: Database["public"]["Enums"]["receipt_status"]
+          status?: string | null
           subtotal: number
           tax: number
           template_version?: number | null
@@ -2292,7 +3006,7 @@ export type Database = {
           parsing_method?: string
           raw_receipt_id?: string
           receipt_number?: string | null
-          status?: Database["public"]["Enums"]["receipt_status"]
+          status?: string | null
           subtotal?: number
           tax?: number
           template_version?: number | null
@@ -2499,38 +3213,71 @@ export type Database = {
       products: {
         Row: {
           active: boolean | null
+          bar_id: string | null
           category: string | null
           created_at: string | null
           description: string | null
           id: string
           image_url: string | null
           name: string
+          rejection_reason: string | null
+          status: string
+          submitted_by: string | null
           supplier_id: string | null
           updated_at: string | null
         }
         Insert: {
           active?: boolean | null
+          bar_id?: string | null
           category?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_by?: string | null
           supplier_id?: string | null
           updated_at?: string | null
         }
         Update: {
           active?: boolean | null
+          bar_id?: string | null
           category?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name?: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_by?: string | null
           supplier_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "products_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_supplier_id_fkey"
             columns: ["supplier_id"]
@@ -2540,13 +3287,172 @@ export type Database = {
           },
         ]
       }
+      promo_campaign_venues: {
+        Row: {
+          bar_id: string
+          campaign_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          offer_rule: Json
+          status: string
+        }
+        Insert: {
+          bar_id: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          offer_rule?: Json
+          status?: string
+        }
+        Update: {
+          bar_id?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          offer_rule?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_campaign_venues_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_campaign_venues_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "promo_campaign_venues_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_campaign_venues_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "promo_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_campaigns: {
+        Row: {
+          budget_units: number
+          created_at: string
+          ends_at: string | null
+          id: string
+          name: string
+          product_id: string
+          segment_rule: Json
+          starts_at: string | null
+          status: string
+          supplier_id: string
+        }
+        Insert: {
+          budget_units?: number
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          name: string
+          product_id: string
+          segment_rule?: Json
+          starts_at?: string | null
+          status?: string
+          supplier_id: string
+        }
+        Update: {
+          budget_units?: number
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          name?: string
+          product_id?: string
+          segment_rule?: Json
+          starts_at?: string | null
+          status?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_campaigns_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_campaigns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_measurements: {
+        Row: {
+          baseline_units: number
+          campaign_id: string
+          cohort_size: number
+          computed_at: string
+          id: string
+          lift_pct: number | null
+          metric: string
+          promo_units: number
+        }
+        Insert: {
+          baseline_units?: number
+          campaign_id: string
+          cohort_size?: number
+          computed_at?: string
+          id?: string
+          lift_pct?: number | null
+          metric?: string
+          promo_units?: number
+        }
+        Update: {
+          baseline_units?: number
+          campaign_id?: string
+          cohort_size?: number
+          computed_at?: string
+          id?: string
+          lift_pct?: number | null
+          metric?: string
+          promo_units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_measurements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "promo_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotions: {
         Row: {
           applies_to: string
           bar_id: string
+          category: string | null
           created_at: string
           id: string
+          message_template: Json | null
+          milestone_kind: string | null
+          milestone_value: number | null
           name: string
+          outbound_push_enabled: boolean
           redemption_count: number
           spend_segments: string[]
           status: string
@@ -2555,14 +3461,20 @@ export type Database = {
           type_config: Json
           updated_at: string
           valid_until: string | null
+          visit_threshold: number | null
           visit_tiers: string[]
         }
         Insert: {
           applies_to?: string
           bar_id: string
+          category?: string | null
           created_at?: string
           id?: string
+          message_template?: Json | null
+          milestone_kind?: string | null
+          milestone_value?: number | null
           name: string
+          outbound_push_enabled?: boolean
           redemption_count?: number
           spend_segments?: string[]
           status?: string
@@ -2571,14 +3483,20 @@ export type Database = {
           type_config?: Json
           updated_at?: string
           valid_until?: string | null
+          visit_threshold?: number | null
           visit_tiers?: string[]
         }
         Update: {
           applies_to?: string
           bar_id?: string
+          category?: string | null
           created_at?: string
           id?: string
+          message_template?: Json | null
+          milestone_kind?: string | null
+          milestone_value?: number | null
           name?: string
+          outbound_push_enabled?: boolean
           redemption_count?: number
           spend_segments?: string[]
           status?: string
@@ -2587,6 +3505,7 @@ export type Database = {
           type_config?: Json
           updated_at?: string
           valid_until?: string | null
+          visit_threshold?: number | null
           visit_tiers?: string[]
         }
         Relationships: [
@@ -2606,6 +3525,67 @@ export type Database = {
           },
           {
             foreignKeyName: "promotions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth_secret: string
+          bar_id: string | null
+          created_at: string
+          device_id: string | null
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          auth_secret: string
+          bar_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          auth_secret?: string
+          bar_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_bar_id_fkey"
             columns: ["bar_id"]
             isOneToOne: false
             referencedRelation: "venue_authority_summary"
@@ -2793,48 +3773,70 @@ export type Database = {
           },
         ]
       }
-      saved_restaurants: {
+      scheduled_promo_sends: {
         Row: {
+          audience: string
           bar_id: string
-          created_at: string | null
+          created_at: string
+          error_message: string | null
           id: string
-          nickname: string | null
-          user_id: string
+          promotion_id: string
+          send_at: string
+          sent_count: number
+          status: string
+          updated_at: string
         }
         Insert: {
+          audience?: string
           bar_id: string
-          created_at?: string | null
+          created_at?: string
+          error_message?: string | null
           id?: string
-          nickname?: string | null
-          user_id: string
+          promotion_id: string
+          send_at: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
         }
         Update: {
+          audience?: string
           bar_id?: string
-          created_at?: string | null
+          created_at?: string
+          error_message?: string | null
           id?: string
-          nickname?: string | null
-          user_id?: string
+          promotion_id?: string
+          send_at?: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "saved_restaurants_bar_id_fkey"
+            foreignKeyName: "scheduled_promo_sends_bar_id_fkey"
             columns: ["bar_id"]
             isOneToOne: false
             referencedRelation: "bars"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "saved_restaurants_bar_id_fkey"
+            foreignKeyName: "scheduled_promo_sends_bar_id_fkey"
             columns: ["bar_id"]
             isOneToOne: false
             referencedRelation: "telegram_messages_with_tabs"
             referencedColumns: ["bar_id"]
           },
           {
-            foreignKeyName: "saved_restaurants_bar_id_fkey"
+            foreignKeyName: "scheduled_promo_sends_bar_id_fkey"
             columns: ["bar_id"]
             isOneToOne: false
             referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_promo_sends_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
             referencedColumns: ["id"]
           },
         ]
@@ -2869,6 +3871,34 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "shift_applications_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_applications_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "shift_applications_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_applications_crew_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shift_applications_posting_id_fkey"
             columns: ["posting_id"]
             isOneToOne: false
@@ -2895,27 +3925,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_crew_shift_summary"
             referencedColumns: ["shift_id"]
-          },
-          {
-            foreignKeyName: "shift_applications_staff_member_id_fkey"
-            columns: ["crew_member_id"]
-            isOneToOne: false
-            referencedRelation: "crew_members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shift_applications_staff_member_id_fkey"
-            columns: ["crew_member_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
-          },
-          {
-            foreignKeyName: "shift_applications_staff_member_id_fkey"
-            columns: ["crew_member_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_public_profile"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -3023,11 +4032,12 @@ export type Database = {
           checked_in_at: string | null
           checked_out_at: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           crew_member_id: string
           ending_soon_notified_at: string | null
           id: string
           notes: string | null
+          pay_amount: number | null
           role: string
           shift_end: string | null
           shift_start: string
@@ -3039,11 +4049,12 @@ export type Database = {
           checked_in_at?: string | null
           checked_out_at?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           crew_member_id: string
           ending_soon_notified_at?: string | null
           id?: string
           notes?: string | null
+          pay_amount?: number | null
           role: string
           shift_end?: string | null
           shift_start: string
@@ -3055,11 +4066,12 @@ export type Database = {
           checked_in_at?: string | null
           checked_out_at?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           crew_member_id?: string
           ending_soon_notified_at?: string | null
           id?: string
           notes?: string | null
+          pay_amount?: number | null
           role?: string
           shift_end?: string | null
           shift_start?: string
@@ -3106,8 +4118,15 @@ export type Database = {
             foreignKeyName: "shifts_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "shifts_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "shifts_staff_member_id_fkey"
@@ -3296,8 +4315,15 @@ export type Database = {
             foreignKeyName: "tab_assignments_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "tab_assignments_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tab_assignments_staff_member_id_fkey"
@@ -3395,8 +4421,15 @@ export type Database = {
             foreignKeyName: "tab_orders_created_by_staff_id_fkey"
             columns: ["created_by_crew_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "tab_orders_created_by_staff_id_fkey"
+            columns: ["created_by_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tab_orders_created_by_staff_id_fkey"
@@ -3598,6 +4631,7 @@ export type Database = {
       }
       tabs: {
         Row: {
+          assigned_crew_member_id: string | null
           bar_id: string
           closed_at: string | null
           closed_by: string | null
@@ -3623,6 +4657,7 @@ export type Database = {
           vibration_enabled: boolean | null
         }
         Insert: {
+          assigned_crew_member_id?: string | null
           bar_id: string
           closed_at?: string | null
           closed_by?: string | null
@@ -3648,6 +4683,7 @@ export type Database = {
           vibration_enabled?: boolean | null
         }
         Update: {
+          assigned_crew_member_id?: string | null
           bar_id?: string
           closed_at?: string | null
           closed_by?: string | null
@@ -3673,6 +4709,34 @@ export type Database = {
           vibration_enabled?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tabs_assigned_crew_member_id_fkey"
+            columns: ["assigned_crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "crew_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabs_assigned_crew_member_id_fkey"
+            columns: ["assigned_crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "tabs_assigned_crew_member_id_fkey"
+            columns: ["assigned_crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabs_assigned_crew_member_id_fkey"
+            columns: ["assigned_crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_public_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tabs_bar_id_fkey"
             columns: ["bar_id"]
@@ -3705,8 +4769,15 @@ export type Database = {
             foreignKeyName: "tabs_current_staff_id_fkey"
             columns: ["current_crew_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "tabs_current_staff_id_fkey"
+            columns: ["current_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tabs_current_staff_id_fkey"
@@ -3733,8 +4804,15 @@ export type Database = {
             foreignKeyName: "tabs_original_staff_id_fkey"
             columns: ["original_crew_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "tabs_original_staff_id_fkey"
+            columns: ["original_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tabs_original_staff_id_fkey"
@@ -4176,6 +5254,7 @@ export type Database = {
           id: string
           notification_type: string
           priority: string
+          push_sent_at: string | null
           read_at: string | null
           recipient_crew_id: string | null
           recipient_role: string | null
@@ -4193,6 +5272,7 @@ export type Database = {
           id?: string
           notification_type: string
           priority?: string
+          push_sent_at?: string | null
           read_at?: string | null
           recipient_crew_id?: string | null
           recipient_role?: string | null
@@ -4210,6 +5290,7 @@ export type Database = {
           id?: string
           notification_type?: string
           priority?: string
+          push_sent_at?: string | null
           read_at?: string | null
           recipient_crew_id?: string | null
           recipient_role?: string | null
@@ -4251,8 +5332,15 @@ export type Database = {
             foreignKeyName: "venue_notifications_recipient_crew_id_fkey"
             columns: ["recipient_crew_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "venue_notifications_recipient_crew_id_fkey"
+            columns: ["recipient_crew_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "venue_notifications_recipient_crew_id_fkey"
@@ -4262,6 +5350,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      venue_plans: {
+        Row: {
+          crew_marketplace_enabled: boolean
+          cta_label: string
+          customer_ordering_enabled: boolean
+          display_name: string
+          feature_bullets: string[]
+          id: string
+          is_active: boolean
+          loyalty_enabled: boolean
+          max_menu_categories: number | null
+          max_menu_products: number | null
+          max_staff_seats: number
+          media_system_enabled: boolean
+          menu_enabled: boolean
+          monthly_price_kes: number
+          pos_integration_enabled: boolean
+          pricing_label: string
+          promotions_ai_enabled: boolean
+          sort_order: number
+          tag_line: string
+          updated_at: string
+          updated_by: string | null
+          webhooks_enabled: boolean
+        }
+        Insert: {
+          crew_marketplace_enabled?: boolean
+          cta_label?: string
+          customer_ordering_enabled?: boolean
+          display_name: string
+          feature_bullets?: string[]
+          id: string
+          is_active?: boolean
+          loyalty_enabled?: boolean
+          max_menu_categories?: number | null
+          max_menu_products?: number | null
+          max_staff_seats?: number
+          media_system_enabled?: boolean
+          menu_enabled?: boolean
+          monthly_price_kes?: number
+          pos_integration_enabled?: boolean
+          pricing_label?: string
+          promotions_ai_enabled?: boolean
+          sort_order?: number
+          tag_line?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhooks_enabled?: boolean
+        }
+        Update: {
+          crew_marketplace_enabled?: boolean
+          cta_label?: string
+          customer_ordering_enabled?: boolean
+          display_name?: string
+          feature_bullets?: string[]
+          id?: string
+          is_active?: boolean
+          loyalty_enabled?: boolean
+          max_menu_categories?: number | null
+          max_menu_products?: number | null
+          max_staff_seats?: number
+          media_system_enabled?: boolean
+          menu_enabled?: boolean
+          monthly_price_kes?: number
+          pos_integration_enabled?: boolean
+          pricing_label?: string
+          promotions_ai_enabled?: boolean
+          sort_order?: number
+          tag_line?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhooks_enabled?: boolean
+        }
+        Relationships: []
       }
       venue_visit_tracking: {
         Row: {
@@ -4473,24 +5636,101 @@ export type Database = {
           },
         ]
       }
+      v_crew_effective_availability: {
+        Row: {
+          availability_type: string | null
+          available_from: string | null
+          available_until: string | null
+          crew_member_id: string | null
+          day_of_week: number | null
+          display_name: string | null
+          location: string | null
+          notes: string | null
+          preferred_roles: string[] | null
+          specific_date: string | null
+        }
+        Relationships: []
+      }
+      v_crew_public_profile: {
+        Row: {
+          availability_status: string | null
+          badge_tier: string | null
+          bio: string | null
+          credentials: Json | null
+          display_name: string | null
+          face_photo_url: string | null
+          face_thumbnail_url: string | null
+          id: string | null
+          location: string | null
+          marketplace_visible: boolean | null
+          performance_score: number | null
+          phone_number: string | null
+          preferred_roles: string[] | null
+          skills: Json | null
+          total_approved_orders: number | null
+          total_likes: number | null
+          total_shifts_completed: number | null
+          total_tips_received: number | null
+          user_id: string | null
+        }
+        Insert: {
+          availability_status?: string | null
+          badge_tier?: never
+          bio?: string | null
+          credentials?: Json | null
+          display_name?: string | null
+          face_photo_url?: string | null
+          face_thumbnail_url?: string | null
+          id?: string | null
+          location?: string | null
+          marketplace_visible?: boolean | null
+          performance_score?: number | null
+          phone_number?: string | null
+          preferred_roles?: string[] | null
+          skills?: Json | null
+          total_approved_orders?: number | null
+          total_likes?: number | null
+          total_shifts_completed?: number | null
+          total_tips_received?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          availability_status?: string | null
+          badge_tier?: never
+          bio?: string | null
+          credentials?: Json | null
+          display_name?: string | null
+          face_photo_url?: string | null
+          face_thumbnail_url?: string | null
+          id?: string | null
+          location?: string | null
+          marketplace_visible?: boolean | null
+          performance_score?: number | null
+          phone_number?: string | null
+          preferred_roles?: string[] | null
+          skills?: Json | null
+          total_approved_orders?: number | null
+          total_likes?: number | null
+          total_shifts_completed?: number | null
+          total_tips_received?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       v_crew_shift_summary: {
         Row: {
           bar_id: string | null
           bar_name: string | null
           checked_in_at: string | null
           checked_out_at: string | null
-          crew_display_name: string | null
           crew_member_id: string | null
-          hours_worked: number | null
-          likes_received: number | null
+          crew_name: string | null
           notes: string | null
-          orders_approved: number | null
           role: string | null
           shift_end: string | null
           shift_id: string | null
           shift_start: string | null
           status: string | null
-          tips_earned: number | null
         }
         Relationships: [
           {
@@ -4525,8 +5765,15 @@ export type Database = {
             foreignKeyName: "shifts_staff_member_id_fkey"
             columns: ["crew_member_id"]
             isOneToOne: false
-            referencedRelation: "v_staff_effective_availability"
-            referencedColumns: ["staff_member_id"]
+            referencedRelation: "v_crew_effective_availability"
+            referencedColumns: ["crew_member_id"]
+          },
+          {
+            foreignKeyName: "shifts_staff_member_id_fkey"
+            columns: ["crew_member_id"]
+            isOneToOne: false
+            referencedRelation: "v_crew_public_profile"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "shifts_staff_member_id_fkey"
@@ -4577,32 +5824,69 @@ export type Database = {
           },
         ]
       }
-      v_staff_effective_availability: {
-        Row: {
-          availability_type: string | null
-          available_from: string | null
-          available_until: string | null
-          staff_member_id: string | null
-        }
-        Relationships: []
-      }
       v_staff_public_profile: {
         Row: {
+          availability_status: string | null
           badge_tier: string | null
           bio: string | null
+          credentials: Json | null
           display_name: string | null
           face_photo_url: string | null
           face_thumbnail_url: string | null
-          half_body_photo_url: string | null
           id: string | null
+          location: string | null
           marketplace_visible: boolean | null
           performance_score: number | null
-          preferred_locations: string[] | null
+          phone_number: string | null
           preferred_roles: string[] | null
+          skills: Json | null
           total_approved_orders: number | null
           total_likes: number | null
           total_shifts_completed: number | null
           total_tips_received: number | null
+          user_id: string | null
+        }
+        Insert: {
+          availability_status?: string | null
+          badge_tier?: never
+          bio?: string | null
+          credentials?: Json | null
+          display_name?: string | null
+          face_photo_url?: string | null
+          face_thumbnail_url?: string | null
+          id?: string | null
+          location?: string | null
+          marketplace_visible?: boolean | null
+          performance_score?: number | null
+          phone_number?: string | null
+          preferred_roles?: string[] | null
+          skills?: Json | null
+          total_approved_orders?: number | null
+          total_likes?: number | null
+          total_shifts_completed?: number | null
+          total_tips_received?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          availability_status?: string | null
+          badge_tier?: never
+          bio?: string | null
+          credentials?: Json | null
+          display_name?: string | null
+          face_photo_url?: string | null
+          face_thumbnail_url?: string | null
+          id?: string | null
+          location?: string | null
+          marketplace_visible?: boolean | null
+          performance_score?: number | null
+          phone_number?: string | null
+          preferred_roles?: string[] | null
+          skills?: Json | null
+          total_approved_orders?: number | null
+          total_likes?: number | null
+          total_shifts_completed?: number | null
+          total_tips_received?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -4737,6 +6021,7 @@ export type Database = {
         Returns: Json
       }
       cleanup_inactive_devices: { Args: never; Returns: undefined }
+      cleanup_past_scheduled_shifts: { Args: never; Returns: Json }
       cleanup_zero_balance_overdue_tabs: {
         Args: never
         Returns: {
@@ -4984,6 +6269,8 @@ export type Database = {
         }[]
       }
       process_hire_request_expiry: { Args: never; Returns: Json }
+      process_shift_application_expiry: { Args: never; Returns: Json }
+      process_shift_start_reminders: { Args: never; Returns: Json }
       process_shift_warnings: { Args: never; Returns: Json }
       recompute_crew_performance_score: {
         Args: { p_crew_id: string }
@@ -4999,7 +6286,7 @@ export type Database = {
           closed_zero_balance: number
           closed_zero_with_pending: number
           deleted_pos_alerts: number
-          moved_to_overdue: number
+          kept_open_with_balance: number
         }[]
       }
       seed_default_role_permissions: {
@@ -5064,15 +6351,6 @@ export type Database = {
     Enums: {
       authority_mode_enum: "pos" | "tabeza"
       early_access_status: "pending" | "approved" | "rejected" | "invited"
-      receipt_status:
-        | "CAPTURED"
-        | "PARSING"
-        | "PARSED"
-        | "UNCLAIMED"
-        | "CLAIMED"
-        | "PAID"
-        | "VOID"
-        | "PARSE_FAILED"
       rejection_reason: "wrong_items" | "already_ordered" | "change_mind"
       transaction_status:
         | "pending"
@@ -5211,16 +6489,6 @@ export const Constants = {
     Enums: {
       authority_mode_enum: ["pos", "tabeza"],
       early_access_status: ["pending", "approved", "rejected", "invited"],
-      receipt_status: [
-        "CAPTURED",
-        "PARSING",
-        "PARSED",
-        "UNCLAIMED",
-        "CLAIMED",
-        "PAID",
-        "VOID",
-        "PARSE_FAILED",
-      ],
       rejection_reason: ["wrong_items", "already_ordered", "change_mind"],
       transaction_status: [
         "pending",

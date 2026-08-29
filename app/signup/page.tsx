@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
 import Link from 'next/link'
 import { persistConsentRecord, APP_VERSION } from '@/lib/consent-records'
+import StepBirthday from './StepBirthday'
 
 export default function SignupPage() {
   return (
@@ -28,7 +29,7 @@ function SignupContent() {
 
   // If redirected from email confirmation, jump straight to consent
   const initialStep = searchParams.get('step') === 'consent' ? 'consent' : 'account'
-  const [step, setStep] = useState<'account' | 'name' | 'verify' | 'consent' | 'success'>(initialStep as any)
+  const [step, setStep] = useState<'account' | 'name' | 'verify' | 'consent' | 'birthday' | 'success'>(initialStep as any)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -37,6 +38,8 @@ function SignupContent() {
   const [mobileNumber, setMobileNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const [lastSignupAttempt, setLastSignupAttempt] = useState<number>(0)
+  // userId captured after consent so birthday step can save to the right record
+  const [consentedUserId, setConsentedUserId] = useState<string | null>(null)
 
   // Poll for email confirmation when on verify step
   useEffect(() => {
@@ -126,11 +129,13 @@ function SignupContent() {
     if (session?.user) {
       try {
         await persistConsentRecord({ userId: session.user.id, decision: 'agreed', appVersion: APP_VERSION })
+        setConsentedUserId(session.user.id)
       } catch (err) {
         console.warn('Could not persist consent record:', err)
       }
     }
-    setStep('success')
+    // Advance to birthday step — user can skip it
+    setStep('birthday')
   }
 
   const handleConnect = () => {
@@ -600,7 +605,16 @@ function SignupContent() {
           </div>
         )}
 
-        {/* Step 5: Success */}
+        {/* Step 5: Birthday */}
+        {step === 'birthday' && consentedUserId && (
+          <StepBirthday
+            userId={consentedUserId}
+            onSaved={() => setStep('success')}
+            onSkip={() => setStep('success')}
+          />
+        )}
+
+        {/* Step 6: Success */}
         {step === 'success' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, textAlign: 'center' }}>
             <div style={{ 

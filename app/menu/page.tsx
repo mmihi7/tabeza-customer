@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Crown, Shield, Circle, Bell, LogIn, UserCheck } from 'lucide-react';
+  Bell, LogIn, UserCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -99,25 +99,6 @@ interface MessageResponseData {
   staff_acknowledged_at: string;
   status: string;
   initiated_by: string;
-}
-
-type SpendTierLabel = 'bronze' | 'silver' | 'gold';
-const DEFAULT_TIER_DISCOUNTS: Record<SpendTierLabel, number> = {
-  bronze: 1.5,
-  silver: 3.0,
-  gold: 5.0,
-};
-
-interface BadgeDisplay {
-  badge_level: 'bronze' | 'silver' | 'gold' | 'platinum' | null;
-  awarded_at: string;
-  earned_at_bar_id: string;
-  earned_at_bar_name: string;
-  spend_amount_at_venue: number;
-}
-
-function applyDiscount(price: number, pct: number): number {
-  return Math.round(price * (1 - pct / 100));
 }
 
 export default function MenuPage() {
@@ -248,31 +229,6 @@ export default function MenuPage() {
   const [responseTimeLoading, setResponseTimeLoading] = useState(false);
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
-  const [loyaltyData, setLoyaltyData] = useState<{
-    visitTier: 'new' | 'bronze' | 'silver' | 'gold';
-    spendTier: SpendTierLabel | null;
-    totalVisits: number;
-    totalSpend: number;
-    weeklyVisits: number;
-  } | null>(null);
-  
-  const [globalBadge, setGlobalBadge] = useState<BadgeDisplay | null>(null);
-  const [badgeLoading, setBadgeLoading] = useState(false);
-  const [venueDiscounts, setVenueDiscounts] = useState<Record<SpendTierLabel, number>>(DEFAULT_TIER_DISCOUNTS);
-  const [visitBonuses, setVisitBonuses] = useState<Record<string, number>>({
-    once_per_week: 1.0,
-    twice_per_week: 2.0,
-    thrice_per_week: 3.0,
-  });
-  const [venueThresholds, setVenueThresholds] = useState<Record<SpendTierLabel, number>>({
-    bronze: 3000,
-    silver: 10000,
-    gold: 25000,
-  });
-  const [spendTier, setSpendTier] = useState<SpendTierLabel | null>(null);
-  const [spendPrompt, setSpendPrompt] = useState<string | null>(null);
-  const previousTier = useRef<SpendTierLabel | null>(null);
-
   const [notificationPrefs, setNotificationPrefs] = useState({
     notificationsEnabled: true,
     soundEnabled: true,
@@ -280,6 +236,12 @@ export default function MenuPage() {
   });
 
   const [isFavorited, setIsFavorited] = useState(false);
+  // Outbound promo opt-in (per-venue)
+  // promoOptInEnabled: whether customer receives outbound promos from this venue outside a session
+  // outboundOptIn: localStorage-banner flow state: null=unknown, 'show'=prompt visible, 'hidden'=dismissed/opted
+  const [promoOptInEnabled, setPromoOptInEnabled] = useState(false);
+  const [promoOptInLoaded, setPromoOptInLoaded] = useState(false);
+  const [outboundOptIn, setOutboundOptIn] = useState<'show' | 'hidden' | null>(null);
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [barTables, setBarTables] = useState<number[]>([]);
@@ -470,325 +432,6 @@ export default function MenuPage() {
     }
   }, []);
 
-  // Helper: compare tier levels
-  const tierRank = useCallback((tier: SpendTierLabel | null): number => {
-    if (!tier) return 0;
-    if (tier === 'bronze') return 1;
-    if (tier === 'silver') return 2;
-    if (tier === 'gold') return 3;
-    return 0;
-  }, []);
-
-  // Helper: build spend prompt
-  const buildSpendPrompt = useCallback((
-    currentSpend: number,
-    discounts: Record<SpendTierLabel, number>,
-    earnedTier: SpendTierLabel | null,
-    thresholds: Record<SpendTierLabel, number>,
-  ): string | null => {
-    if (earnedTier === 'gold') return null;
-
-    const nextTier: SpendTierLabel = earnedTier === 'silver' ? 'gold' : earnedTier === 'bronze' ? 'silver' : 'bronze';
-    const gap = thresholds[nextTier] - currentSpend;
-    if (gap <= 0) return null;
-
-    const pct = discounts[nextTier];
-    return `Spend KES ${gap.toLocaleString('en-KE')} more to unlock ${nextTier.charAt(0).toUpperCase() + nextTier.slice(1)} — ${pct}% off every order here.`;
-  }, []);
-
-  // Load loyalty data
-  const loadLoyaltyData = useCallback(async () => {
-    if (!tab?.customer_id || !tab?.bar_id) return;
-
-    try {
-      console.log('🏆 [LOYALTY] Starting loyalty data load:', {
-        customer_id: tab.customer_id,
-        bar_id: tab.bar_id,
-        timestamp: new Date().toISOString()
-      });
-
-      const [badgeRes, visitsRes, discountsRes] = await Promise.all([
-        fetch(`/api/loyalty/badge/${tab.customer_id}`),
-        fetch(`/api/loyalty/visits/${tab.customer_id}?bar_id=${tab.bar_id}`),
-        fetch(`/api/loyalty/venue-discounts/${tab.bar_id}`),
-      ]);
-
-      const badgeData = badgeRes.ok ? await badgeRes.json() : null;
-      const visitsData = visitsRes.ok ? await visitsRes.json() : null;
-      const discountsData = discountsRes.ok ? await discountsRes.json() : null;
-
-      console.log('🏆 [LOYALTY] API responses received:', {
-        badgeData: badgeData ? { badge_level: badgeData.badge_level } : null,
-        visitsData: visitsData ? { 
-          completedVisits: visitsData.completedVisits, 
-          averageSpend: visitsData.averageSpend,
-          weeklyVisits: visitsData.weeklyVisits 
-        } : null,
-        discountsData: discountsData ? 'loaded' : null
-      });
-
-      if (badgeData && badgeData.badge_level) {
-        setGlobalBadge(badgeData as BadgeDisplay);
-        console.log('🏆 [LOYALTY] Global badge loaded:', badgeData);
-      } else {
-        setGlobalBadge(null);
-        console.log('🏆 [LOYALTY] No global badge found for customer');
-      }
-
-      if (discountsData?.spend_tiers) {
-        setVenueDiscounts(discountsData.spend_tiers as Record<SpendTierLabel, number>);
-      }
-      if (discountsData?.visit_bonuses) {
-        setVisitBonuses(discountsData.visit_bonuses);
-      }
-
-      if (!visitsData || visitsData.error) return;
-
-      const completedVisits: number = visitsData.completedVisits ?? 0;
-      const averageSpend: number = visitsData.averageSpend ?? 0;
-      const weeklyVisits: number = visitsData.weeklyVisits ?? 0;
-      const thresholds = visitsData.thresholds ?? { bronze: 3000, silver: 10000, gold: 25000 };
-
-      setVenueThresholds(thresholds);
-
-      let visitTier: 'new' | 'bronze' | 'silver' | 'gold' = 'new';
-      if (completedVisits >= 3) visitTier = 'gold';
-      else if (completedVisits >= 2) visitTier = 'silver';
-      else if (completedVisits >= 1) visitTier = 'bronze';
-
-      let earnedSpendTier: SpendTierLabel | null = null;
-      if (averageSpend >= thresholds.gold) earnedSpendTier = 'gold';
-      else if (averageSpend >= thresholds.silver) earnedSpendTier = 'silver';
-      else if (averageSpend >= thresholds.bronze) earnedSpendTier = 'bronze';
-
-      setLoyaltyData({
-        visitTier,
-        spendTier: earnedSpendTier,
-        totalVisits: completedVisits,
-        totalSpend: averageSpend * completedVisits,
-        weeklyVisits,
-      });
-
-      console.log('📊 Loyalty data set:', {
-        visitTier,
-        earnedSpendTier,
-        completedVisits,
-        weeklyVisits,
-        averageSpend,
-        thresholds
-      });
-
-      const globalBadgeLevel = badgeData?.badge_level as SpendTierLabel | null;
-      
-      console.log('🎉 [LOYALTY] Checking for badge upgrade:', {
-        currentBadge: globalBadgeLevel || 'none',
-        earnedTier: earnedSpendTier || 'none',
-        averageSpend,
-        thresholds
-      });
-      
-      const currentBadgeRank = tierRank(globalBadgeLevel);
-      const earnedTierRank = tierRank(earnedSpendTier);
-      
-      if (earnedSpendTier && earnedTierRank > currentBadgeRank) {
-        console.log('🎉 [LOYALTY] Badge upgrade detected:', {
-          current: globalBadgeLevel || 'none',
-          earned: earnedSpendTier,
-          currentRank: currentBadgeRank,
-          earnedRank: earnedTierRank
-        });
-        
-        try {
-          console.log('🎉 [LOYALTY] Calling badge award API:', {
-            customer_id: tab.customer_id,
-            bar_id: tab.bar_id,
-            badge_level: earnedSpendTier,
-            spend_amount: averageSpend,
-            timestamp: new Date().toISOString()
-          });
-
-          let awardResponse;
-          let retryAttempt = 0;
-          const maxRetries = 1;
-          
-          while (retryAttempt <= maxRetries) {
-            try {
-              awardResponse = await fetch('/api/loyalty/badge/award', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  customer_id: tab.customer_id,
-                  bar_id: tab.bar_id,
-                  badge_level: earnedSpendTier,
-                  spend_amount: averageSpend,
-                }),
-              });
-              
-              if (awardResponse.ok || awardResponse.status === 400) {
-                break;
-              }
-              
-              if (awardResponse.status >= 500 && retryAttempt < maxRetries) {
-                console.warn(`⚠️ [LOYALTY] Badge award API failed (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`);
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                retryAttempt++;
-              } else {
-                break;
-              }
-            } catch (networkError) {
-              if (retryAttempt < maxRetries) {
-                console.warn(`⚠️ [LOYALTY] Network error (attempt ${retryAttempt + 1}/${maxRetries + 1}), retrying in 3 seconds...`, networkError);
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                retryAttempt++;
-              } else {
-                throw networkError;
-              }
-            }
-          }
-
-          if (awardResponse?.ok) {
-            const awardResult = await awardResponse.json();
-            
-            console.log('✅ [LOYALTY] Badge award API response:', {
-              upgraded: awardResult.upgraded,
-              newBadge: awardResult.newBadge ? {
-                badge_level: awardResult.newBadge.badge_level,
-                awarded_at: awardResult.newBadge.awarded_at
-              } : null,
-              timestamp: new Date().toISOString()
-            });
-            
-            if (awardResult.upgraded && awardResult.newBadge) {
-              setGlobalBadge({
-                badge_level: awardResult.newBadge.badge_level,
-                awarded_at: awardResult.newBadge.awarded_at,
-                earned_at_bar_id: awardResult.newBadge.earned_at_bar_id,
-                earned_at_bar_name: barName,
-                spend_amount_at_venue: awardResult.newBadge.spend_amount_at_venue,
-              });
-              
-              const tierName = earnedSpendTier.charAt(0).toUpperCase() + earnedSpendTier.slice(1);
-              showToast({
-                type: 'success',
-                title: `Congratulations! You've earned ${tierName} status`,
-                message: `at ${barName}`,
-                duration: 8000
-              });
-              
-              if (notificationPrefs.soundEnabled) {
-                playAcceptanceSound();
-              }
-              if (notificationPrefs.vibrationEnabled) {
-                buzz([200, 100, 200, 100, 200]);
-              }
-              
-              console.log('✅ Badge upgrade successful:', awardResult);
-            } else {
-              console.log('ℹ️ Badge award API returned no upgrade:', awardResult);
-            }
-          } else if (awardResponse) {
-            const errorText = await awardResponse.text();
-            console.error('❌ Badge award API failed:', {
-              customer_id: tab.customer_id,
-              bar_id: tab.bar_id,
-              badge_level: earnedSpendTier,
-              status: awardResponse.status,
-              error: errorText
-            });
-            
-            showToast({
-              type: 'error',
-              title: 'Unable to update loyalty status',
-              message: 'Please refresh the page to see your current status.',
-              duration: 5000
-            });
-          }
-        } catch (error) {
-          console.error('❌ Error awarding badge:', {
-            customer_id: tab.customer_id,
-            bar_id: tab.bar_id,
-            badge_level: earnedSpendTier,
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined
-          });
-          
-          showToast({
-            type: 'error',
-            title: 'Unable to update loyalty status',
-            message: 'Please refresh the page to see your current status.',
-            duration: 5000
-          });
-        }
-      }
-
-      if (globalBadgeLevel) {
-        setSpendTier(globalBadgeLevel);
-        console.log('💳 Using global badge for discount:', globalBadgeLevel);
-      } else if (earnedSpendTier) {
-        setSpendTier(earnedSpendTier);
-        console.log('💳 Using locally earned tier for discount:', earnedSpendTier);
-      } else {
-        setSpendTier(null);
-        console.log('💳 No badge tier - normal pricing');
-      }
-
-      console.log('✅ Loyalty data loading complete:', {
-        globalBadge: globalBadgeLevel,
-        spendTier: globalBadgeLevel || earnedSpendTier,
-        weeklyVisits,
-        venueDiscounts,
-        visitBonuses
-      });
-
-    } catch (error) {
-      console.error('❌ Error loading loyalty data:', error);
-    }
-  }, [tab?.customer_id, tab?.bar_id, barName, notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled, buzz, playAcceptanceSound, showToast, tierRank]);
-
-  // Render loyalty icons
-  const renderLoyaltyIcons = useCallback(() => {
-    if (!globalBadge && (!loyaltyData || loyaltyData.visitTier === 'new')) return null;
-    
-    const badgeLevel = globalBadge?.badge_level || loyaltyData?.spendTier;
-    
-    let IconComponent = null;
-    let iconColor = 'text-white';
-    
-    if (badgeLevel === 'platinum') {
-      IconComponent = Crown;
-      iconColor = 'text-purple-300';
-    } else if (badgeLevel === 'gold') {
-      IconComponent = Crown;
-      iconColor = 'text-yellow-300';
-    } else if (badgeLevel === 'silver') {
-      IconComponent = Shield;
-      iconColor = 'text-gray-300';
-    } else if (badgeLevel === 'bronze') {
-      IconComponent = Circle;
-      iconColor = 'text-amber-400';
-    }
-    
-    if (!IconComponent) return null;
-    
-    const visitTier = loyaltyData?.visitTier || 'new';
-    const iconCount = visitTier === 'gold' ? 3 : visitTier === 'silver' ? 2 : 1;
-    
-    return (
-      <div className="flex gap-0.5 items-center">
-        {Array.from({ length: iconCount }).map((_, i) => (
-          <IconComponent 
-            key={i} 
-            className={`w-3.5 h-3.5 ${iconColor} drop-shadow`}
-            size={14} 
-            strokeWidth={2.5}
-            fill={badgeLevel === 'silver' ? 'currentColor' : 'none'}
-          />
-        ))}
-      </div>
-    );
-  }, [globalBadge, loyaltyData]);
 
   // Check favorite status
   const checkFavorite = useCallback(async () => {
@@ -832,13 +475,12 @@ export default function MenuPage() {
     } catch { /* ignore */ }
   }, [tab?.customer_id, tab?.bar_id, isFavorited, barName, showToast, unsaveConfirm]);
 
-  // Load loyalty data and venue discounts when tab changes
+  // Load data when tab changes
   useEffect(() => {
     if (!tab?.bar_id) return;
     calculateAverageResponseTime(tab.bar_id);
-    loadLoyaltyData();
     checkFavorite();
-  }, [tab?.bar_id, tab?.customer_id, calculateAverageResponseTime, loadLoyaltyData, checkFavorite]);
+  }, [tab?.bar_id, tab?.customer_id, calculateAverageResponseTime, checkFavorite]);
 
   // Load notification preferences
   const loadNotificationPrefs = useCallback(async () => {
@@ -897,6 +539,71 @@ export default function MenuPage() {
       loadNotificationPrefs();
     }
   }, [tab?.id, loadNotificationPrefs]);
+
+  // Load per-venue outbound promo consent
+  const loadPromoConsent = useCallback(async () => {
+    if (!tab?.customer_id || !tab?.bar_id) return;
+    try {
+      const res = await fetch(
+        `/api/customer/promo-consent?customerId=${tab.customer_id}&barId=${tab.bar_id}`
+      );
+      const json = await res.json();
+      const scope = json?.consent?.scope;
+      setPromoOptInEnabled(scope === 'always');
+    } catch (err) {
+      console.error('Error loading promo consent:', err);
+    } finally {
+      setPromoOptInLoaded(true);
+    }
+  }, [tab?.customer_id, tab?.bar_id]);
+
+  useEffect(() => {
+    if (tab?.customer_id && tab?.bar_id) {
+      loadPromoConsent();
+    }
+  }, [tab?.customer_id, tab?.bar_id, loadPromoConsent]);
+
+  // Toggle per-venue outbound promo consent
+  const togglePromoOptIn = useCallback(
+    async (next: boolean) => {
+      if (!tab?.customer_id || !tab?.bar_id) return;
+      const previous = promoOptInEnabled;
+      setPromoOptInEnabled(next);
+      try {
+        const res = await fetch(`/api/customer/promo-consent`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: tab.customer_id,
+            barId: tab.bar_id,
+            scope: next ? 'always' : 'at_venue_only',
+          }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json?.error || 'Failed to update promo settings');
+        }
+        showToast({
+          type: 'success',
+          title: next ? 'Deals on' : 'Deals paused',
+          message: next
+            ? 'You\u2019ll get deals from this venue even when you are away.'
+            : 'You\u2019ve paused deals from this venue.',
+          duration: 4000,
+        });
+      } catch (err) {
+        console.error('Error updating promo consent:', err);
+        setPromoOptInEnabled(previous);
+        showToast({
+          type: 'error',
+          title: 'Couldn\u2019t update',
+          message: 'Something went wrong. Try again.',
+          duration: 4000,
+        });
+      }
+    },
+    [tab?.customer_id, tab?.bar_id, promoOptInEnabled, showToast]
+  );
 
   // Real-time subscription handlers
   const handleOrderUpdate = useCallback((payload: any) => {
@@ -994,13 +701,6 @@ export default function MenuPage() {
           orderTotal: payload.new.total,
           message: 'Your order has been accepted and is being prepared'
         });
-
-        setLoyaltyData(prev => {
-          if (!prev) return prev;
-          const prompt = buildSpendPrompt(prev.totalSpend, venueDiscounts, prev.spendTier, venueThresholds);
-          if (prompt) setSpendPrompt(prompt);
-          return prev;
-        });
       }
 
     } catch (error) {
@@ -1016,7 +716,7 @@ export default function MenuPage() {
           .catch(err => console.error('❌ [REALTIME] Fallback refetch failed:', err));
       }
     }
-  }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast, buildSpendPrompt, venueDiscounts, venueThresholds]);
+  }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast]);
 
   const handleOrderInsert = useCallback((payload: any) => {
     console.log('➕ [REALTIME] Order INSERT received:', {
@@ -1289,12 +989,6 @@ export default function MenuPage() {
                 buzz([200, 100, 200]);
               }
               
-              console.log('🏆 Payment completed - scheduling badge recalculation in 2 seconds');
-              setTimeout(() => {
-                console.log('🏆 Executing delayed badge recalculation');
-                loadLoyaltyData();
-              }, 2000);
-
               setReceiptPayment({
                 id: payment.id,
                 amount: paymentAmount,
@@ -1442,7 +1136,7 @@ export default function MenuPage() {
         }
       }
     ];
-  }, [tab, handleOrderUpdate, handleOrderInsert, handleOrderDelete, router, showToast, playAcceptanceSound, buzz, notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled, loadLoyaltyData]);
+  }, [tab, handleOrderUpdate, handleOrderInsert, handleOrderDelete, router, showToast, playAcceptanceSound, buzz, notificationPrefs.soundEnabled, notificationPrefs.vibrationEnabled]);
 
   const { connectionStatus, retryCount, reconnect, isConnected } = useRealtimeSubscription(
     supabase ? realtimeConfigs : [],
@@ -2932,32 +2626,6 @@ export default function MenuPage() {
             </div>
           ) : null}
 
-          {/* Center: Badge */}
-          {(globalBadge || (loyaltyData && loyaltyData.visitTier !== 'new')) && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ fontSize: '1.25rem' }}>
-                {globalBadge?.badge_level === 'gold' && <Crown size={20} className="text-yellow-400" strokeWidth={2} />}
-                {globalBadge?.badge_level === 'silver' && <Shield size={20} className="text-gray-300" strokeWidth={2} />}
-                {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && <Circle size={20} className="text-amber-400" strokeWidth={2} />}
-              </div>
-              <p className="text-xs text-white/60 leading-tight">
-                {globalBadge?.badge_level === 'gold' && 'Gold'}
-                {globalBadge?.badge_level === 'silver' && 'Silver'}
-                {(globalBadge?.badge_level === 'bronze' || (!globalBadge && loyaltyData?.spendTier === 'bronze')) && 'Bronze'}
-              </p>
-              {spendTier && (
-                <p className="text-xs text-amber-400 font-medium">
-                  {(() => {
-                    const badgePct = venueDiscounts[spendTier] ?? 0;
-                    const weekly = loyaltyData?.weeklyVisits ?? 0;
-                    const bonusPct = weekly >= 3 ? (visitBonuses.thrice_per_week ?? 0) : weekly >= 2 ? (visitBonuses.twice_per_week ?? 0) : weekly >= 1 ? (visitBonuses.once_per_week ?? 0) : 0;
-                    return `${(badgePct + bonusPct).toFixed(1)}% off`;
-                  })()}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Right: Call button */}
           <button
             onClick={async () => {
@@ -3029,6 +2697,31 @@ export default function MenuPage() {
               <span
                 className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
                 style={{ transform: notificationPrefs.notificationsEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
+              />
+            </button>
+          </div>
+
+          {/* Per-venue outbound promo opt-in */}
+          <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex flex-col gap-0.5 pr-3">
+              <span className="text-xs" style={{ color: 'var(--cream)' }}>Deals from this venue</span>
+              <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Occasional offers even when you are not here.
+              </span>
+            </div>
+            <button
+              onClick={() => togglePromoOptIn(!promoOptInEnabled)}
+              disabled={!promoOptInLoaded}
+              aria-pressed={promoOptInEnabled}
+              className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
+              style={{
+                backgroundColor: promoOptInEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)',
+                opacity: promoOptInLoaded ? 1 : 0.5,
+              }}
+            >
+              <span
+                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                style={{ transform: promoOptInEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
               />
             </button>
           </div>
@@ -3227,11 +2920,6 @@ export default function MenuPage() {
         <div ref={menuRef} className="px-4 mt-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
-            {spendTier && (
-              <span className="text-xs text-gray-500">
-                🥉 Your prices · <span className="text-[#FFF5F0]0 font-medium">visit more, pay less</span>
-              </span>
-            )}
           </div>
 
           {categoryOptions.length > 1 && (
@@ -3298,24 +2986,7 @@ export default function MenuPage() {
             }
 
             const computePrice = (bp: BarProduct) => {
-              let totalDiscountPct = 0;
-              if (spendTier) {
-                const badgePct = venueDiscounts[spendTier] ?? 0;
-                const weekly = loyaltyData?.weeklyVisits ?? 0;
-                const bonusPct = weekly >= 3
-                  ? (visitBonuses.thrice_per_week ?? 0)
-                  : weekly >= 2
-                  ? (visitBonuses.twice_per_week ?? 0)
-                  : weekly >= 1
-                  ? (visitBonuses.once_per_week ?? 0)
-                  : 0;
-                totalDiscountPct = badgePct + bonusPct;
-              }
-              const displayPrice = totalDiscountPct > 0
-                ? applyDiscount(bp.sale_price, totalDiscountPct)
-                : bp.sale_price;
-              const showStrikethrough = totalDiscountPct > 0 && displayPrice !== bp.sale_price;
-              return { displayPrice, showStrikethrough, totalDiscountPct };
+              return { displayPrice: bp.sale_price, showStrikethrough: false, totalDiscountPct: 0 };
             };
 
             return (
@@ -4326,28 +3997,6 @@ export default function MenuPage() {
               className="w-full text-gray-500 py-2 text-sm hover:text-gray-700"
             >
               Skip for now
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Spend prompt */}
-      {spendPrompt && (
-        <div
-          className="fixed bottom-20 left-4 right-4 z-50 animate-fadeIn"
-          style={{ animation: 'slideUp 0.3s ease-out' }}
-        >
-          <div
-            className="rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #FF4F00, #CC3F00)', color: '#1a1a2e' }}
-          >
-            <p className="text-sm font-medium flex-1">{spendPrompt}</p>
-            <button
-              onClick={() => setSpendPrompt(null)}
-              className="shrink-0 p-1 rounded-full hover:bg-black hover:bg-opacity-10"
-              aria-label="Dismiss"
-            >
-              <X size={16} />
             </button>
           </div>
         </div>

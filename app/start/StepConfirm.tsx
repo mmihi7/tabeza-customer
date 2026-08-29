@@ -1,50 +1,26 @@
 // app/start/StepConfirm.tsx
-// Spec: Returning user step 3 - venue card + spend tier matrix + identity summary
+// Spec: Returning user step 3 - venue card + identity summary
 'use client'
-
-interface SpendTier {
-  label: string
-  here: boolean
-}
 
 interface StepConfirmProps {
   venueName: string
   venueMeta: string        // e.g. "Table 7 - Nairobi CBD"
-  badgeLabel: string       // e.g. "Bronze" | "Silver" | "Gold" | "New"
-  spendTiers: SpendTier[]  // 3 tiers with which one is "here"
-  tierDescription: string
-  weeklyVisits: number     // 0-3 for visit dots
   identityLabel: string    // "Amara W." | "The Phantom" | "Anonymous"
   onConfirm: () => void
   onBack: () => void
   onChangeIdentity: () => void
   creating: boolean
-  showLoyalty?: boolean    // hide badge chip + spend tier matrix when false
-}
-
-const TIER_COLORS: Record<string, { bg: string; text: string }> = {
-  Bronze: { bg: '#FAEEDA', text: '#633806' },
-  Silver: { bg: '#F0F0F0', text: '#444444' },
-  Gold:   { bg: '#EEEDFE', text: '#3C3489' },
-  New:    { bg: '#F5F5F5', text: '#888888' },
 }
 
 export default function StepConfirm({
   venueName,
   venueMeta,
-  badgeLabel,
-  spendTiers,
-  tierDescription,
-  weeklyVisits,
   identityLabel,
   onConfirm,
   onBack,
   onChangeIdentity,
   creating,
-  showLoyalty = true,
 }: StepConfirmProps) {
-  const badgeColor = TIER_COLORS[badgeLabel] ?? TIER_COLORS.New
-
   return (
     <div
       style={{
@@ -105,89 +81,10 @@ export default function StepConfirm({
             {venueMeta}
           </p>
         </div>
-        {showLoyalty && (
-          <span
-            style={{
-              background: badgeColor.bg,
-              color: badgeColor.text,
-              fontFamily: "'DM Mono', monospace",
-              fontSize: '0.65rem',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              borderRadius: '0.25rem',
-              padding: '0.2rem 0.6rem',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {badgeLabel}
-          </span>
-        )}
       </div>
 
       {/* Divider */}
       <div style={{ height: 1, background: 'var(--border)', marginBottom: '1rem' }} />
-
-      {showLoyalty && (
-        <>
-          {/* Spend tier matrix */}
-          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.65rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.625rem' }}>
-            Spend tiers at this venue
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.875rem' }}>
-            {spendTiers.map((t) => (
-              <div
-                key={t.label}
-                style={{
-                  flex: 1,
-                  padding: '0.5rem 0.25rem',
-                  borderRadius: '0.375rem',
-                  textAlign: 'center',
-                  background: t.here ? 'var(--amber-pale)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${t.here ? 'var(--amber-border)' : 'transparent'}`,
-                }}
-              >
-                <span style={{ display: 'block', fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', fontWeight: 700, color: t.here ? 'var(--amber)' : 'var(--muted)' }}>
-                  {t.label}
-                </span>
-                <span style={{ display: 'block', fontFamily: "'Lato', sans-serif", fontSize: '0.7rem', color: t.here ? 'var(--amber)' : 'var(--muted2)', marginTop: '0.125rem' }}>
-                  {t.here ? 'You are here' : ''}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '0.875rem' }}>
-            {tierDescription}
-          </p>
-
-          {/* Visit dots */}
-          {weeklyVisits > 0 && (
-            <>
-              <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.375rem' }}>
-                Visit frequency this week
-              </p>
-              <div style={{ display: 'flex', gap: '5px', marginBottom: '1rem' }}>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      background: i < weeklyVisits ? 'var(--amber)' : 'var(--muted2)',
-                      display: 'inline-block',
-                    }}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Divider */}
-          <div style={{ height: 1, background: 'var(--border)', marginBottom: '0.875rem' }} />
-        </>
-      )}
 
       {/* Identity summary */}
       <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '1.25rem' }}>
