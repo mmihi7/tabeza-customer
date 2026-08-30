@@ -101,7 +101,7 @@ export type Database = {
           },
         ]
       }
-      badge_configuration: {
+      badge_configuration_archive: {
         Row: {
           badge_level: string
           created_at: string
@@ -975,7 +975,6 @@ export type Database = {
           photo_crop_y: number | null
           photo_focus_mode: string | null
           photo_zoom: number | null
-          preferred_locations: string[] | null
           preferred_roles: string[] | null
           skills: Json | null
           total_approved_orders: number
@@ -1008,7 +1007,6 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
-          preferred_locations?: string[] | null
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
@@ -1041,7 +1039,6 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
-          preferred_locations?: string[] | null
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
@@ -1485,7 +1482,46 @@ export type Database = {
           },
         ]
       }
-      customer_badges: {
+      customer_account_links: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          device_identifier: string
+          id: string
+          initiated_by: string
+          liability_acknowledged: boolean
+          linked_customer_id: string
+          primary_customer_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          device_identifier: string
+          id?: string
+          initiated_by?: string
+          liability_acknowledged?: boolean
+          linked_customer_id: string
+          primary_customer_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          device_identifier?: string
+          id?: string
+          initiated_by?: string
+          liability_acknowledged?: boolean
+          linked_customer_id?: string
+          primary_customer_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      customer_badges_archive: {
         Row: {
           awarded_at: string
           badge_level: string
@@ -2779,6 +2815,7 @@ export type Database = {
           id: number
           ip_allowlist: string
           loyalty_enabled: boolean
+          loyalty_enabled_plans: string[]
           maintenance_mode: boolean
           media_system_enabled: boolean
           meta_ads_enabled: boolean
@@ -2805,6 +2842,7 @@ export type Database = {
           id?: number
           ip_allowlist?: string
           loyalty_enabled?: boolean
+          loyalty_enabled_plans?: string[]
           maintenance_mode?: boolean
           media_system_enabled?: boolean
           meta_ads_enabled?: boolean
@@ -2831,6 +2869,7 @@ export type Database = {
           id?: number
           ip_allowlist?: string
           loyalty_enabled?: boolean
+          loyalty_enabled_plans?: string[]
           maintenance_mode?: boolean
           media_system_enabled?: boolean
           meta_ads_enabled?: boolean
@@ -5152,7 +5191,7 @@ export type Database = {
         }
         Relationships: []
       }
-      venue_badge_discounts: {
+      venue_badge_discounts_archive: {
         Row: {
           badge_level: string
           bar_id: string
@@ -5204,7 +5243,59 @@ export type Database = {
           },
         ]
       }
-      venue_discount_settings: {
+      venue_customer_refs: {
+        Row: {
+          bar_id: string
+          created_at: string
+          device_identifier: string
+          id: string
+          notes: string | null
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          bar_id: string
+          created_at?: string
+          device_identifier: string
+          id?: string
+          notes?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bar_id?: string
+          created_at?: string
+          device_identifier?: string
+          id?: string
+          notes?: string | null
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_customer_refs_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_customer_refs_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "venue_customer_refs_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_discount_settings_archive: {
         Row: {
           bar_id: string
           spend_tiers: Json
@@ -5431,34 +5522,46 @@ export type Database = {
       }
       venue_visit_tracking: {
         Row: {
-          badge_multiplier: number
           bar_id: string
+          bottles_ordered: number
           created_at: string
-          customer_id: string
+          customer_id: string | null
+          device_identifier: string
+          first_visit_date: string | null
           id: string
+          last_visit_date: string | null
+          total_spend: number
           updated_at: string
           visit_count: number
-          week_start_date: string
+          week_start: string
         }
         Insert: {
-          badge_multiplier?: number
           bar_id: string
+          bottles_ordered?: number
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
+          device_identifier: string
+          first_visit_date?: string | null
           id?: string
+          last_visit_date?: string | null
+          total_spend?: number
           updated_at?: string
           visit_count?: number
-          week_start_date: string
+          week_start: string
         }
         Update: {
-          badge_multiplier?: number
           bar_id?: string
+          bottles_ordered?: number
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
+          device_identifier?: string
+          first_visit_date?: string | null
           id?: string
+          last_visit_date?: string | null
+          total_spend?: number
           updated_at?: string
           visit_count?: number
-          week_start_date?: string
+          week_start?: string
         }
         Relationships: [
           {
@@ -5484,23 +5587,41 @@ export type Database = {
           },
         ]
       }
-    }
-    Views: {
-      loyalty_migration_summary: {
+      venue_visit_tracking_legacy: {
         Row: {
-          bronze_badges: number | null
-          gold_badges: number | null
-          migration_timestamp: string | null
-          migration_type: string | null
-          platinum_badges: number | null
-          silver_badges: number | null
-          total_badges_migrated: number | null
-          unique_customers: number | null
-          venues_with_visits: number | null
-          visit_tracking_records: number | null
+          badge_multiplier: number | null
+          bar_id: string | null
+          created_at: string | null
+          customer_id: string | null
+          id: string | null
+          updated_at: string | null
+          visit_count: number | null
+          week_start_date: string | null
+        }
+        Insert: {
+          badge_multiplier?: number | null
+          bar_id?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          updated_at?: string | null
+          visit_count?: number | null
+          week_start_date?: string | null
+        }
+        Update: {
+          badge_multiplier?: number | null
+          bar_id?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          updated_at?: string | null
+          visit_count?: number | null
+          week_start_date?: string | null
         }
         Relationships: []
       }
+    }
+    Views: {
       print_job_stats: {
         Row: {
           avg_processing_seconds: number | null
@@ -5970,16 +6091,6 @@ export type Database = {
         Args: { p_bar_id: string; p_date: string }
         Returns: string
       }
-      calculate_customer_discount: {
-        Args: { p_bar_id: string; p_customer_id: string }
-        Returns: {
-          badge_level: string
-          base_discount_percentage: number
-          total_discount_percentage: number
-          visit_bonus_percentage: number
-          visit_multiplier: number
-        }[]
-      }
       calculate_venue_loyalty_tier: {
         Args: {
           p_bar_id: string
@@ -6157,14 +6268,6 @@ export type Database = {
       }
       get_crew_badge_tier: { Args: { p_crew_id: string }; Returns: string }
       get_crew_member_id: { Args: never; Returns: string }
-      get_customer_highest_badge: {
-        Args: { p_customer_id: string }
-        Returns: {
-          awarded_at: string
-          badge_level: string
-          earned_at_bar_id: string
-        }[]
-      }
       get_customer_venue_tier: {
         Args: { p_bar_id: string; p_customer_id: string }
         Returns: {
@@ -6227,10 +6330,6 @@ export type Database = {
         }[]
       }
       get_user_bar_ids: { Args: never; Returns: string[] }
-      get_visit_multiplier: {
-        Args: { p_bar_id: string; p_customer_id: string }
-        Returns: number
-      }
       has_active_shift: {
         Args: { p_bar_id: string; p_crew_id: string }
         Returns: boolean
@@ -6329,6 +6428,15 @@ export type Database = {
       soft_delete_unclaimed_receipt: {
         Args: { p_receipt_id: string; p_staff_user_id: string }
         Returns: Json
+      }
+      sync_venue_visit_for_week: {
+        Args: {
+          p_bar_id: string
+          p_customer_id: string
+          p_device_identifier: string
+          p_week_start: string
+        }
+        Returns: undefined
       }
       update_customer_loyalty_stats: {
         Args: {
