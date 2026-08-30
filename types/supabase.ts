@@ -975,6 +975,7 @@ export type Database = {
           photo_crop_y: number | null
           photo_focus_mode: string | null
           photo_zoom: number | null
+          preferred_locations: string[] | null
           preferred_roles: string[] | null
           skills: Json | null
           total_approved_orders: number
@@ -1007,6 +1008,7 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
+          preferred_locations?: string[] | null
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
@@ -1039,6 +1041,7 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
+          preferred_locations?: string[] | null
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
