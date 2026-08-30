@@ -217,7 +217,6 @@ export default function MenuPage() {
   const [showStaticMenu, setShowStaticMenu] = useState(false);
   const [imageScale, setImageScale] = useState(1);
 
-  const [menuPlan, setMenuPlan] = useState<'basic' | 'standard' | null>(null);
   const [barCategories, setBarCategories] = useState<{ id: string; name: string; kind: 'food' | 'drink'; sort_order: number }[]>([]);
 
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
@@ -1270,7 +1269,6 @@ export default function MenuPage() {
         return;
       }
       const data = await response.json();
-      setMenuPlan(data.menu_plan === 'basic' ? 'basic' : 'standard');
       setBarCategories(data.bar_categories ?? []);
     } catch (error) {
       console.error('Error loading menu config:', error);
@@ -2878,7 +2876,7 @@ export default function MenuPage() {
             </div>
           </div>
         </div>
-      ) : menuPlan === 'basic' ? (
+      ) : showStaticMenu ? (
         <div ref={menuRef} className="px-4 mt-4 mb-4">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">MENU</h2>
           {staticMenuType === 'slideshow' && slideshowImages.length > 0 ? (

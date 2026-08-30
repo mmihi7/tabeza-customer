@@ -1,8 +1,8 @@
 /**
  * GET /api/menu/config/:bar_id
  * Public route — returns the venue's menu configuration:
- *   - menu_plan (basic | standard)
- *   - menu_type / static_menu_url / static_menu_type
+ *   - menu_type (interactive | static)
+ *   - static_menu_url / static_menu_type
  *   - bar_categories (user-defined menu categories, ordered by sort_order)
  *
  * Redis-first: reads from Upstash via getCachedOrFetch; on miss it fetches from
@@ -37,7 +37,7 @@ export async function GET(
 
       const { data: bar, error: barError } = await (db as any)
         .from('bars')
-        .select('menu_plan, menu_type, static_menu_url, static_menu_type')
+        .select('menu_type, static_menu_url, static_menu_type')
         .eq('id', bar_id)
         .maybeSingle();
 
@@ -57,7 +57,6 @@ export async function GET(
       }
 
       return {
-        menu_plan: bar?.menu_plan ?? 'standard',
         menu_type: bar?.menu_type ?? 'interactive',
         static_menu_url: bar?.static_menu_url ?? null,
         static_menu_type: bar?.static_menu_type ?? null,
@@ -69,7 +68,6 @@ export async function GET(
   } catch (err) {
     console.error('[menu/config customer GET] unhandled', err);
     return NextResponse.json({
-      menu_plan: 'standard',
       menu_type: 'interactive',
       static_menu_url: null,
       static_menu_type: null,
