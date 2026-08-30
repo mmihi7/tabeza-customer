@@ -27,7 +27,6 @@ export async function GET(
       total_approved_orders,
       total_likes,
       preferred_roles,
-      preferred_locations,
       face_photo_url,
       face_thumbnail_url,
       half_body_photo_url
@@ -73,7 +72,6 @@ export async function GET(
       total_approved_orders: crew.total_approved_orders,
       total_likes: crew.total_likes,
       preferred_roles: crew.preferred_roles,
-      preferred_locations: crew.preferred_locations,
       face_photo_url: crew.face_photo_url,
       face_thumbnail_url: crew.face_thumbnail_url,
       half_body_photo_url: crew.half_body_photo_url,

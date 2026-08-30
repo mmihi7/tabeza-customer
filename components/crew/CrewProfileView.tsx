@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Star, X, Loader, MapPin, Award, TrendingUp, Heart, Briefcase } from 'lucide-react'
+import { Star, X, Loader, Award, TrendingUp, Heart, Briefcase } from 'lucide-react'
 
 interface CrewProfileProps {
   isOpen: boolean
@@ -255,35 +255,6 @@ export default function CrewProfileView({ isOpen, onClose, crewId }: CrewProfile
                   </span>
                 </div>
               </div>
-
-              {/* Preferred Locations */}
-              {profile.preferred_locations && profile.preferred_locations.length > 0 && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
-                    <MapPin size={14} style={{ color: 'var(--muted)' }} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Preferred Areas
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                    {profile.preferred_locations.map((loc: string, idx: number) => (
-                      <span
-                        key={idx}
-                        style={{
-                          fontSize: '0.75rem',
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: '999px',
-                          background: 'rgba(255,255,255,0.07)',
-                          border: '1px solid var(--border)',
-                          color: 'var(--cream)',
-                        }}
-                      >
-                        {loc}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Preferred Roles */}
               {profile.preferred_roles && profile.preferred_roles.length > 0 && (

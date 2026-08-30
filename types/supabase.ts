@@ -174,6 +174,46 @@ export type Database = {
           },
         ]
       }
+      bar_extensions: {
+        Row: {
+          bar_id: string
+          enabled_at: string
+          extension_type: string
+        }
+        Insert: {
+          bar_id: string
+          enabled_at?: string
+          extension_type: string
+        }
+        Update: {
+          bar_id?: string
+          enabled_at?: string
+          extension_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bar_extensions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "bars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_extensions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_messages_with_tabs"
+            referencedColumns: ["bar_id"]
+          },
+          {
+            foreignKeyName: "bar_extensions_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "venue_authority_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bar_products: {
         Row: {
           active: boolean | null
@@ -435,7 +475,6 @@ export type Database = {
           slug: string | null
           static_menu_type: string | null
           static_menu_url: string | null
-          subscription_tier: string | null
           table_count: number | null
           table_setup_enabled: boolean | null
           timezone: string | null
@@ -521,7 +560,6 @@ export type Database = {
           slug?: string | null
           static_menu_type?: string | null
           static_menu_url?: string | null
-          subscription_tier?: string | null
           table_count?: number | null
           table_setup_enabled?: boolean | null
           timezone?: string | null
@@ -607,7 +645,6 @@ export type Database = {
           slug?: string | null
           static_menu_type?: string | null
           static_menu_url?: string | null
-          subscription_tier?: string | null
           table_count?: number | null
           table_setup_enabled?: boolean | null
           timezone?: string | null
@@ -975,6 +1012,7 @@ export type Database = {
           photo_crop_y: number | null
           photo_focus_mode: string | null
           photo_zoom: number | null
+          preferred_locations: string[]
           preferred_roles: string[] | null
           skills: Json | null
           total_approved_orders: number
@@ -1007,6 +1045,7 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
+          preferred_locations?: string[]
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
@@ -1039,6 +1078,7 @@ export type Database = {
           photo_crop_y?: number | null
           photo_focus_mode?: string | null
           photo_zoom?: number | null
+          preferred_locations?: string[]
           preferred_roles?: string[] | null
           skills?: Json | null
           total_approved_orders?: number
