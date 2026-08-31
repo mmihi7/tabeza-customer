@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
             name,
             slug,
             logo_url,
-            city,
-            neighborhood
+            address,
+            area
           )
         `)
         .eq('customer_id', customerId)
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
           name: row.bars.name,
           slug: row.bars.slug,
           logoUrl: row.bars.logo_url,
-          city: row.bars.city,
-          neighborhood: row.bars.neighborhood,
+          city: row.bars.address,
+          neighborhood: row.bars.area,
         },
       }));
     });
