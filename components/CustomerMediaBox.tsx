@@ -59,24 +59,36 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
     return <div className="w-full rounded-xl border border-gray-100" style={{ aspectRatio: '16 / 5', backgroundColor: '#000' }} />;
   }
 
-  // Rectangular responsive box — adapts aspect to media type (video 16:9,
-  // image/slideshow keep a wide banner ratio).
-  const aspect =
-    media.media_type === 'video'
-      ? '16 / 9'
-      : media.media_type === 'slideshow' && media.slide_urls.length > 1
-      ? '16 / 6'
-      : '16 / 5';
-
+  // Maintain the media's own aspect ratio and fill the width (no crop or
+  // distortion) — video caps height at the screen, images/slideshow scale
+  // naturally. Content is centred on a dark canvas.
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-gray-100 shadow-sm" style={{ aspectRatio: aspect, backgroundColor: '#000' }}>
-      {media.media_type === 'video' ? (
-        <video src={media.url} controls playsInline className="w-full h-full object-cover" />
-      ) : media.media_type === 'slideshow' && media.slide_urls.length > 1 ? (
-        <img src={media.slide_urls[slideIndex] ?? media.url} alt={media.title ?? 'Promotion'} className="w-full h-full object-cover" />
-      ) : (
-        <img src={media.url} alt={media.title ?? 'Promotion'} className="w-full h-full object-cover" />
-      )}
+    <div className="w-full overflow-hidden rounded-xl border border-gray-100 shadow-sm" style={{ backgroundColor: '#000', minHeight: 160 }}>
+      <div className="flex items-center justify-center w-full" style={{ minHeight: 160 }}>
+        {media.media_type === 'video' ? (
+          <video
+            src={media.url}
+            controls
+            playsInline
+            className="w-full h-auto max-h-[70vh]"
+            style={{ objectFit: 'contain', backgroundColor: '#000' }}
+          />
+        ) : media.media_type === 'slideshow' && media.slide_urls.length > 1 ? (
+          <img
+            src={media.slide_urls[slideIndex] ?? media.url}
+            alt={media.title ?? 'Promotion'}
+            className="w-full h-auto"
+            style={{ objectFit: 'contain' }}
+          />
+        ) : (
+          <img
+            src={media.url}
+            alt={media.title ?? 'Promotion'}
+            className="w-full h-auto"
+            style={{ objectFit: 'contain' }}
+          />
+        )}
+      </div>
     </div>
   );
 }
