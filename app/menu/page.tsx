@@ -23,6 +23,7 @@ import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
 import { CrewAvatar, CrewTipButton, CrewRatingModal, CrewProfileView, type CrewMember } from '@/components/crew';
+import CustomerMediaBox from '@/components/CustomerMediaBox';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -2857,7 +2858,14 @@ export default function MenuPage() {
           </div>
         </div>
 
-      {/* Menu Section */}
+          {/* Platform customer media banner */}
+          {tab?.bar?.id && (
+            <div className="px-4 mt-4">
+              <CustomerMediaBox barId={tab.bar.id} />
+            </div>
+          )}
+
+          {/* Menu Section */}
       {!venueControls.showCustomerMenu ? (
         <div ref={menuRef} className="px-4 mt-4 mb-4">
           <div className="flex items-center justify-center py-10">
