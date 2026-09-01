@@ -24,6 +24,7 @@ import { isWithinBusinessHours } from '@/lib/business-hours';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import { IdentityLinkPrompt } from '@/components/IdentityLinkPrompt';
+import { VenueInfoModal } from '@/components/VenueInfoModal';
 import StepHome from './StepHome';
 import StepIdentity from './StepIdentity';
 import StepConfirm from './StepConfirm';
@@ -56,6 +57,7 @@ function ConsentContent() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showVenueModal, setShowVenueModal] = useState(false);
   
   // QR Scanner states
   const [isScannerMode, setIsScannerMode] = useState(false);
@@ -584,8 +586,8 @@ function ConsentContent() {
       }
 
       setLoading(false);
-      // All checks passed — route to Identity step
-      setWizardStep(1);
+      // All checks passed — show the venue info modal before opening a tab
+      setShowVenueModal(true);
 
     } catch (error) {
       console.error('❌ Error loading bar:', error);
@@ -1008,7 +1010,7 @@ function ConsentContent() {
   // Requirements: 7.1–7.7, 11.1–11.10
   // Shown when the user opens /start with no bar slug (no QR scan yet).
   // Existing loading/error/barClosed gates above still apply when a slug IS present.
-  if (!loading && !redirecting && !error && !showBarClosed && wizardStep === 0 && !barSlug) {
+  if (!loading && !redirecting && !error && !showBarClosed && wizardStep === 0 && (!barSlug || showVenueModal)) {
     return (
       <>
         {/* Overdue modals are preserved even on the home screen */}
@@ -1039,7 +1041,7 @@ function ConsentContent() {
             setBarSlug(venue.slug);
             setBarId(venue.id);
             setBarName(venue.name);
-            setWizardStep(1);
+            setShowVenueModal(true);
           }}
           onScan={() => setIsScannerMode(true)}
           onCodeSubmit={async (slug) => {
@@ -1048,6 +1050,25 @@ function ConsentContent() {
             await loadBarInfo(slug);
           }}
         />
+        {showVenueModal && barId && (
+          <VenueInfoModal
+            barId={barId}
+            barName={barName}
+            onStart={() => {
+              setShowVenueModal(false);
+              setWizardStep(1);
+            }}
+            onClose={() => {
+              setShowVenueModal(false);
+              setBarSlug(null);
+              setBarId(null);
+              setBarName('Default Bar Name');
+              setSelectedVenue(null);
+              sessionStorage.removeItem('scanned_bar_slug');
+              setWizardStep(0);
+            }}
+          />
+        )}
         <IdentityLinkPrompt />
       </>
     );
