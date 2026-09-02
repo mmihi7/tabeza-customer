@@ -127,6 +127,53 @@ export default function MenuPage() {
   const [crewMember, setCrewMember] = useState<CrewMember | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showProfileView, setShowProfileView] = useState(false);
+  const [showTipSection, setShowTipSection] = useState(false);
+  const [showPayInstructions, setShowPayInstructions] = useState(false);
+
+  // Local activity log (alerts, tips, ratings) — persisted to sessionStorage so
+  // it survives scrolls/refreshes for the active tab.
+  const [localLogs, setLocalLogs] = useState<{ id: string; time: string; kind: 'alert' | 'order' | 'tip' | 'rate' | 'like' }[]>([]);
+
+  useEffect(() => {
+    if (!tab?.id) return;
+    try {
+      const raw = sessionStorage.getItem(`tab-log-${tab.id}`);
+      setLocalLogs(raw ? JSON.parse(raw) : []);
+    } catch {}
+  }, [tab?.id]);
+
+  const pushLog = useCallback((kind: 'alert' | 'order' | 'tip' | 'rate' | 'like') => {
+    if (!tab?.id) return;
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, time: new Date().toISOString(), kind };
+    const next = [...localLogs, entry].slice(-60);
+    setLocalLogs(next);
+    try {
+      sessionStorage.setItem(`tab-log-${tab.id}`, JSON.stringify(next));
+    } catch {}
+  }, [tab?.id, localLogs]);
+
+  // Shared "call / ask the waiter" action.
+  const sendWaiterAlert = useCallback(async () => {
+    try {
+      if (tab?.id) {
+        await supabase.from('tab_telegram_messages').insert({
+          tab_id: tab.id,
+          message: 'Customer needs assistance',
+          initiated_by: 'customer',
+          customer_name: displayName,
+          status: 'pending',
+        });
+        pushLog('alert');
+      }
+      showToast({
+        type: 'success',
+        title: 'Alert Sent',
+        message: 'A waiter has been notified and will assist you shortly.',
+      });
+    } catch {
+      showToast({ type: 'error', title: 'Failed', message: 'Could not send alert.' });
+    }
+  }, [tab?.id, displayName, pushLog, showToast]);
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
@@ -146,6 +193,7 @@ export default function MenuPage() {
     show: boolean;
     orderTotal: string;
     message: string;
+    items?: { name: string; quantity: number; total: number }[];
   }>({ show: false, orderTotal: '', message: '' });
 
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -257,6 +305,7 @@ export default function MenuPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const ordersRef = useRef<HTMLDivElement>(null);
   const paymentRef = useRef<HTMLDivElement>(null);
+  const cartRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
 
   // Helper functions - memoized for performance
@@ -635,7 +684,17 @@ export default function MenuPage() {
         setAcceptanceModal({
           show: true,
           orderTotal: payload.new.total,
-          message: 'Your order has been accepted and is being prepared'
+          message: 'Your order has been accepted and is being prepared',
+          items: (() => {
+            try {
+              const items = typeof payload.new?.items === 'string' ? JSON.parse(payload.new.items) : payload.new?.items;
+              return Array.isArray(items)
+                ? items.map((it: any) => ({ name: it.name || 'Item', quantity: it.quantity || 1, total: parseFloat(it.total ?? it.price ?? 0) || 0 }))
+                : [];
+            } catch {
+              return [];
+            }
+          })(),
         });
       }
 
@@ -1087,6 +1146,32 @@ export default function MenuPage() {
       }
     }
   );
+
+  // Live bar-settings updates (payment method etc.) → reflect immediately
+  useEffect(() => {
+    const barId = tab?.bar?.id || (tab as any)?.bar_id;
+    if (!barId || !supabase) return;
+    const channel = supabase
+      .channel(`bar-settings-${barId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bars', filter: `id=eq.${barId}` }, (payload: any) => {
+        const d = payload?.new || {};
+        setPaymentSettings({
+          mpesa_enabled: typeof d.mpesa_enabled === 'boolean' ? d.mpesa_enabled : paymentSettings.mpesa_enabled,
+          card_enabled: typeof d.payment_card_enabled === 'boolean' ? d.payment_card_enabled : paymentSettings.card_enabled,
+          cash_enabled: typeof d.payment_cash_enabled === 'boolean' ? d.payment_cash_enabled : paymentSettings.cash_enabled,
+        });
+        setVenueControls({
+          showCustomerMenu: typeof d.show_customer_menu === 'boolean' ? d.show_customer_menu : venueControls.showCustomerMenu,
+          showCustomerPromos: typeof d.show_customer_promos === 'boolean' ? d.show_customer_promos : venueControls.showCustomerPromos,
+          showCustomerOrdering: typeof d.show_customer_ordering === 'boolean' ? d.show_customer_ordering : venueControls.showCustomerOrdering,
+        });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab?.bar?.id, (tab as any)?.bar_id]);
 
   // Image zoom handlers
   const handleImageZoomIn = useCallback(() => {
@@ -1922,6 +2007,16 @@ export default function MenuPage() {
     });
   }, [showToast, venueControls.showCustomerOrdering]);
 
+  // Add straight to cart and, when the cart was empty, draw the customer's eye
+  // to the cart below. Used by drinks (no image → no preview flow) and food adds.
+  const addToCartAndFocus = useCallback((barProduct: BarProduct, priceOverride?: number) => {
+    const wasEmpty = cart.length === 0;
+    addToCart(barProduct, priceOverride);
+    if (wasEmpty) {
+      setTimeout(() => cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+    }
+  }, [cart.length, addToCart]);
+
   // Open a product full-screen (first tap). Shows the one-time hint pop-up.
   const openProductDetail = useCallback((bp: BarProduct, price: number, strikethrough: boolean) => {
     if (!venueControls.showCustomerOrdering) {
@@ -1944,13 +2039,13 @@ export default function MenuPage() {
     }
   }, [showToast, venueControls.showCustomerOrdering]);
 
-  // Add from the full-screen view (second tap) then close.
+  // Add from the full-screen view (second tap) then close + focus cart.
   const addFromProductModal = useCallback(() => {
     if (!productModal) return;
     const { bp, price } = productModal;
-    addToCart(bp, price);
+    addToCartAndFocus(bp, price);
     setProductModal(null);
-  }, [productModal, addToCart]);
+  }, [productModal, addToCartAndFocus]);
 
   // Update cart quantity
   const updateCartQuantity = useCallback((itemIndex: number, delta: number) => {
@@ -2624,36 +2719,14 @@ export default function MenuPage() {
             <div style={{ flexShrink: 0 }}>
               <CrewAvatar
                 crew={crewMember}
-                onRate={() => setShowRatingModal(true)}
-                onTip={() => setShowRatingModal(true)}
-                showActions={true}
+                onOpenProfile={() => setShowProfileView(true)}
               />
             </div>
           ) : null}
 
           {/* Right: Call button */}
           <button
-            onClick={async () => {
-              try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (tab?.id) {
-                  await supabase.from('tab_telegram_messages').insert({
-                    tab_id: tab.id,
-                    message: 'Customer needs assistance',
-                    initiated_by: 'customer',
-                    customer_name: displayName,
-                    status: 'pending',
-                  });
-                }
-                showToast({
-                  type: 'success',
-                  title: 'Alert Sent',
-                  message: 'A waiter has been notified and will assist you shortly.',
-                });
-              } catch {
-                showToast({ type: 'error', title: 'Failed', message: 'Could not send alert.' });
-              }
-            }}
+            onClick={sendWaiterAlert}
             style={{
               padding: '0.625rem 1rem', borderRadius: '0.75rem',
               background: '#FF4F00', border: 'none',
@@ -2961,22 +3034,35 @@ export default function MenuPage() {
                   ? searched
                   // Not searching: hide drinks — they are found via the search box.
                   // (Drinks remain reachable by tapping a specific category chip.)
-                  : searched.filter(bp => !isDrinkProduct(bp.product) && !isCocktailProduct(bp.product)))
+                  : searched.filter(bp => !isDrinkProduct(bp.product)))
               : searched.filter(bp => bp.product?.category === selectedCategory);
 
             if (displayProducts.length === 0) {
               return (
                 <div className="text-center py-10" style={{ color: 'rgba(255,255,255,0.4)' }}>
                   <p className="text-sm">No matches{menuSearch.trim() ? ` for "${menuSearch.trim()}"` : ''}</p>
-                  {menuSearch.trim() && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Can&apos;t find it? We may still have it — just ask your waiter.
+                  </p>
+                  <div className="mt-3 flex flex-col items-center gap-2">
+                    {menuSearch.trim() && (
+                      <button
+                        onClick={() => setMenuSearch('')}
+                        className="text-xs px-3 py-1.5 rounded-full"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        Clear search
+                      </button>
+                    )}
                     <button
-                      onClick={() => setMenuSearch('')}
-                      className="mt-2 text-xs px-3 py-1.5 rounded-full"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      onClick={sendWaiterAlert}
+                      className="text-xs px-4 py-2 rounded-full font-medium"
+                      style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e', border: 'none', cursor: 'pointer' }}
                     >
-                      Clear search
+                      <Bell size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: '0.3rem' }} />
+                      Ask the waiter
                     </button>
-                  )}
+                  </div>
                 </div>
               );
             }
@@ -3026,7 +3112,7 @@ export default function MenuPage() {
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat}</h3>
                       </div>
 
-                      {/* Beverages: compact list, no images */}
+                      {/* Beverages (supplier drinks): compact list, no images */}
                       {isBeverage && (
                         <div className="flex flex-col divide-y divide-white/10 rounded-lg border border-white/10 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
                           {items.map((bp) => {
@@ -3034,7 +3120,7 @@ export default function MenuPage() {
                             return (
                               <button
                                 key={bp.id}
-                                onClick={() => openProductDetail(bp, displayPrice, showStrikethrough)}
+                                onClick={() => addToCartAndFocus(bp, displayPrice)}
                                 className="flex items-center justify-between px-3 py-2.5 hover:bg-white/5 active:bg-white/10 transition-colors text-left"
                               >
                                 <span className="text-sm text-gray-100 font-medium truncate flex-1 mr-2">
@@ -3056,7 +3142,7 @@ export default function MenuPage() {
                         </div>
                       )}
 
-                      {/* Cocktails: single-column cards, rectangular image */}
+                      {/* Cocktails (crafted): treated as food — photo cards + preview */}
                       {isCocktail && (
                         <div className="flex flex-col gap-3">
                           {items.map((bp) => {
@@ -3177,8 +3263,8 @@ export default function MenuPage() {
               <h3 style={{ fontWeight: 700, color: 'var(--cream)' }}>Order in two taps</h3>
             </div>
             <ol style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--cream)', fontSize: '0.9rem', lineHeight: 1.9 }}>
-              <li>Tap any dish or drink to <strong>view it full screen</strong>.</li>
-              <li>Tap <strong>Add to order</strong> to send it to your cart.</li>
+              <li>Tap a <strong>dish</strong> to view it full screen — <strong>drinks add straight to your cart</strong>.</li>
+              <li>Tap <strong>Add to order</strong> to send a dish to your cart.</li>
             </ol>
             <button
               onClick={() => setShowMenuTapHint(false)}
@@ -3263,7 +3349,7 @@ export default function MenuPage() {
 
       {/* Cart Section */}
       {cart.length > 0 && (
-        <div className="p-4 mb-4 bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DF] border-t border-[#FFCDB8]">
+        <div ref={cartRef} className="p-4 mb-4 bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DF] border-t border-[#FFCDB8]">
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-[#FF4F00] uppercase tracking-wide">YOUR CART</h2>
           </div>
@@ -3493,283 +3579,101 @@ export default function MenuPage() {
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PAYMENT</h2>
           </div>
-          
-          {tab?.id && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <div className="text-sm text-gray-600">
-                Outstanding balance: {tempFormatCurrency(balance)}
-              </div>
-            </div>
-          )}
 
-          {payments && payments.length > 0 && (
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="p-3 bg-gray-50 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700">Payment History</h3>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {payments
-                  .filter(payment => payment.status === 'success')
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                  .map((payment, index) => {
-                    console.log('💳 Payment display data:', {
-                      id: payment.id,
-                      method: payment.method,
-                      amount: payment.amount,
-                      mpesa_receipt: payment.reference,
-                      reference: payment.reference,
-                      status: payment.status,
-                      mpesa_transactions: payment.reference ? [{ mpesa_receipt_number: payment.reference }] : []
-                    });
-                    
-                    return (
-                      <div key={payment.id} className="p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            payment.method === 'mpesa' 
-                              ? 'bg-green-100 text-green-600' 
-                              : payment.method === 'cash'
-                              ? 'bg-[#FFE8DF] text-[#FF4F00]'
-                              : 'bg-blue-100 text-blue-600'
-                          }`}>
-                            {payment.method === 'mpesa' ? (
-                              <Phone size={14} />
-                            ) : payment.method === 'cash' ? (
-                              <DollarSign size={14} />
-                            ) : (
-                              <CreditCardIcon size={14} />
-                            )}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {tempFormatCurrency(payment.amount)}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {payment.method === 'mpesa' && payment.reference ? (
-                                <span>Receipt: {payment.reference}</span>
-                              ) : payment.method === 'cash' && payment.reference ? (
-                                <span>Ref: {payment.reference}</span>
-                              ) : payment.method === 'card' && payment.reference ? (
-                                <span>Card: {payment.reference}</span>
-                              ) : (
-                                <span className="capitalize">{payment.method} payment</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">
-                            {new Date(payment.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+          <div
+            className="rounded-2xl p-5 text-center"
+            style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e' }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ opacity: 0.6 }}>Your bill</p>
+            <p className="text-4xl font-bold my-2">{tempFormatCurrency(balance)}</p>
+            <button
+              onClick={() => setShowPayInstructions(true)}
+              className="w-full py-3.5 rounded-xl font-semibold"
+              style={{ backgroundColor: '#1a1a2e', color: 'var(--amber)', cursor: 'pointer', border: 'none' }}
+            >
+              Close tab & pay
+            </button>
+            <p className="text-[11px] mt-2" style={{ opacity: 0.6 }}>
+              Pay cash or M-Pesa — the venue confirms your payment and closes the tab.
+            </p>
+          </div>
+
+          {payments.filter((p: any) => p.status === 'success').length > 0 && (
+            <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {payments
+                .filter((p: any) => p.status === 'success')
+                .map((payment: any, i: number) => (
+                  <div key={payment.id || i} className="flex items-center justify-between py-1 text-sm">
+                    <span style={{ color: 'var(--muted)' }}>Payment · {payment.method}</span>
+                    <span style={{ color: 'var(--cream)' }}>{tempFormatCurrency(payment.amount)}</span>
+                  </div>
+                ))}
             </div>
           )}
-          
-          <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
-            <div className="bg-white p-4">
-              <div className="flex border-b border-gray-200 mb-4">
-                {paymentSettings.mpesa_enabled && (
-                  <button
-                    onClick={() => setActivePaymentMethod('mpesa')}
-                    className={`px-4 py-2 font-medium text-sm ${activePaymentMethod === 'mpesa'
-                        ? 'text-green-600 border-b-2 border-green-500'
-                        : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Phone size={16} />
-                      M-Pesa
-                    </div>
-                  </button>
-                )}
-                {paymentSettings.card_enabled && (
-                  <button
-                    onClick={() => setActivePaymentMethod('cards')}
-                    className={`px-4 py-2 font-medium text-sm ${activePaymentMethod === 'cards'
-                        ? 'text-[#FFF5F0]0 border-b-2 border-[#FF4F00]'
-                        : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <CreditCardIcon size={16} />
-                      Cards
-                    </div>
-                  </button>
-                )}
-                {paymentSettings.cash_enabled && (
-                  <button
-                    onClick={() => setActivePaymentMethod('cash')}
-                    className={`px-4 py-2 font-medium text-sm ${activePaymentMethod === 'cash'
-                        ? 'text-[#FFF5F0]0 border-b-2 border-[#FF4F00]'
-                        : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <DollarSign size={16} />
-                      Cash
-                    </div>
-                  </button>
-                )}
-              </div>
-              {activePaymentMethod === 'cards' && (
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">VISA</span>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-900">•••• 4242</p>
-                      <p className="text-xs text-gray-400">Expires 12/26</p>
-                    </div>
-                  </div>
-                  <button className="text-xs text-[#FFF5F0]0 font-medium">Change</button>
-                </div>
-              )}
-              <div className="border-t border-gray-100 pt-4">
-                <div className="bg-[#FFF5F0] border border-[#FFCDB8] rounded-xl p-4 mb-4">
-                  <p className="text-sm text-gray-600 mb-1">Outstanding Balance</p>
-                  <p className="text-3xl font-bold text-[#FF4F00]">{tempFormatCurrency(balance)}</p>
-                </div>
-                <div className="space-y-4">
-                  {activePaymentMethod === 'mpesa' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">M-Pesa Number</label>
-                        <input
-                          type="tel"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
-                          placeholder="0712345678"
-                          disabled={isProcessing}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Amount to Pay</label>
-                        <input
-                          type="number"
-                          value={paymentAmount}
-                          onChange={(e) => setPaymentAmount(e.target.value)}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
-                          placeholder="0"
-                          max={balance}
-                          min="1"
-                          disabled={isProcessing}
-                        />
-                      </div>
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                        <p className="text-sm text-green-700">
-                          You will be prompted to enter your M-Pesa PIN on your phone.
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  {activePaymentMethod === 'cards' && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Amount to Pay</label>
-                      <input
-                        type="number"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#FF4F00] focus:outline-none"
-                        placeholder="0"
-                        max={balance}
-                        min="1"
-                        disabled={isProcessing}
-                      />
-                    </div>
-                  )}
-                  {activePaymentMethod === 'cash' && (
-                    <div className="text-center py-4">
-                      <div className="bg-gray-100 rounded-xl p-6 mb-4">
-                        <DollarSign size={48} className="mx-auto text-gray-400 mb-3" />
-                        <p className="text-gray-600">Please request cash payment from staff</p>
-                        <p className="text-sm text-gray-500 mt-2">Your payment will be confirmed by the restaurant system</p>
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={processPayment}
-                    disabled={!tab?.id || isProcessing || (activePaymentMethod === 'mpesa' && (!phoneNumber.trim() || !paymentAmount || parseFloat(paymentAmount) <= 0))}
-                    className={`w-full py-3 rounded-lg text-sm font-medium transition-colors ${
-                      activePaymentMethod === 'mpesa' 
-                        ? 'bg-green-500 hover:bg-green-600 text-white disabled:bg-gray-300 disabled:text-gray-500'
-                        : activePaymentMethod === 'cash'
-                        ? 'bg-[#FF4F00] hover:bg-[#FF4F00] text-white'
-                        : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:text-gray-500'
-                    } disabled:cursor-not-allowed`}
-                  >
-                    {!tab?.id ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Loading Tab...
-                      </span>
-                    ) : isProcessing ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Processing...
-                      </span>
-                    ) : activePaymentMethod === 'mpesa' ? (
-                      'Send M-Pesa Request'
-                    ) : activePaymentMethod === 'cash' ? (
-                      'Confirm Cash Payment'
-                    ) : (
-                      'Process Payment'
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Please pay at the bar using
-                    {(() => {
-                      const methods = [];
-                      if (paymentSettings.cash_enabled) methods.push('cash');
-                      if (paymentSettings.mpesa_enabled) methods.push('M-Pesa');
-                      if (paymentSettings.mpesa_enabled && paymentSettings.cash_enabled) methods.push('Airtel Money');
-                      return methods.join(', ');
-                    })()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
-
-      {/* Crew Tip Section - Show when there's a crew member and tab is paid */}
-      {crewMember && balance === 0 && (
+      {/* Service — rate/comment & tip (visible after ≥1 confirmed order; not on a closed tab) */}
+      {crewMember && tab?.status !== 'closed' && (() => {
+        const confirmed = orders.filter((o: any) => o.status === 'confirmed');
+        if (confirmed.length === 0) return null;
+        const confirmedTotal = confirmed.reduce((s: number, o: any) => s + (parseFloat(o.total || 0) || 0), 0);
+        // Quick tip amounts: 2% / 3% / 5% of the confirmed total, rounded to the
+        // nearest Ksh 50 (unique, > 0).
+        const tipOptions = [0.02, 0.03, 0.05]
+          .map((p) => Math.round((confirmedTotal * p) / 50) * 50)
+          .filter((v) => v > 0)
+          .filter((v, i, arr) => arr.indexOf(v) === i);
+        return (
         <div className="p-4">
           <div className="mb-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">TIP YOUR CREW</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SERVICE</h2>
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Rate {crewMember.display_name} or leave a tip — anytime before you leave.
+            </p>
           </div>
-          <CrewTipButton
-            crewName={crewMember.display_name}
-            onTip={async (amount) => {
-              const { data: sessionData } = await supabase.auth.getSession()
-              const accessToken = sessionData.session?.access_token
-              const res = await fetch('/api/crew/tip', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
-                body: JSON.stringify({
-                  crew_member_id: crewMember.id,
-                  tab_id: tab?.id,
-                  amount,
-                }),
-              })
-              const data = await res.json()
-              if (!res.ok) throw new Error(data.error || 'Failed to process tip')
-              showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` })
-            }}
-          />
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setShowRatingModal(true)}
+              style={{ padding: '0.85rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: 'var(--cream)' }}
+            >
+              <Star size={16} style={{ color: 'var(--amber)' }} />
+              Rate service or leave a comment
+            </button>
+            <button
+              onClick={() => setShowTipSection((s) => !s)}
+              style={{ padding: '0.85rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--amber)', border: 'none', color: '#1a1a2e' }}
+            >
+              {showTipSection ? 'Hide tipping' : `Tip ${crewMember.display_name}`}
+            </button>
+            {showTipSection && (
+              <>
+                <CrewTipButton
+                  crewName={crewMember.display_name}
+                  presetAmounts={tipOptions}
+                  onTip={async (amount) => {
+                    const { data: sessionData } = await supabase.auth.getSession()
+                    const accessToken = sessionData.session?.access_token
+                    const res = await fetch('/api/crew/tip', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
+                      body: JSON.stringify({
+                        crew_member_id: crewMember.id,
+                        tab_id: tab?.id,
+                        amount,
+                      }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || 'Failed to process tip')
+                    pushLog('tip')
+                    showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` })
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
-      )}
+        );
+      })()}
       
       {balance === 0 && orders.filter(order => order.status === 'confirmed').length > 0 && (
         <div className="bg-white p-4">
@@ -3781,7 +3685,7 @@ export default function MenuPage() {
           </div>
           <div className="space-y-3">
             <button
-              onClick={() => setShowCloseConfirm(true)}
+              onClick={() => setShowPayInstructions(true)}
               className="w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
             >
               <CheckCircle size={20} />
@@ -3800,39 +3704,120 @@ export default function MenuPage() {
         </div>
       )}
       
-      {/* Acceptance Modal */}
-      {acceptanceModal.show && (
-        <div className="fixed inset-x-0 bottom-0 bg-black bg-opacity-50 flex items-end justify-center z-[9999]">
-          <div className="bg-white rounded-t-3xl w-full max-w-lg mx-auto shadow-2xl transform animate-slideUp max-h-[80vh] flex flex-col">
-            <div className="flex-shrink-0 p-6 text-center border-b">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle size={32} className="text-green-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Accepted! 🎉</h2>
-              <p className="text-gray-600">{acceptanceModal.message}</p>
+      {/* Pay & close — payment instructions modal */}
+      {showPayInstructions && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPayInstructions(false)}>
+          <div
+            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto"
+            style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-1">Close your tab</h2>
+            <p className="text-sm mb-3" style={{ opacity: 0.7 }}>
+              {balance > 0
+                ? <>Your bill is <strong>{tempFormatCurrency(balance)}</strong>.</>
+                : <>Your bill is fully paid.</>}{' '}
+              Settle up and the venue will close the tab here.
+            </p>
+
+            <div className="space-y-2 mb-4">
+              {(() => {
+                // The venue configures ONE payment method in Settings — show that
+                // method (and only that method) to the customer.
+                const method = paymentSettings.mpesa_enabled
+                  ? 'mpesa'
+                  : paymentSettings.card_enabled
+                    ? 'card'
+                    : paymentSettings.cash_enabled
+                      ? 'cash'
+                      : null;
+
+                const info: Record<string, { title: string; body: React.ReactNode }> = {
+                  mpesa: {
+                    title: 'M-Pesa',
+                    body: 'Send via the venue Paybill / Till / Pochi number shown at the venue (or ask your waiter), then tell your waiter once sent.',
+                  },
+                  card: {
+                    title: 'Card',
+                    body: 'Pay by card at the till.',
+                  },
+                  cash: {
+                    title: 'Cash',
+                    body: 'Hand cash to your waiter or at the till.',
+                  },
+                };
+
+                if (!method) {
+                  return (
+                    <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(26,26,46,0.08)' }}>
+                      <p style={{ opacity: 0.75 }}>Ask your waiter how to pay at this venue.</p>
+                    </div>
+                  );
+                }
+                const m = info[method];
+                return (
+                  <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(26,26,46,0.08)' }}>
+                    <p className="font-semibold mb-0.5">{m.title}</p>
+                    <p style={{ opacity: 0.75 }}>{m.body}</p>
+                  </div>
+                );
+              })()}
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-[#FFF5F0]0">{formatCurrency(parseFloat(acceptanceModal.orderTotal))}</div>
+
+            <p className="text-xs mb-4" style={{ opacity: 0.65 }}>
+              Payment confirmation and closing is done by the venue once they receive it.
+            </p>
+
+            <button
+              onClick={() => setShowPayInstructions(false)}
+              className="w-full py-3.5 rounded-xl font-semibold"
+              style={{ backgroundColor: '#1a1a2e', color: 'var(--amber)', cursor: 'pointer', border: 'none' }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Acceptance Modal — amber panel, reversed text, shows accepted order */}
+      {acceptanceModal.show && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div
+            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto"
+            style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e' }}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: 'rgba(26,26,46,0.12)' }}>
+                <CheckCircle size={30} style={{ color: '#1a1a2e' }} />
               </div>
-              
-              <div className="space-y-3 mb-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Order Details</h3>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">Order items will appear here when available</p>
+              <h2 className="text-xl font-bold mb-1">Order Accepted!</h2>
+              <p className="text-sm" style={{ opacity: 0.75 }}>{acceptanceModal.message}</p>
+              <p className="text-3xl font-bold mt-3">{formatCurrency(parseFloat(acceptanceModal.orderTotal || '0'))}</p>
+            </div>
+
+            {acceptanceModal.items && acceptanceModal.items.length > 0 && (
+              <div className="mt-5 mb-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide mb-2" style={{ opacity: 0.6 }}>Order details</h3>
+                <div style={{ borderTop: '1px solid rgba(26,26,46,0.2)' }}>
+                  {acceptanceModal.items.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 text-sm" style={{ borderBottom: '1px solid rgba(26,26,46,0.12)' }}>
+                      <span className="font-medium">
+                        {item.quantity}× {item.name}
+                      </span>
+                      <span className="font-semibold">{formatCurrency(item.total)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-            
-            <div className="flex-shrink-0 p-6 border-t">
-              <button 
-                onClick={() => setAcceptanceModal({ show: false, orderTotal: '', message: '' })}
-                className="w-full bg-[#FF4F00] text-white py-3 rounded-xl font-semibold hover:bg-[#FF4F00] transition-colors"
-              >
-                OK
-              </button>
-            </div>
+            )}
+
+            <button
+              onClick={() => setAcceptanceModal({ show: false, orderTotal: '', message: '' })}
+              className="w-full py-3.5 rounded-xl font-semibold mt-2"
+              style={{ backgroundColor: '#1a1a2e', color: 'var(--amber)', cursor: 'pointer', border: 'none' }}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
@@ -4135,6 +4120,7 @@ export default function MenuPage() {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to submit rating')
+        pushLog('rate')
         showToast({ type: 'success', title: 'Rating submitted!', message: 'Thank you for your feedback' })
       }}
     />

@@ -6,11 +6,13 @@ import { Loader, Check, X } from 'lucide-react'
 interface CrewTipButtonProps {
   onTip: (amount: number) => Promise<void>
   crewName: string
+  /** Quick preset amounts (KES). Defaults to 100/200/500 when omitted. */
+  presetAmounts?: number[]
 }
 
-const PRESET_AMOUNTS = [100, 200, 500]
+const DEFAULT_PRESETS = [100, 200, 500]
 
-export default function CrewTipButton({ onTip, crewName }: CrewTipButtonProps) {
+export default function CrewTipButton({ onTip, crewName, presetAmounts = DEFAULT_PRESETS }: CrewTipButtonProps) {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
   const [showCustom, setShowCustom] = useState(false)
@@ -82,7 +84,7 @@ export default function CrewTipButton({ onTip, crewName }: CrewTipButtonProps) {
 
       {/* Preset Amounts */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-        {PRESET_AMOUNTS.map((amount) => (
+        {presetAmounts.map((amount) => (
           <button
             key={amount}
             onClick={() => {
