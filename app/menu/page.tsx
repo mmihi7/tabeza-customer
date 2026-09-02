@@ -208,9 +208,15 @@ export default function MenuPage() {
 
   const [activePaymentMethod, setActivePaymentMethod] = useState<'mpesa' | 'cards' | 'cash'>('mpesa');
   const [paymentSettings, setPaymentSettings] = useState({
-    mpesa_enabled: true,
-    card_enabled: true,
-    cash_enabled: true
+    mpesa_enabled: false,
+    card_enabled: false,
+    cash_enabled: true,
+    customer_payment_method: 'cash' as 'cash' | 'paybill' | 'till' | 'pochi' | 'send_money',
+    mpesa_paybill: '',
+    mpesa_account: '',
+    mpesa_till: '',
+    mpesa_pochi: '',
+    mpesa_number: '',
   });
   const [loadingPaymentSettings, setLoadingPaymentSettings] = useState(true);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
@@ -1155,10 +1161,19 @@ export default function MenuPage() {
       .channel(`bar-settings-${barId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bars', filter: `id=eq.${barId}` }, (payload: any) => {
         const d = payload?.new || {};
+        const method: any = ['cash', 'paybill', 'till', 'pochi', 'send_money'].includes(d.customer_payment_method)
+          ? d.customer_payment_method
+          : paymentSettings.customer_payment_method;
         setPaymentSettings({
           mpesa_enabled: typeof d.mpesa_enabled === 'boolean' ? d.mpesa_enabled : paymentSettings.mpesa_enabled,
           card_enabled: typeof d.payment_card_enabled === 'boolean' ? d.payment_card_enabled : paymentSettings.card_enabled,
-          cash_enabled: typeof d.payment_cash_enabled === 'boolean' ? d.payment_cash_enabled : paymentSettings.cash_enabled,
+          cash_enabled: method === 'cash',
+          customer_payment_method: method,
+          mpesa_paybill: typeof d.mpesa_paybill === 'string' ? d.mpesa_paybill : paymentSettings.mpesa_paybill,
+          mpesa_account: typeof d.mpesa_account === 'string' ? d.mpesa_account : paymentSettings.mpesa_account,
+          mpesa_till: typeof d.mpesa_till === 'string' ? d.mpesa_till : paymentSettings.mpesa_till,
+          mpesa_pochi: typeof d.mpesa_pochi === 'string' ? d.mpesa_pochi : paymentSettings.mpesa_pochi,
+          mpesa_number: typeof d.mpesa_number === 'string' ? d.mpesa_number : paymentSettings.mpesa_number,
         });
         setVenueControls({
           showCustomerMenu: typeof d.show_customer_menu === 'boolean' ? d.show_customer_menu : venueControls.showCustomerMenu,
@@ -1230,7 +1245,7 @@ export default function MenuPage() {
       console.log('💳 Loading payment settings for bar:', barId);
       const { data, error } = await supabase
         .from('bars')
-        .select('mpesa_enabled, payment_cash_enabled, payment_card_enabled, show_customer_menu, show_customer_promos, show_customer_ordering')
+        .select('mpesa_enabled, payment_cash_enabled, payment_card_enabled, show_customer_menu, show_customer_promos, show_customer_ordering, customer_payment_method, mpesa_paybill, mpesa_account, mpesa_till, mpesa_pochi, mpesa_number')
         .eq('id', barId)
         .single();
 
@@ -1239,7 +1254,13 @@ export default function MenuPage() {
         setPaymentSettings({
           mpesa_enabled: false,
           card_enabled: false,
-          cash_enabled: true
+          cash_enabled: true,
+          customer_payment_method: 'cash',
+          mpesa_paybill: '',
+          mpesa_account: '',
+          mpesa_till: '',
+          mpesa_pochi: '',
+          mpesa_number: '',
         });
       } else if (data) {
         console.log('✅ Payment settings loaded:', data);
@@ -1250,11 +1271,26 @@ export default function MenuPage() {
           show_customer_menu?: boolean;
           show_customer_promos?: boolean;
           show_customer_ordering?: boolean;
+          customer_payment_method?: 'cash' | 'paybill' | 'till' | 'pochi' | 'send_money';
+          mpesa_paybill?: string;
+          mpesa_account?: string;
+          mpesa_till?: string;
+          mpesa_pochi?: string;
+          mpesa_number?: string;
         };
+        const method: any = ['cash', 'paybill', 'till', 'pochi', 'send_money'].includes(paymentData.customer_payment_method as string)
+          ? paymentData.customer_payment_method
+          : 'cash';
         setPaymentSettings({
           mpesa_enabled: paymentData.mpesa_enabled ?? false,
           card_enabled: paymentData.payment_card_enabled ?? false,
-          cash_enabled: paymentData.payment_cash_enabled ?? true
+          cash_enabled: method === 'cash',
+          customer_payment_method: method,
+          mpesa_paybill: paymentData.mpesa_paybill ?? '',
+          mpesa_account: paymentData.mpesa_account ?? '',
+          mpesa_till: paymentData.mpesa_till ?? '',
+          mpesa_pochi: paymentData.mpesa_pochi ?? '',
+          mpesa_number: paymentData.mpesa_number ?? '',
         });
         setVenueControls({
           showCustomerMenu: paymentData.show_customer_menu ?? true,
@@ -1275,7 +1311,13 @@ export default function MenuPage() {
       setPaymentSettings({
         mpesa_enabled: false,
         card_enabled: false,
-        cash_enabled: true
+        cash_enabled: true,
+        customer_payment_method: 'cash',
+        mpesa_paybill: '',
+        mpesa_account: '',
+        mpesa_till: '',
+        mpesa_pochi: '',
+        mpesa_number: '',
       });
     } finally {
       setLoadingPaymentSettings(false);
@@ -3594,7 +3636,7 @@ export default function MenuPage() {
               Close tab & pay
             </button>
             <p className="text-[11px] mt-2" style={{ opacity: 0.6 }}>
-              Pay cash or M-Pesa — the venue confirms your payment and closes the tab.
+              The venue confirms your payment and closes the tab.
             </p>
           </div>
 
@@ -3722,43 +3764,31 @@ export default function MenuPage() {
 
             <div className="space-y-2 mb-4">
               {(() => {
-                // The venue configures ONE payment method in Settings — show that
-                // method (and only that method) to the customer.
-                const method = paymentSettings.mpesa_enabled
-                  ? 'mpesa'
-                  : paymentSettings.card_enabled
-                    ? 'card'
-                    : paymentSettings.cash_enabled
-                      ? 'cash'
-                      : null;
-
+                const method = paymentSettings.customer_payment_method || 'cash';
                 const info: Record<string, { title: string; body: React.ReactNode }> = {
-                  mpesa: {
-                    title: 'M-Pesa',
-                    body: 'Send via the venue Paybill / Till / Pochi number shown at the venue (or ask your waiter), then tell your waiter once sent.',
+                  cash: { title: 'Cash', body: 'Hand cash to your waiter or at the till.' },
+                  paybill: {
+                    title: 'M-Pesa · Paybill',
+                    body: (
+                      <>
+                        Business number: <strong>{paymentSettings.mpesa_paybill || '—'}</strong>
+                        <br />
+                        Account: <strong>{paymentSettings.mpesa_account || '—'}</strong>
+                      </>
+                    ),
                   },
-                  card: {
-                    title: 'Card',
-                    body: 'Pay by card at the till.',
-                  },
-                  cash: {
-                    title: 'Cash',
-                    body: 'Hand cash to your waiter or at the till.',
-                  },
+                  till: { title: 'M-Pesa · Till', body: <>Till number: <strong>{paymentSettings.mpesa_till || '—'}</strong></> },
+                  pochi: { title: 'M-Pesa · Pochi', body: <>Pochi number: <strong>{paymentSettings.mpesa_pochi || '—'}</strong></> },
+                  send_money: { title: 'M-Pesa · Send money', body: <>Send to: <strong>{paymentSettings.mpesa_number || '—'}</strong></> },
                 };
-
-                if (!method) {
-                  return (
-                    <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(26,26,46,0.08)' }}>
-                      <p style={{ opacity: 0.75 }}>Ask your waiter how to pay at this venue.</p>
-                    </div>
-                  );
-                }
-                const m = info[method];
+                const m = info[method] || info.cash;
                 return (
                   <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(26,26,46,0.08)' }}>
                     <p className="font-semibold mb-0.5">{m.title}</p>
                     <p style={{ opacity: 0.75 }}>{m.body}</p>
+                    <p className="mt-2" style={{ opacity: 0.7 }}>
+                      Your payment will be confirmed by the manager, who will then close your tab.
+                    </p>
                   </div>
                 );
               })()}
