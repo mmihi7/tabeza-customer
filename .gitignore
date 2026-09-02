@@ -249,3 +249,4 @@ test-results/
 # Temporary build files
 .tmp/
 .temp/
+*.tsbuildinfo
