@@ -219,6 +219,12 @@ export default function MenuPage() {
   const [imageScale, setImageScale] = useState(1);
   const [menuCollapsed, setMenuCollapsed] = useState(false);
 
+  // Product preview: first tap opens the item full-screen; a second tap (Add to
+  // order) sends it to the cart. A one-time hint explains the interaction.
+  const [productModal, setProductModal] = useState<{ bp: BarProduct; price: number; strikethrough: boolean } | null>(null);
+  const [showMenuTapHint, setShowMenuTapHint] = useState(false);
+  const [menuSearch, setMenuSearch] = useState('');
+
   const [barCategories, setBarCategories] = useState<{ id: string; name: string; kind: 'food' | 'drink'; sort_order: number }[]>([]);
 
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
@@ -1916,6 +1922,36 @@ export default function MenuPage() {
     });
   }, [showToast, venueControls.showCustomerOrdering]);
 
+  // Open a product full-screen (first tap). Shows the one-time hint pop-up.
+  const openProductDetail = useCallback((bp: BarProduct, price: number, strikethrough: boolean) => {
+    if (!venueControls.showCustomerOrdering) {
+      // Venue disabled ordering — keep straight to a message, no modal flow.
+      showToast({
+        type: 'info',
+        title: 'Menu viewing only',
+        message: 'This venue has disabled customer ordering. Please ask staff to place your order.',
+      });
+      return;
+    }
+    setProductModal({ bp, price, strikethrough });
+    try {
+      if (!sessionStorage.getItem('tabeza_menu_tap_hint')) {
+        sessionStorage.setItem('tabeza_menu_tap_hint', '1');
+        setShowMenuTapHint(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [showToast, venueControls.showCustomerOrdering]);
+
+  // Add from the full-screen view (second tap) then close.
+  const addFromProductModal = useCallback(() => {
+    if (!productModal) return;
+    const { bp, price } = productModal;
+    addToCart(bp, price);
+    setProductModal(null);
+  }, [productModal, addToCart]);
+
   // Update cart quantity
   const updateCartQuantity = useCallback((itemIndex: number, delta: number) => {
     setCart(prev => {
@@ -2767,11 +2803,9 @@ export default function MenuPage() {
           </div>
         </div>
 
-          {/* Platform customer media banner — edge to edge, like the header */}
+          {/* Platform customer media advert — auto-playing full-screen interstitial */}
           {tab?.bar?.id && (
-            <div className="w-full">
-              <CustomerMediaBox barId={tab.bar.id} />
-            </div>
+            <CustomerMediaBox barId={tab.bar.id} />
           )}
 
           {/* Menu Section */}
@@ -2854,29 +2888,55 @@ export default function MenuPage() {
             </button>
           ) : (
           <>
-          {categoryOptions.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-              {categoryOptions.map((cat) => {
-                const Icon = getCategoryIcon(cat);
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      selectedCategory === cat
-                        ? 'bg-[#FF4F00] text-white'
-                        : 'bg-white bg-opacity-10 text-gray-300 hover:bg-opacity-20'
-                    }`}
-                  >
-                    <Icon size={12} />
-                    {cat}
-                  </button>
-                );
-              })}
+            {/* Search — quickly find a drink or dish by name */}
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.35)' }} />
+              <input
+                type="text"
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                placeholder="Search menu — drinks, food…"
+                className="w-full rounded-lg pl-9 pr-3 py-2 text-sm outline-none transition-colors"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'var(--cream)',
+                }}
+              />
+              {menuSearch && (
+                <button
+                  onClick={() => setMenuSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10"
+                  aria-label="Clear search"
+                >
+                  <X size={14} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                </button>
+              )}
             </div>
-          )}
 
-          {(() => {
+            {categoryOptions.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                {categoryOptions.map((cat) => {
+                  const Icon = getCategoryIcon(cat);
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                        selectedCategory === cat
+                          ? 'bg-[#FF4F00] text-white'
+                          : 'bg-white bg-opacity-10 text-gray-300 hover:bg-opacity-20'
+                      }`}
+                    >
+                      <Icon size={12} />
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {(() => {
             // Group products by category. Food is grouped by the venue's
             // user-defined categories (bar_categories, in bar-defined order);
             // drinks keep their product category.
@@ -2887,10 +2947,34 @@ export default function MenuPage() {
             const hasDefinedFoodCategories = foodCategoryNames.length > 0;
             const foodCatSet = new Set(foodCategoryNames);
 
-            // Apply category filter while preserving the food-first sort
+            // Apply search query, then category filter, preserving food-first order
+            const q = menuSearch.trim().toLowerCase();
+            const searched = q
+              ? sortedProducts.filter(bp =>
+                  (bp.product?.name || '').toLowerCase().includes(q) ||
+                  (bp.product?.description || '').toLowerCase().includes(q) ||
+                  (bp.product?.category || '').toLowerCase().includes(q))
+              : sortedProducts;
             const displayProducts = selectedCategory === 'All'
-              ? sortedProducts
-              : sortedProducts.filter(bp => bp.product?.category === selectedCategory);
+              ? searched
+              : searched.filter(bp => bp.product?.category === selectedCategory);
+
+            if (displayProducts.length === 0) {
+              return (
+                <div className="text-center py-10" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  <p className="text-sm">No matches{menuSearch.trim() ? ` for "${menuSearch.trim()}"` : ''}</p>
+                  {menuSearch.trim() && (
+                    <button
+                      onClick={() => setMenuSearch('')}
+                      className="mt-2 text-xs px-3 py-1.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
+              );
+            }
 
             const categoryGroups: Record<string, BarProduct[]> = {};
             const categoryOrder: string[] = [];
@@ -2945,7 +3029,7 @@ export default function MenuPage() {
                             return (
                               <button
                                 key={bp.id}
-                                onClick={() => addToCart(bp, displayPrice)}
+                                onClick={() => openProductDetail(bp, displayPrice, showStrikethrough)}
                                 className="flex items-center justify-between px-3 py-2.5 hover:bg-white/5 active:bg-white/10 transition-colors text-left"
                               >
                                 <span className="text-sm text-gray-100 font-medium truncate flex-1 mr-2">
@@ -2967,42 +3051,42 @@ export default function MenuPage() {
                         </div>
                       )}
 
-                      {/* Cocktails: 3:4 image cards */}
+                      {/* Cocktails: single-column cards, rectangular image */}
                       {isCocktail && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-3">
                           {items.map((bp) => {
                             const { displayPrice, showStrikethrough } = computePrice(bp);
                             const imageUrl = getDisplayImage(bp.product);
                             return (
                               <button
                                 key={bp.id}
-                                onClick={() => addToCart(bp, displayPrice)}
+                                onClick={() => openProductDetail(bp, displayPrice, showStrikethrough)}
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                  {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Martini size={28} style={{ color: 'rgba(255,255,255,0.18)' }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="p-2.5 flex flex-col gap-0.5">
-                                  <span className="text-gray-100 text-sm font-medium leading-tight line-clamp-2">
+                                {imageUrl ? (
+                                  <div className="w-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-auto block" style={{ objectFit: 'contain' }} />
+                                  </div>
+                                ) : (
+                                  <div className="w-full aspect-[16/9] overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                    <Martini size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                  </div>
+                                )}
+                                <div className="p-3 flex flex-col gap-0.5">
+                                  <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
                                   </span>
                                   {bp.product?.description && (
                                     <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
                                   )}
-                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-1">
                                     {showStrikethrough && (
                                       <span className="text-gray-500 text-xs line-through">
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
-                                    <span className="text-[#FF4F00] text-sm font-semibold">
+                                    <span className="text-[#FF4F00] text-base font-semibold">
                                       {tempFormatCurrency(displayPrice)}
                                     </span>
                                   </div>
@@ -3013,42 +3097,42 @@ export default function MenuPage() {
                         </div>
                       )}
 
-                      {/* Food: 3:4 image cards, same as cocktails */}
+                      {/* Food: single-column cards, rectangular image */}
                       {!isBeverage && !isCocktail && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-3">
                           {items.map((bp) => {
                             const { displayPrice, showStrikethrough } = computePrice(bp);
                             const imageUrl = getDisplayImage(bp.product);
                             return (
                               <button
                                 key={bp.id}
-                                onClick={() => addToCart(bp, displayPrice)}
+                                onClick={() => openProductDetail(bp, displayPrice, showStrikethrough)}
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                  {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Package size={28} style={{ color: 'rgba(255,255,255,0.18)' }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="p-2.5 flex flex-col gap-0.5">
-                                  <span className="text-gray-100 text-sm font-medium leading-tight line-clamp-2">
+                                {imageUrl ? (
+                                  <div className="w-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-auto block" style={{ objectFit: 'contain' }} />
+                                  </div>
+                                ) : (
+                                  <div className="w-full aspect-[16/9] overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                    <Package size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                  </div>
+                                )}
+                                <div className="p-3 flex flex-col gap-0.5">
+                                  <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
                                   </span>
                                   {bp.product?.description && (
                                     <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
                                   )}
-                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-1">
                                     {showStrikethrough && (
                                       <span className="text-gray-500 text-xs line-through">
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
-                                    <span className="text-[#FF4F00] text-sm font-semibold">
+                                    <span className="text-[#FF4F00] text-base font-semibold">
                                       {tempFormatCurrency(displayPrice)}
                                     </span>
                                   </div>
@@ -3068,6 +3152,114 @@ export default function MenuPage() {
           )}
         </div>
       )}
+
+      {/* Two-tap ordering guide — shown once per session */}
+      {showMenuTapHint && (
+        <div
+          className="fixed inset-0 z-[9995] flex items-end justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.65)', padding: '1rem' }}
+          onClick={() => setShowMenuTapHint(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            style={{ backgroundColor: 'var(--ink2)', border: '1px solid var(--amber-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full" style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)' }}>
+                <ShoppingCart size={16} />
+              </span>
+              <h3 style={{ fontWeight: 700, color: 'var(--cream)' }}>Order in two taps</h3>
+            </div>
+            <ol style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--cream)', fontSize: '0.9rem', lineHeight: 1.9 }}>
+              <li>Tap any dish or drink to <strong>view it full screen</strong>.</li>
+              <li>Tap <strong>Add to order</strong> to send it to your cart.</li>
+            </ol>
+            <button
+              onClick={() => setShowMenuTapHint(false)}
+              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem', border: 'none', borderRadius: '0.75rem', fontWeight: 600, color: 'var(--ink)', backgroundColor: 'var(--amber)', cursor: 'pointer' }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full-screen product preview — first tap opens, second tap (Add) adds to cart */}
+      {productModal && (() => {
+        const { bp, price, strikethrough } = productModal;
+        const p = bp.product;
+        const imageUrl = getDisplayImage(p);
+        const IconComponent = getCategoryIcon(p?.category || 'Other');
+        return (
+          <div
+            className="fixed inset-0 z-[9996] flex flex-col"
+            style={{ backgroundColor: 'rgba(0,0,0,0.96)' }}
+            onClick={addFromProductModal}
+          >
+            <div className="flex items-center justify-between px-4 py-3" onClick={(e) => e.stopPropagation()}>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                {p?.category || 'Item'}
+              </span>
+              <button
+                onClick={() => setProductModal(null)}
+                className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                aria-label="Close preview"
+                style={{ color: 'var(--cream)' }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 flex items-center justify-center overflow-hidden px-4">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={p?.name}
+                  className="max-h-[56vh] w-auto rounded-2xl object-contain"
+                  style={{ maxWidth: '100%' }}
+                />
+              ) : (
+                <div className="w-40 h-40 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                  {IconComponent ? <IconComponent size={64} style={{ color: 'rgba(255,255,255,0.25)' }} /> : <Package size={64} style={{ color: 'rgba(255,255,255,0.25)' }} />}
+                </div>
+              )}
+            </div>
+
+            <div
+              className="px-5 pt-4 pb-6 text-center"
+              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ color: 'var(--cream)', fontSize: '1.25rem', fontWeight: 700 }}>{p?.name}</h3>
+              {p?.description && (
+                <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>{p.description}</p>
+              )}
+              <div className="flex items-baseline justify-center gap-2 mt-2">
+                {strikethrough && (
+                  <span className="text-sm line-through" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    {tempFormatCurrency(bp.sale_price)}
+                  </span>
+                )}
+                <span style={{ color: 'var(--amber)', fontSize: '1.375rem', fontWeight: 800 }}>
+                  {tempFormatCurrency(price)}
+                </span>
+              </div>
+              <button
+                onClick={addFromProductModal}
+                className="w-full mt-4 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+                style={{ backgroundColor: 'var(--amber)', color: 'var(--ink)', cursor: 'pointer', border: 'none' }}
+              >
+                <ShoppingCart size={18} />
+                Add to order
+              </button>
+              <p className="mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Tap once to view · tap Add to order to add it
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Cart Section */}
       {cart.length > 0 && (
