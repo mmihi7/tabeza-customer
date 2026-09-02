@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getDeviceId } from '@/lib/device-identity'
 import VisitFrequencyDots from '@/components/onboarding/VisitFrequencyDots'
 import { Star } from 'lucide-react'
 
@@ -55,8 +56,10 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
   const [savingVenueId, setSavingVenueId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user?.id) return
-    loadVenueData(user.id)
+    // Load venues for both authenticated and anonymous users.
+    // Authenticated users: resolve customer_id, fetch recent + saved bars.
+    // Anonymous users: use device_id to fetch recent tabs (no saved bars).
+    loadVenueData()
   }, [user?.id])
 
   /** Resolve customer_id from user.id via the customers table */
@@ -73,13 +76,34 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
     }
   }
 
-  const loadVenueData = async (userId: string) => {
+  const loadVenueData = async () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-    const customerId = await resolveCustomerId(userId)
+
+    // Determine lookup key: customer_id for authenticated users, device_id for anonymous
+    let customerId: string | null = null
+    let deviceIdentifier: string | null = null
+
+    if (user?.id) {
+      customerId = await resolveCustomerId(user.id)
+    } else {
+      try {
+        deviceIdentifier = await getDeviceId()
+      } catch {
+        // Device ID unavailable — nothing to fetch
+        setVenuesLoaded(true)
+        return
+      }
+    }
+
+    const lookupParam = customerId
+      ? `customerId=${customerId}`
+      : `deviceIdentifier=${deviceIdentifier}`
 
     try {
-      // Fetch recent venues, saved bars, and (if customer) saved bar IDs in parallel
-      const recentPromise = fetch(`/api/tabs/recent-venues?customerId=${customerId || userId}`)
+      // Fetch recent venues
+      const recentPromise = fetch(`/api/tabs/recent-venues?${lookupParam}`)
+
+      // Saved bars only available for authenticated users with a customer record
       const savedPromise = customerId
         ? fetch(`${baseUrl}/api/customer/saved-bars?customerId=${customerId}`)
         : Promise.resolve(null)

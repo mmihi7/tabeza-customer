@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await (supabase as any)
       .from('customer_promo_consent')
-      .select('id, customer_id, bar_id, scope, created_at, updated_at')
+      .select('id, customer_id, bar_id, scope, consented_at, updated_at')
       .eq('customer_id', customerId)
       .eq('bar_id', barId)
       .maybeSingle();
@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest) {
         { onConflict: 'customer_id,bar_id' },
 
       )
-      .select('id, customer_id, bar_id, scope, created_at, updated_at')
+      .select('id, customer_id, bar_id, scope, consented_at, updated_at')
       .single();
 
     if (error) {

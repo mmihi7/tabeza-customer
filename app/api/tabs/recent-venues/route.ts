@@ -1,6 +1,7 @@
 /**
- * GET /api/tabs/recent-venues?customerId=xxx
+ * GET /api/tabs/recent-venues?customerId=xxx or ?deviceIdentifier=xxx
  * Returns the 5 most recently visited venues for a customer.
+ * Accepts either customerId (authenticated) or deviceIdentifier (anonymous).
  * Uses service role to bypass RLS on the tabs table.
  * Cached in Redis (TTL 120s).
  */
@@ -15,21 +16,32 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
+    const deviceIdentifier = searchParams.get('deviceIdentifier');
 
-    if (!customerId) {
-      return NextResponse.json({ error: 'customerId is required' }, { status: 400 });
+    if (!customerId && !deviceIdentifier) {
+      return NextResponse.json({ error: 'customerId or deviceIdentifier is required' }, { status: 400 });
     }
 
-    const cacheKey = `recent_venues:${customerId}`;
+    const lookupKey = customerId ?? deviceIdentifier!;
+    const cacheKey = `recent_venues:${lookupKey}`;
 
     const result = await getCachedOrFetch(cacheKey, CACHE_TTL_S, async () => {
       const db = createServiceRoleClient();
-      const { data, error } = await db
+
+      let query = db
         .from('tabs')
         .select('bar_id, opened_at, bars(id, name, slug, category)')
-        .eq('customer_id', customerId)
         .order('opened_at', { ascending: false })
         .limit(20);
+
+      if (customerId) {
+        query = query.eq('customer_id', customerId);
+      } else {
+        // Anonymous user — match by device_identifier
+        query = query.eq('device_identifier', deviceIdentifier!);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('[recent-venues]', error);

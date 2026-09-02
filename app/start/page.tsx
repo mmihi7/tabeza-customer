@@ -1034,10 +1034,20 @@ function ConsentContent() {
             onClose={() => setShowOverduePaymentModal(false)}
           />
         )}
-        <StepHome
-          user={user}
-          onVenueSelected={(venue) => {
-            setSelectedVenue(venue);
+        <div className="relative">
+          {/* Floating settings button */}
+          <button
+            onClick={() => router.push('/settings')}
+            className="absolute top-4 right-4 z-10 p-2.5 rounded-full backdrop-blur-sm transition-colors"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
+            title="Settings"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <StepHome
+            user={user}
+            onVenueSelected={(venue) => {
+              setSelectedVenue(venue);
             setBarSlug(venue.slug);
             setBarId(venue.id);
             setBarName(venue.name);
@@ -1070,6 +1080,7 @@ function ConsentContent() {
           />
         )}
         <IdentityLinkPrompt />
+        </div>
       </>
     );
   }

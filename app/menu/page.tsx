@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Bell, LogIn, UserCheck } from 'lucide-react';
+  Bell, LogIn, UserCheck, Settings } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -217,6 +217,7 @@ export default function MenuPage() {
   const [staticMenuType, setStaticMenuType] = useState<'pdf' | 'image' | 'slideshow' | null>(null);
   const [showStaticMenu, setShowStaticMenu] = useState(false);
   const [imageScale, setImageScale] = useState(1);
+  const [menuCollapsed, setMenuCollapsed] = useState(false);
 
   const [barCategories, setBarCategories] = useState<{ id: string; name: string; kind: 'food' | 'drink'; sort_order: number }[]>([]);
 
@@ -2426,6 +2427,41 @@ export default function MenuPage() {
     });
   }, [barProducts, isDrinkProduct]);
 
+  // Auto-collapse the interactive menu block after ~30s idle while in view.
+  // Collapses to a compact "Browse Menu" bar; re-expands on tap.
+  const interactiveMenuShown = !showStaticMenu && sortedProducts.length > 0;
+  useEffect(() => {
+    if (!interactiveMenuShown || menuCollapsed) return;
+    const el = menuRef.current;
+    if (!el) return;
+
+    let visible = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const schedule = () => {
+      clearTimer();
+      if (!visible) return;
+      timer = setTimeout(() => setMenuCollapsed(true), 30000);
+    };
+
+    const io = new IntersectionObserver((entries) => {
+      visible = entries[0]?.isIntersecting ?? false;
+      if (visible) schedule(); else clearTimer();
+    }, { threshold: 0.2 });
+    io.observe(el);
+
+    const onActivity = () => { if (visible) schedule(); };
+    const events: (keyof WindowEventMap)[] = ['scroll', 'touchstart', 'pointerdown', 'keydown'];
+    events.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
+
+    schedule();
+    return () => {
+      io.disconnect();
+      events.forEach((ev) => window.removeEventListener(ev, onActivity));
+      clearTimer();
+    };
+  }, [interactiveMenuShown, menuCollapsed, selectedCategory]);
+
   // Last order
   const lastOrder = useMemo(() => orders.filter(order => order.status !== 'cancelled')[0], [orders]);
   const lastOrderTotal = useMemo(() => lastOrder ? parseFloat(lastOrder.total).toFixed(0) : '0', [lastOrder]);
@@ -2554,6 +2590,13 @@ export default function MenuPage() {
                 />
               </div>
             )}
+            <button
+              onClick={() => router.push('/settings')}
+              className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors"
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
           </div>
         </div>
         
@@ -2608,11 +2651,9 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Crew + Call Button Section — animated on mount */}
-      <div className="bg-[#1a1a2e] border-b border-gray-800 px-4 py-3" style={{
-        animation: 'morphIn 0.7s 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-      }}>
-        <div className="flex items-center justify-center gap-4">
+      {/* Crew + Call Button Section */}
+      <div className="border-b px-4 py-3" style={{ borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center justify-between gap-3">
           {/* Left: Waiter profile */}
           {crewMember ? (
             <div style={{ flexShrink: 0 }}>
@@ -2649,17 +2690,16 @@ export default function MenuPage() {
               }
             }}
             style={{
-              width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
-              background: 'radial-gradient(circle at 35% 30%, #ff5555, #cc0000)',
-              boxShadow: '0 8px 24px rgba(200,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.2)',
-              border: '3px solid rgba(255,255,255,0.15)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'transform 0.15s',
+              padding: '0.625rem 1rem', borderRadius: '0.75rem',
+              background: '#FF4F00', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              transition: 'background 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
           >
-            <Bell size={32} style={{ color: 'white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+            <Bell size={16} style={{ color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
           </button>
         </div>
       </div>
@@ -2928,6 +2968,23 @@ export default function MenuPage() {
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">MENU</h2>
           </div>
 
+          {menuCollapsed ? (
+            <button
+              onClick={() => setMenuCollapsed(false)}
+              className="w-full flex items-center justify-between rounded-xl px-4 py-3.5 transition-colors"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--cream)' }}>
+                <ChevronDown size={16} style={{ color: 'var(--amber)' }} />
+                Browse Menu
+              </span>
+              <span className="text-xs" style={{ color: 'var(--muted)' }}>{barProducts.length} items</span>
+            </button>
+          ) : (
+          <>
           {categoryOptions.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
               {categoryOptions.map((cat) => {
@@ -2939,7 +2996,7 @@ export default function MenuPage() {
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                       selectedCategory === cat
                         ? 'bg-[#FF4F00] text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-white bg-opacity-10 text-gray-300 hover:bg-opacity-20'
                     }`}
                   >
                     <Icon size={12} />
@@ -3013,21 +3070,21 @@ export default function MenuPage() {
 
                       {/* Beverages: compact list, no images */}
                       {isBeverage && (
-                        <div className="flex flex-col divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 overflow-hidden">
+                        <div className="flex flex-col divide-y divide-white/10 rounded-lg border border-white/10 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
                           {items.map((bp) => {
                             const { displayPrice, showStrikethrough } = computePrice(bp);
                             return (
                               <button
                                 key={bp.id}
                                 onClick={() => addToCart(bp, displayPrice)}
-                                className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                                className="flex items-center justify-between px-3 py-2.5 hover:bg-white/5 active:bg-white/10 transition-colors text-left"
                               >
-                                <span className="text-sm text-gray-800 font-medium truncate flex-1 mr-2">
+                                <span className="text-sm text-gray-100 font-medium truncate flex-1 mr-2">
                                   {bp.product?.name}
                                 </span>
                                 <div className="flex items-baseline gap-1.5 flex-shrink-0">
                                   {showStrikethrough && (
-                                    <span className="text-gray-400 text-xs line-through">
+                                    <span className="text-gray-500 text-xs line-through">
                                       {tempFormatCurrency(bp.sale_price)}
                                     </span>
                                   )}
@@ -3041,7 +3098,7 @@ export default function MenuPage() {
                         </div>
                       )}
 
-                      {/* Cocktails: keep images, 2-column grid */}
+                      {/* Cocktails: 3:4 image cards */}
                       {isCocktail && (
                         <div className="grid grid-cols-2 gap-3">
                           {items.map((bp) => {
@@ -3051,25 +3108,28 @@ export default function MenuPage() {
                               <button
                                 key={bp.id}
                                 onClick={() => addToCart(bp, displayPrice)}
-                                className="flex flex-col overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
+                                className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
+                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                                   ) : (
-                                    <Martini size={28} className="text-gray-300" />
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Martini size={28} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                    </div>
                                   )}
                                 </div>
                                 <div className="p-2.5 flex flex-col gap-0.5">
-                                  <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
+                                  <span className="text-gray-100 text-sm font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
                                   </span>
                                   {bp.product?.description && (
-                                    <p className="text-xs text-gray-500 line-clamp-3">{bp.product.description}</p>
+                                    <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
                                   )}
                                   <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
                                     {showStrikethrough && (
-                                      <span className="text-gray-400 text-xs line-through">
+                                      <span className="text-gray-500 text-xs line-through">
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
@@ -3084,9 +3144,9 @@ export default function MenuPage() {
                         </div>
                       )}
 
-                      {/* Food: full-width cards, image width-to-width */}
+                      {/* Food: 3:4 image cards, same as cocktails */}
                       {!isBeverage && !isCocktail && (
-                        <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           {items.map((bp) => {
                             const { displayPrice, showStrikethrough } = computePrice(bp);
                             const imageUrl = getDisplayImage(bp.product);
@@ -3094,27 +3154,28 @@ export default function MenuPage() {
                               <button
                                 key={bp.id}
                                 onClick={() => addToCart(bp, displayPrice)}
-                                className="flex flex-col overflow-hidden bg-white border border-gray-100 shadow-sm active:scale-95 transition-transform text-left"
+                                className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                {imageUrl && (
-                                  <div className="w-full aspect-[16/9] bg-gray-50 overflow-hidden">
+                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                  {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
-                                  </div>
-                                )}
-                                <div className="p-3 flex items-center justify-between gap-3">
-                                  <div className="flex-1 min-w-0">
-                                    <span className="text-gray-800 text-sm font-medium leading-tight line-clamp-2">
-                                      {bp.product?.name}
-                                    </span>
-                                    {bp.product?.description && (
-                                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-3">
-                                        {bp.product.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Package size={28} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-2.5 flex flex-col gap-0.5">
+                                  <span className="text-gray-100 text-sm font-medium leading-tight line-clamp-2">
+                                    {bp.product?.name}
+                                  </span>
+                                  {bp.product?.description && (
+                                    <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
+                                  )}
+                                  <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
                                     {showStrikethrough && (
-                                      <span className="text-gray-400 text-xs line-through">
+                                      <span className="text-gray-500 text-xs line-through">
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
@@ -3134,6 +3195,8 @@ export default function MenuPage() {
               </div>
             );
           })()}
+          </>
+          )}
         </div>
       )}
 
@@ -3273,6 +3336,7 @@ export default function MenuPage() {
       )}
 
       {/* Orders Section */}
+      {orders.length > 0 && (
       <div ref={ordersRef} className="p-4">
         <div className="mb-3">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ORDER HISTORY</h2>
@@ -3360,6 +3424,7 @@ export default function MenuPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Payment Section */}
       {balance > 0 && (
@@ -3626,11 +3691,14 @@ export default function MenuPage() {
           <CrewTipButton
             crewName={crewMember.display_name}
             onTip={async (amount) => {
+              const { data: sessionData } = await supabase.auth.getSession()
+              const accessToken = sessionData.session?.access_token
               const res = await fetch('/api/crew/tip', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
                 body: JSON.stringify({
                   crew_member_id: crewMember.id,
+                  tab_id: tab?.id,
                   amount,
                 }),
               })
@@ -3912,30 +3980,7 @@ export default function MenuPage() {
         </div>
       )}
       
-      {/* Close Tab Section */}
-      <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        <button
-          onClick={() => {
-            if (balance > 0) {
-              showToast({
-                type: 'error',
-                title: 'Cannot Close Tab',
-                message: 'You have outstanding balance. Please pay at the bar before closing your tab.'
-              });
-              return;
-            }
-            setShowCloseConfirm(true);
-          }}
-          className="w-full py-3 rounded-xl font-medium transition"
-          style={{
-            backgroundColor: balance > 0 ? 'rgba(255,79,0,0.1)' : 'var(--amber)',
-            color: balance > 0 ? 'var(--amber)' : 'var(--ink)',
-            border: balance > 0 ? '1px solid var(--amber)' : 'none',
-          }}
-        >
-          Close Tab
-        </button>
-      </div>
+      {/* Close Tab Section — removed (duplicate of payment success view Close My Tab) */}
       
       {/* Close Tab Confirmation Modal */}
       {showCloseConfirm && (
@@ -4015,10 +4060,13 @@ export default function MenuPage() {
       onClose={() => setShowRatingModal(false)}
       crewName={crewMember?.display_name || 'your crew member'}
       onSubmit={async (rating, comment) => {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const accessToken = sessionData.session?.access_token
         const res = await fetch('/api/crew/rate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
           body: JSON.stringify({
+            crew_member_id: crewMember?.id,
             tab_id: tab?.id,
             rating,
             comment,
