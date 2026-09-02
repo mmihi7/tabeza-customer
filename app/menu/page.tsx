@@ -174,6 +174,16 @@ export default function MenuPage() {
       showToast({ type: 'error', title: 'Failed', message: 'Could not send alert.' });
     }
   }, [tab?.id, displayName, pushLog, showToast]);
+
+  // Open pay instructions — always refresh the venue's current method first so
+  // a change made in the staff app is shown immediately.
+  const openPayInstructions = async () => {
+    const barId = tab?.bar?.id || (tab as any)?.bar_id;
+    if (barId) {
+      try { await loadPaymentSettings(barId); } catch { /* keep current */ }
+    }
+    setShowPayInstructions(true);
+  };
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
@@ -3629,7 +3639,7 @@ export default function MenuPage() {
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ opacity: 0.6 }}>Your bill</p>
             <p className="text-4xl font-bold my-2">{tempFormatCurrency(balance)}</p>
             <button
-              onClick={() => setShowPayInstructions(true)}
+              onClick={() => openPayInstructions()}
               className="w-full py-3.5 rounded-xl font-semibold"
               style={{ backgroundColor: '#1a1a2e', color: 'var(--amber)', cursor: 'pointer', border: 'none' }}
             >
@@ -3727,7 +3737,7 @@ export default function MenuPage() {
           </div>
           <div className="space-y-3">
             <button
-              onClick={() => setShowPayInstructions(true)}
+              onClick={() => openPayInstructions()}
               className="w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
             >
               <CheckCircle size={20} />
@@ -3751,11 +3761,11 @@ export default function MenuPage() {
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPayInstructions(false)}>
           <div
             className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto"
-            style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e' }}
+            style={{ backgroundColor: '#FF4F00', color: '#ffffff' }}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-1">Close your tab</h2>
-            <p className="text-sm mb-3" style={{ opacity: 0.7 }}>
+            <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.92)' }}>
               {balance > 0
                 ? <>Your bill is <strong>{tempFormatCurrency(balance)}</strong>.</>
                 : <>Your bill is fully paid.</>}{' '}
@@ -3783,10 +3793,10 @@ export default function MenuPage() {
                 };
                 const m = info[method] || info.cash;
                 return (
-                  <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(26,26,46,0.08)' }}>
+                  <div className="rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#ffffff' }}>
                     <p className="font-semibold mb-0.5">{m.title}</p>
-                    <p style={{ opacity: 0.75 }}>{m.body}</p>
-                    <p className="mt-2" style={{ opacity: 0.7 }}>
+                    <p style={{ color: 'rgba(255,255,255,0.95)' }}>{m.body}</p>
+                    <p className="mt-2 font-medium" style={{ color: '#ffffff' }}>
                       Your payment will be confirmed by the manager, who will then close your tab.
                     </p>
                   </div>
@@ -3794,14 +3804,14 @@ export default function MenuPage() {
               })()}
             </div>
 
-            <p className="text-xs mb-4" style={{ opacity: 0.65 }}>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
               Payment confirmation and closing is done by the venue once they receive it.
             </p>
 
             <button
               onClick={() => setShowPayInstructions(false)}
               className="w-full py-3.5 rounded-xl font-semibold"
-              style={{ backgroundColor: '#1a1a2e', color: 'var(--amber)', cursor: 'pointer', border: 'none' }}
+              style={{ backgroundColor: '#1a1a2e', color: '#ffffff', cursor: 'pointer', border: 'none' }}
             >
               Got it
             </button>
