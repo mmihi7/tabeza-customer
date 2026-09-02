@@ -7,13 +7,16 @@
  * they're not connected (not on an active tab).
  *
  * Body: {
- *   customerId: string   — customer row ID
- *   barId: string        — venue ID
+ *   customerId?: string   — customer row ID (authenticated users)
+ *   deviceId?: string     — device identifier (anonymous users, fallback anchor)
+ *   barId: string         — venue ID
  *   scope: 'always' | 'at_venue_only' | 'never'
  * }
+ * Exactly one of customerId | deviceId is required.
  *
  * GET /api/customer/promo-consent?customerId=xxx&barId=yyy
- * Returns the current consent row for the customer+venue pair, or null.
+ *   or  ?deviceId=xxx&barId=yyy
+ * Returns the current consent row for the customer/device + venue pair, or null.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,24 +25,34 @@ import { createServiceRoleClient } from '@/lib/supabase';
 const VALID_SCOPES = ['always', 'at_venue_only', 'never'] as const;
 type ConsentScope = typeof VALID_SCOPES[number];
 
+const SELECT_COLS = 'id, customer_id, device_id, bar_id, scope, consented_at, updated_at';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
+    const deviceId = searchParams.get('deviceId');
     const barId = searchParams.get('barId');
 
-    if (!customerId || !barId) {
-      return NextResponse.json({ error: 'customerId and barId are required' }, { status: 400 });
+    if (!barId || (!customerId && !deviceId)) {
+      return NextResponse.json(
+        { error: 'barId and one of customerId | deviceId are required' },
+        { status: 400 }
+      );
     }
 
     const supabase = createServiceRoleClient();
 
-    const { data, error } = await (supabase as any)
+    const baseQuery = (supabase as any)
       .from('customer_promo_consent')
-      .select('id, customer_id, bar_id, scope, consented_at, updated_at')
-      .eq('customer_id', customerId)
-      .eq('bar_id', barId)
-      .maybeSingle();
+      .select(SELECT_COLS)
+      .eq('bar_id', barId);
+
+    const query = customerId
+      ? baseQuery.eq('customer_id', customerId)
+      : baseQuery.eq('device_id', deviceId);
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       console.error('[promo-consent GET]', error);
@@ -56,43 +69,74 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerId, barId, scope } = body;
+    const { customerId, deviceId, barId, scope } = body;
 
-    if (!customerId || !barId) {
+    if (!barId || (!customerId && !deviceId)) {
       return NextResponse.json(
-        { error: 'customerId and barId are required' },
-        { status: 400 },
+        { error: 'barId and one of customerId | deviceId are required' },
+        { status: 400 }
       );
     }
 
     if (!VALID_SCOPES.includes(scope as ConsentScope)) {
       return NextResponse.json(
         { error: `scope must be one of: ${VALID_SCOPES.join(', ')}` },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const supabase = createServiceRoleClient();
+    const withdrawnAt = scope === 'never' ? new Date().toISOString() : null;
 
-    const { data, error } = await (supabase as any)
-      .from('customer_promo_consent')
-      .upsert(
-        {
-          customer_id: customerId,
-          bar_id: barId,
-          scope,
-          // Clear withdrawn_at if they're re-opting in
-          withdrawn_at: scope === 'never' ? new Date().toISOString() : null,
-        },
-        { onConflict: 'customer_id,bar_id' },
+    let data;
 
-      )
-      .select('id, customer_id, bar_id, scope, consented_at, updated_at')
-      .single();
+    if (customerId) {
+      const { data: d, error } = await (supabase as any)
+        .from('customer_promo_consent')
+        .upsert(
+          { customer_id: customerId, bar_id: barId, scope, withdrawn_at: withdrawnAt },
+          { onConflict: 'customer_id,bar_id' },
+        )
+        .select(SELECT_COLS)
+        .single();
+      if (error) {
+        console.error('[promo-consent PATCH]', error);
+        return NextResponse.json({ error: 'Failed to update consent' }, { status: 500 });
+      }
+      data = d;
+    } else {
+      // Anonymous / device-anchored consent. The table's unique index is on
+      // (customer_id, bar_id) — customer_id is NULL here, so Postgres treats
+      // every device row as distinct. Do a manual update-or-insert to avoid
+      // duplicate rows for the same device + venue.
+      const { data: existing } = await (supabase as any)
+        .from('customer_promo_consent')
+        .select('id')
+        .eq('device_id', deviceId)
+        .eq('bar_id', barId)
+        .maybeSingle();
 
-    if (error) {
-      console.error('[promo-consent PATCH]', error);
-      return NextResponse.json({ error: 'Failed to update consent' }, { status: 500 });
+      let result;
+      if (existing?.id) {
+        result = await (supabase as any)
+          .from('customer_promo_consent')
+          .update({ scope, withdrawn_at: withdrawnAt })
+          .eq('id', existing.id)
+          .select(SELECT_COLS)
+          .single();
+      } else {
+        result = await (supabase as any)
+          .from('customer_promo_consent')
+          .insert({ device_id: deviceId, bar_id: barId, scope, withdrawn_at: withdrawnAt })
+          .select(SELECT_COLS)
+          .single();
+      }
+
+      if (result.error) {
+        console.error('[promo-consent PATCH device]', result.error);
+        return NextResponse.json({ error: 'Failed to update consent' }, { status: 500 });
+      }
+      data = result.data;
     }
 
     return NextResponse.json({ consent: data });

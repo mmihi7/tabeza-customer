@@ -56,14 +56,15 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
 
   if (loaded && !media) return null;
   if (!loaded || !media) {
-    return <div className="w-full rounded-xl border border-gray-100" style={{ aspectRatio: '16 / 5', backgroundColor: '#000' }} />;
+    return <div className="w-full" style={{ aspectRatio: '16 / 5', backgroundColor: '#000' }} />;
   }
 
-  // Maintain the media's own aspect ratio and fill the width (no crop or
-  // distortion) — video caps height at the screen, images/slideshow scale
-  // naturally. Content is centred on a dark canvas.
+  // Fill the full width edge-to-edge (no border/radius/padding) so the banner
+  // blends with the app like the header. Content keeps its own aspect ratio,
+  // centred on a dark canvas (no crop or distortion) — video caps height at the
+  // screen, images/slideshow scale naturally.
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-gray-100 shadow-sm" style={{ backgroundColor: '#000', minHeight: 160 }}>
+    <div className="w-full overflow-hidden" style={{ backgroundColor: '#000', minHeight: 160 }}>
       <div className="flex items-center justify-center w-full" style={{ minHeight: 160 }}>
         {media.media_type === 'video' ? (
           <video

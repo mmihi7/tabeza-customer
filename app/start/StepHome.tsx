@@ -79,25 +79,30 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
   const loadVenueData = async () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
-    // Determine lookup key: customer_id for authenticated users, device_id for anonymous
+    // Determine lookup keys: customer_id (authenticated) AND/OR device_id
+    // (anonymous). Querying with both makes recent venues appear even when a
+    // customer's tabs were opened on a device before they had a customer row.
     let customerId: string | null = null
     let deviceIdentifier: string | null = null
 
     if (user?.id) {
       customerId = await resolveCustomerId(user.id)
-    } else {
-      try {
-        deviceIdentifier = await getDeviceId()
-      } catch {
-        // Device ID unavailable — nothing to fetch
-        setVenuesLoaded(true)
-        return
-      }
+    }
+    try {
+      deviceIdentifier = await getDeviceId()
+    } catch {
+      deviceIdentifier = null
     }
 
-    const lookupParam = customerId
-      ? `customerId=${customerId}`
-      : `deviceIdentifier=${deviceIdentifier}`
+    if (!customerId && !deviceIdentifier) {
+      setVenuesLoaded(true)
+      return
+    }
+
+    const params = new URLSearchParams()
+    if (customerId) params.set('customerId', customerId)
+    if (deviceIdentifier) params.set('deviceIdentifier', deviceIdentifier)
+    const lookupParam = params.toString()
 
     try {
       // Fetch recent venues

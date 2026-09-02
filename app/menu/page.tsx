@@ -237,12 +237,6 @@ export default function MenuPage() {
   });
 
   const [isFavorited, setIsFavorited] = useState(false);
-  // Outbound promo opt-in (per-venue)
-  // promoOptInEnabled: whether customer receives outbound promos from this venue outside a session
-  // outboundOptIn: localStorage-banner flow state: null=unknown, 'show'=prompt visible, 'hidden'=dismissed/opted
-  const [promoOptInEnabled, setPromoOptInEnabled] = useState(false);
-  const [promoOptInLoaded, setPromoOptInLoaded] = useState(false);
-  const [outboundOptIn, setOutboundOptIn] = useState<'show' | 'hidden' | null>(null);
   const [showTableModal, setShowTableModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [barTables, setBarTables] = useState<number[]>([]);
@@ -540,71 +534,6 @@ export default function MenuPage() {
       loadNotificationPrefs();
     }
   }, [tab?.id, loadNotificationPrefs]);
-
-  // Load per-venue outbound promo consent
-  const loadPromoConsent = useCallback(async () => {
-    if (!tab?.customer_id || !tab?.bar_id) return;
-    try {
-      const res = await fetch(
-        `/api/customer/promo-consent?customerId=${tab.customer_id}&barId=${tab.bar_id}`
-      );
-      const json = await res.json();
-      const scope = json?.consent?.scope;
-      setPromoOptInEnabled(scope === 'always');
-    } catch (err) {
-      console.error('Error loading promo consent:', err);
-    } finally {
-      setPromoOptInLoaded(true);
-    }
-  }, [tab?.customer_id, tab?.bar_id]);
-
-  useEffect(() => {
-    if (tab?.customer_id && tab?.bar_id) {
-      loadPromoConsent();
-    }
-  }, [tab?.customer_id, tab?.bar_id, loadPromoConsent]);
-
-  // Toggle per-venue outbound promo consent
-  const togglePromoOptIn = useCallback(
-    async (next: boolean) => {
-      if (!tab?.customer_id || !tab?.bar_id) return;
-      const previous = promoOptInEnabled;
-      setPromoOptInEnabled(next);
-      try {
-        const res = await fetch(`/api/customer/promo-consent`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerId: tab.customer_id,
-            barId: tab.bar_id,
-            scope: next ? 'always' : 'at_venue_only',
-          }),
-        });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json?.error || 'Failed to update promo settings');
-        }
-        showToast({
-          type: 'success',
-          title: next ? 'Deals on' : 'Deals paused',
-          message: next
-            ? 'You\u2019ll get deals from this venue even when you are away.'
-            : 'You\u2019ve paused deals from this venue.',
-          duration: 4000,
-        });
-      } catch (err) {
-        console.error('Error updating promo consent:', err);
-        setPromoOptInEnabled(previous);
-        showToast({
-          type: 'error',
-          title: 'Couldn\u2019t update',
-          message: 'Something went wrong. Try again.',
-          duration: 4000,
-        });
-      }
-    },
-    [tab?.customer_id, tab?.bar_id, promoOptInEnabled, showToast]
-  );
 
   // Real-time subscription handlers
   const handleOrderUpdate = useCallback((payload: any) => {
@@ -2707,66 +2636,6 @@ export default function MenuPage() {
       {/* Promo anchor */}
       <div ref={promoRef} />
 
-      {/* Notification Settings */}
-      <div className="px-4 mb-3">
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>NOTIFICATIONS</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: 'var(--cream)' }}>Push alerts</span>
-            <button
-              onClick={async () => {
-                const next = !notificationPrefs.notificationsEnabled;
-                setNotificationPrefs(p => ({ ...p, notificationsEnabled: next }));
-                if (tab?.id) {
-                  await fetch(`/api/tabs/${tab.id}/notification-settings`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ notificationsEnabled: next })
-                  });
-                }
-                if (next && 'Notification' in window) {
-                  await Notification.requestPermission();
-                }
-              }}
-              className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-              style={{ backgroundColor: notificationPrefs.notificationsEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)' }}
-            >
-              <span
-                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
-                style={{ transform: notificationPrefs.notificationsEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
-              />
-            </button>
-          </div>
-
-          {/* Per-venue outbound promo opt-in */}
-          <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex flex-col gap-0.5 pr-3">
-              <span className="text-xs" style={{ color: 'var(--cream)' }}>Deals from this venue</span>
-              <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Occasional offers even when you are not here.
-              </span>
-            </div>
-            <button
-              onClick={() => togglePromoOptIn(!promoOptInEnabled)}
-              disabled={!promoOptInLoaded}
-              aria-pressed={promoOptInEnabled}
-              className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
-              style={{
-                backgroundColor: promoOptInEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)',
-                opacity: promoOptInLoaded ? 1 : 0.5,
-              }}
-            >
-              <span
-                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
-                style={{ transform: promoOptInEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Activity Log — shown across all menu plans */}
       <div className="px-4 mb-4">
           <div className="mb-3">
@@ -2898,9 +2767,9 @@ export default function MenuPage() {
           </div>
         </div>
 
-          {/* Platform customer media banner */}
+          {/* Platform customer media banner — edge to edge, like the header */}
           {tab?.bar?.id && (
-            <div className="px-4 mt-4">
+            <div className="w-full">
               <CustomerMediaBox barId={tab.bar.id} />
             </div>
           )}

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings, Bell, LogOut, Trash2, ArrowLeft, AlertTriangle, Check } from 'lucide-react'
+import { Settings, Bell, LogOut, Trash2, ArrowLeft, AlertTriangle, Check, Percent } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { getDeviceId, getActiveTab } from '@/lib/device-identity'
@@ -21,6 +21,11 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Per-venue outbound promo consent ("Deals from this venue")
+  const [promoOptInEnabled, setPromoOptInEnabled] = useState(false)
+  const [promoOptInLoaded, setPromoOptInLoaded] = useState(false)
+  const [venueContext, setVenueContext] = useState<{ barId: string; customerId?: string | null; deviceId?: string | null } | null>(null)
+
   // Load device-level notification preference from localStorage
   useEffect(() => {
     try {
@@ -30,6 +35,59 @@ export default function SettingsPage() {
       }
     } catch {}
   }, [])
+
+  // Resolve the customer's current venue (from the stored active tab) and load
+  // its outbound-promo consent. Works for authenticated customers (customer_id)
+  // and anonymous device users (device_identifier).
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const activeTab = getActiveTab()
+        if (!activeTab?.bar_id) return
+        const barId = activeTab.bar_id
+        const customerId = activeTab.customer_id || null
+        const deviceId = activeTab.device_identifier || null
+        if (!customerId && !deviceId) return
+
+        setVenueContext({ barId, customerId, deviceId })
+
+        const idParam = customerId
+          ? `customerId=${encodeURIComponent(customerId)}`
+          : `deviceId=${encodeURIComponent(deviceId)}`
+        const res = await fetch(`/api/customer/promo-consent?barId=${encodeURIComponent(barId)}&${idParam}`)
+        const json = await res.json().catch(() => ({}))
+        setPromoOptInEnabled(json?.consent?.scope === 'always')
+      } catch {
+        // no active venue — deals toggle hidden
+      } finally {
+        setPromoOptInLoaded(true)
+      }
+    })()
+  }, [])
+
+  const toggleDeals = async (next: boolean) => {
+    if (!venueContext) return
+    const previous = promoOptInEnabled
+    setPromoOptInEnabled(next)
+    try {
+      const body: Record<string, string> = {
+        barId: venueContext.barId,
+        scope: next ? 'always' : 'at_venue_only',
+      }
+      if (venueContext.customerId) body.customerId = venueContext.customerId
+      else if (venueContext.deviceId) body.deviceId = venueContext.deviceId
+
+      const res = await fetch('/api/customer/promo-consent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('Failed to update promo settings')
+    } catch (err) {
+      console.error('Failed to update promo consent:', err)
+      setPromoOptInEnabled(previous)
+    }
+  }
 
   const toggleNotifications = async () => {
     const next = !notificationsEnabled
@@ -149,6 +207,39 @@ export default function SettingsPage() {
               />
             </button>
           </div>
+
+          {/* Deals from this venue — per-venue outbound promo opt-in */}
+          {venueContext && (
+            <div
+              className="mt-3 pt-3"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Percent size={18} style={{ color: '#FF4F00' }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Deals from this venue</p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>Occasional offers even when you are away</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleDeals(!promoOptInEnabled)}
+                  disabled={!promoOptInLoaded}
+                  aria-pressed={promoOptInEnabled}
+                  className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
+                  style={{
+                    backgroundColor: promoOptInEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)',
+                    opacity: promoOptInLoaded ? 1 : 0.5,
+                  }}
+                >
+                  <span
+                    className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                    style={{ transform: promoOptInEnabled ? 'translateX(19px)' : 'translateX(3px)' }}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Account info */}

@@ -22,8 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'customerId or deviceIdentifier is required' }, { status: 400 });
     }
 
-    const lookupKey = customerId ?? deviceIdentifier!;
-    const cacheKey = `recent_venues:${lookupKey}`;
+    const cacheKey = `recent_venues:${customerId ?? ''}:${deviceIdentifier ?? ''}`;
 
     const result = await getCachedOrFetch(cacheKey, CACHE_TTL_S, async () => {
       const db = createServiceRoleClient();
@@ -32,12 +31,16 @@ export async function GET(request: NextRequest) {
         .from('tabs')
         .select('bar_id, opened_at, bars(id, name, slug, category)')
         .order('opened_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
-      if (customerId) {
+      // Match by whichever identifiers are available. Passing both covers the
+      // case where a tab was opened anonymously (device) before the customer
+      // signed in (customer_id) — venues show either way.
+      if (customerId && deviceIdentifier) {
+        query = query.or(`customer_id.eq.${customerId},device_identifier.eq.${deviceIdentifier}`);
+      } else if (customerId) {
         query = query.eq('customer_id', customerId);
       } else {
-        // Anonymous user — match by device_identifier
         query = query.eq('device_identifier', deviceIdentifier!);
       }
 
