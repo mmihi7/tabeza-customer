@@ -2895,7 +2895,7 @@ export default function MenuPage() {
                 type="text"
                 value={menuSearch}
                 onChange={(e) => setMenuSearch(e.target.value)}
-                placeholder="Search menu — drinks, food…"
+                placeholder="Search drinks"
                 className="w-full rounded-lg pl-9 pr-3 py-2 text-sm outline-none transition-colors"
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.05)',
@@ -3069,15 +3069,15 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                {imageUrl ? (
-                                  <div className="w-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-auto block" style={{ objectFit: 'contain' }} />
-                                  </div>
-                                ) : (
-                                  <div className="w-full aspect-[16/9] overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                    <Martini size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
-                                  </div>
-                                )}
+                                <div className="w-full aspect-[16/9] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                  {imageUrl ? (
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Martini size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="p-3 flex flex-col gap-0.5">
                                   <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
@@ -3115,15 +3115,15 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                {imageUrl ? (
-                                  <div className="w-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-auto block" style={{ objectFit: 'contain' }} />
-                                  </div>
-                                ) : (
-                                  <div className="w-full aspect-[16/9] overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                                    <Package size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
-                                  </div>
-                                )}
+                                <div className="w-full aspect-[16/9] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                  {imageUrl ? (
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Package size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="p-3 flex flex-col gap-0.5">
                                   <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
