@@ -4,13 +4,13 @@ import { useEffect, useState, useRef } from 'react';
 
 // Platform-controlled customer media advert.
 //
-// Renders as a full-screen AUTO-PLAYING interstitial with NO user controls:
-//   - media starts automatically (video is muted/looping; slideshows advance)
-//   - it is NOT controllable by the customer (no controls, taps pass through)
-//   - after a fixed on-screen duration it "closes" with a sci-fi wipe (four
-//     shutters converging vertically + horizontally)
-//   - it reappears automatically after a set interval, forever (while this page
-//     is open).
+// An INLINE auto-playing advert (NOT full screen):
+//   - media starts automatically (video muted/looping; slideshows advance)
+//   - it is NOT controllable by the customer (no controls, no interactions)
+//   - it fills the full content width and keeps its own aspect ratio
+//   - after a set on-screen time it "closes" with a sci-fi wipe (shutters
+//     converging vertically + horizontally)
+//   - it reappears automatically after a set interval while this page is open.
 //
 // Media is created/managed by the platform admin in /system and targeted by
 // venue area. PDF is intentionally not supported.
@@ -102,32 +102,45 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
 
   if (!media || phase === 'hidden') return null;
 
-  const content =
-    media.media_type === 'video' ? (
-      // Auto-start, no controls, no user interaction.
-      <video
-        src={media.url}
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="w-full h-full object-contain"
-        style={{ backgroundColor: '#000' }}
-      />
-    ) : media.media_type === 'slideshow' && media.slide_urls.length > 1 ? (
-      <img src={media.slide_urls[slideIndex] ?? media.url} alt={media.title ?? 'Promotion'} className="w-full h-full object-contain" />
-    ) : (
-      <img src={media.url} alt={media.title ?? 'Promotion'} className="w-full h-full object-contain" />
-    );
-
   return (
     <div
       className={`media-advert ${phase === 'closing' ? 'media-advert--closing' : ''}`}
-      style={{ position: 'fixed', inset: 0, zIndex: 70, pointerEvents: 'none' }}
+      style={{
+        position: 'relative',
+        width: '100%',
+        overflow: 'hidden',
+        backgroundColor: '#000',
+        margin: '0.75rem 0',
+      }}
     >
-      {content}
+      {media.media_type === 'video' ? (
+        // Auto-start, no controls, no user interaction.
+        <video
+          src={media.url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="w-full h-auto block"
+          style={{ objectFit: 'contain' }}
+        />
+      ) : media.media_type === 'slideshow' && media.slide_urls.length > 1 ? (
+        <img
+          src={media.slide_urls[slideIndex] ?? media.url}
+          alt={media.title ?? 'Promotion'}
+          className="w-full h-auto block"
+          style={{ objectFit: 'contain' }}
+        />
+      ) : (
+        <img
+          src={media.url}
+          alt={media.title ?? 'Promotion'}
+          className="w-full h-auto block"
+          style={{ objectFit: 'contain' }}
+        />
+      )}
 
-      {/* Sci-fi close: four shutters converge vertically + horizontally */}
+      {/* Sci-fi close: shutters converge vertically + horizontally within the ad */}
       {phase === 'closing' && (
         <>
           <span className="ad-shutter ad-shutter--top" />
@@ -138,7 +151,7 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
       )}
 
       <style>{`
-        .media-advert { display: flex; align-items: center; justify-content: center; }
+        .media-advert { pointer-events: none; }
         .ad-shutter { position: absolute; background: #000; will-change: transform; }
         .media-advert--closing .ad-shutter--top { top: 0; left: 0; right: 0; height: 50%; transform-origin: top; animation: adTop 0.75s ease-in forwards; }
         .media-advert--closing .ad-shutter--bottom { bottom: 0; left: 0; right: 0; height: 50%; transform-origin: bottom; animation: adBottom 0.75s ease-in forwards; }

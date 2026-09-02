@@ -2956,7 +2956,12 @@ export default function MenuPage() {
                   (bp.product?.category || '').toLowerCase().includes(q))
               : sortedProducts;
             const displayProducts = selectedCategory === 'All'
-              ? searched
+              ? (q
+                  // Searching: show matches across food AND drinks.
+                  ? searched
+                  // Not searching: hide drinks — they are found via the search box.
+                  // (Drinks remain reachable by tapping a specific category chip.)
+                  : searched.filter(bp => !isDrinkProduct(bp.product) && !isCocktailProduct(bp.product)))
               : searched.filter(bp => bp.product?.category === selectedCategory);
 
             if (displayProducts.length === 0) {
@@ -3185,7 +3190,7 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Full-screen product preview — first tap opens, second tap (Add) adds to cart */}
+      {/* Full-screen product preview — Add to order button adds to cart */}
       {productModal && (() => {
         const { bp, price, strikethrough } = productModal;
         const p = bp.product;
@@ -3195,9 +3200,8 @@ export default function MenuPage() {
           <div
             className="fixed inset-0 z-[9996] flex flex-col"
             style={{ backgroundColor: 'rgba(0,0,0,0.96)' }}
-            onClick={addFromProductModal}
           >
-            <div className="flex items-center justify-between px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3">
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 {p?.category || 'Item'}
               </span>
@@ -3211,16 +3215,16 @@ export default function MenuPage() {
               </button>
             </div>
 
-            <div className="flex-1 flex items-center justify-center overflow-hidden px-4">
+            <div className="flex-1 overflow-y-auto px-4 flex items-start justify-center">
               {imageUrl ? (
                 <img
                   src={imageUrl}
                   alt={p?.name}
-                  className="max-h-[56vh] w-auto rounded-2xl object-contain"
-                  style={{ maxWidth: '100%' }}
+                  className="w-full h-auto block rounded-2xl"
+                  style={{ objectFit: 'contain' }}
                 />
               ) : (
-                <div className="w-40 h-40 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                <div className="w-full aspect-[16/9] rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
                   {IconComponent ? <IconComponent size={64} style={{ color: 'rgba(255,255,255,0.25)' }} /> : <Package size={64} style={{ color: 'rgba(255,255,255,0.25)' }} />}
                 </div>
               )}
@@ -3229,7 +3233,6 @@ export default function MenuPage() {
             <div
               className="px-5 pt-4 pb-6 text-center"
               style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}
-              onClick={(e) => e.stopPropagation()}
             >
               <h3 style={{ color: 'var(--cream)', fontSize: '1.25rem', fontWeight: 700 }}>{p?.name}</h3>
               {p?.description && (
@@ -3253,9 +3256,6 @@ export default function MenuPage() {
                 <ShoppingCart size={18} />
                 Add to order
               </button>
-              <p className="mt-2 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Tap once to view · tap Add to order to add it
-              </p>
             </div>
           </div>
         );
