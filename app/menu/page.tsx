@@ -312,6 +312,12 @@ export default function MenuPage() {
   const [barTables, setBarTables] = useState<number[]>([]);
   const [tableSelectionRequired, setTableSelectionRequired] = useState(false);
   const [notColdPreferences, setNotColdPreferences] = useState<Record<string | number, boolean>>({});
+
+  // ── Live promotions (known customer only) ─────────────────────────────
+  const [eligiblePromos, setEligiblePromos] = useState<any[]>([]);
+  const [promosLoading, setPromosLoading] = useState(false);
+  const [redeemingPromoId, setRedeemingPromoId] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
   
   const drinkCategories = ['Beer & Cider', 'Wine & Champagne', 'Spirits', 'Liqueurs & Specialty', 'Non-Alcoholic'];
   const loadAttempted = useRef(false);
@@ -605,6 +611,66 @@ export default function MenuPage() {
       loadNotificationPrefs();
     }
   }, [tab?.id, loadNotificationPrefs]);
+
+  // ── Live promotions ────────────────────────────────────────────────────────
+  const fetchEligiblePromos = useCallback(async () => {
+    if (!tab?.customer_id || !tab?.bar_id || !tab?.id || !venueControls.showCustomerPromos) {
+      setEligiblePromos([]);
+      return;
+    }
+    try {
+      setPromosLoading(true);
+      const res = await fetch(
+        `/api/promotions/eligible?customerId=${tab.customer_id}&barId=${tab.bar_id}&tabId=${tab.id}`
+      );
+      if (!res.ok) throw new Error('Failed to load promotions');
+      const body = await res.json();
+      setEligiblePromos(body.promotions ?? []);
+      setPromoError(null);
+    } catch (err) {
+      // Non-fatal — keep whatever we had; promotions are best-effort.
+      console.error('Failed to fetch eligible promotions:', err);
+    } finally {
+      setPromosLoading(false);
+    }
+  }, [tab?.customer_id, tab?.bar_id, tab?.id, venueControls.showCustomerPromos]);
+
+  // Poll eligible promotions every 30s (and on tab/venue change).
+  useEffect(() => {
+    fetchEligiblePromos();
+    const timer = setInterval(fetchEligiblePromos, 30 * 1000);
+    return () => clearInterval(timer);
+  }, [fetchEligiblePromos]);
+
+  const handleRedeemPromo = useCallback(async (promotion: any) => {
+    if (!tab?.customer_id || !tab?.bar_id || !tab?.id) return;
+    setRedeemingPromoId(promotion.id);
+    setPromoError(null);
+    try {
+      const res = await fetch('/api/promotions/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: tab.customer_id,
+          barId: tab.bar_id,
+          tabId: tab.id,
+          promotionId: promotion.id,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'Failed to redeem promotion');
+      }
+      // Refresh so the redeemed promo disappears from the list.
+      await fetchEligiblePromos();
+      showToast({ type: 'success', title: 'Redeemed!', message: `${promotion.name} is now yours — enjoy!` });
+    } catch (err) {
+      setPromoError(err instanceof Error ? err.message : 'Failed to redeem promotion');
+      showToast({ type: 'error', title: 'Could not redeem', message: err instanceof Error ? err.message : 'Try again' });
+    } finally {
+      setRedeemingPromoId(null);
+    }
+  }, [tab?.customer_id, tab?.bar_id, tab?.id, fetchEligiblePromos, showToast]);
 
   // Real-time subscription handlers
   const handleOrderUpdate = useCallback((payload: any) => {
@@ -2794,8 +2860,60 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Promo anchor */}
-      <div ref={promoRef} />
+      {/* Live Promotions — scroll target for the Promo button; known customers only */}
+      <div ref={promoRef} className="px-4 mb-4">
+        {venueControls.showCustomerPromos && (
+          <>
+            <div className="mb-3">
+              <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>OFFERS FOR YOU</h2>
+            </div>
+            {promosLoading && eligiblePromos.length === 0 ? (
+              <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Loading offers…</p>
+              </div>
+            ) : eligiblePromos.length === 0 ? (
+              // No live offers — nothing shown; the Promo button simply scrolls to the activity log below.
+              null
+            ) : (
+              <div className="space-y-2">
+                {promoError && (
+                  <p className="text-xs" style={{ color: '#f87171' }}>{promoError}</p>
+                )}
+                {eligiblePromos.map((promo: any) => (
+                  <div
+                    key={promo.id}
+                    className="rounded-lg p-4 flex items-center justify-between gap-3"
+                    style={{ backgroundColor: 'rgba(255,79,0,0.08)', border: '1px solid rgba(255,79,0,0.25)' }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--cream)' }}>
+                        {promo.name}
+                      </p>
+                      {promo.type_config?.percentage && (
+                        <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                          {promo.type_config.percentage}% off {promo.applies_to === 'all' ? 'your whole order' : promo.applies_to}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRedeemPromo(promo)}
+                      disabled={redeemingPromoId === promo.id}
+                      className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity"
+                      style={{
+                        backgroundColor: '#FF4F00',
+                        color: 'white',
+                        opacity: redeemingPromoId === promo.id ? 0.6 : 1,
+                      }}
+                    >
+                      {redeemingPromoId === promo.id ? 'Redeeming…' : 'Redeem'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Activity Log — shown across all menu plans */}
       <div className="px-4 mb-4">
@@ -3353,13 +3471,13 @@ export default function MenuPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 flex items-start justify-center">
+            <div className="flex-1 overflow-y-auto px-4 flex items-center justify-center">
               {imageUrl ? (
                 <img
                   src={imageUrl}
                   alt={p?.name}
-                  className="w-full h-auto block rounded-2xl"
-                  style={{ objectFit: 'contain' }}
+                  className="block rounded-2xl mx-auto"
+                  style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '55vh', width: 'auto', height: 'auto' }}
                 />
               ) : (
                 <div className="w-full aspect-[16/9] rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
