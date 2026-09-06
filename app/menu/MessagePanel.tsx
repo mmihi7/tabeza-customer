@@ -148,7 +148,7 @@ export default function MessagePanel({ isOpen, onClose, tabId, initialMessages, 
         </div>
 
         {/* Messages Container */}
-        <div className="messages-container flex-1 overflow-y-auto h-[calc(100vh-180px)] p-4 flex flex-col">
+        <div className="messages-container flex-1 overflow-y-auto scrollbar-hide h-[calc(100vh-180px)] p-4 flex flex-col">
           {messages.length === 0 ? (
             <div className="text-center py-12">
               <MessageCircle size={48} className="mx-auto text-gray-300 mb-4" />

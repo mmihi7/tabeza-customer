@@ -2993,7 +2993,7 @@ export default function MenuPage() {
           <div className="mb-3">
             <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>ACTIVITY</h2>
           </div>
-          <div className="rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto scrollbar-hide" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
             {(() => {
               const events: { id: string; time: Date; icon: React.ReactNode; message: React.ReactNode }[] = [];
               
@@ -3257,7 +3257,7 @@ export default function MenuPage() {
             </div>
 
             {categoryOptions.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
                 {categoryOptions.map((cat) => {
                   const Icon = getCategoryIcon(cat);
                   return (
@@ -3392,9 +3392,18 @@ export default function MenuPage() {
                                 onClick={() => addToCartAndFocus(bp, displayPrice)}
                                 className="flex items-center justify-between px-3 py-2.5 hover:bg-white/5 active:bg-white/10 transition-colors text-left"
                               >
-                                <span className="text-sm text-gray-100 font-medium truncate flex-1 mr-2">
-                                  {bp.product?.name}
-                                  {bp.is_promo && <PromoChip />}
+                                <span className="flex-1 mr-2 min-w-0">
+                                  <span className="flex items-center gap-1">
+                                    <span className="text-sm text-gray-100 font-medium truncate">
+                                      {bp.product?.name}
+                                    </span>
+                                    {bp.is_promo && <PromoChip />}
+                                  </span>
+                                  {bp.product?.description && (
+                                    <span className="block text-xs text-gray-400 truncate mt-0.5">
+                                      {bp.product.description}
+                                    </span>
+                                  )}
                                 </span>
                                 <div className="flex items-baseline gap-1.5 flex-shrink-0">
                                   {showStrikethrough && (
@@ -3427,7 +3436,7 @@ export default function MenuPage() {
                               >
                                 <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <Martini size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
@@ -3474,7 +3483,7 @@ export default function MenuPage() {
                               >
                                 <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <Package size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
@@ -3573,7 +3582,7 @@ export default function MenuPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 flex items-center justify-center">
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-4 flex items-center justify-center">
               {imageUrl ? (
                 <img
                   src={imageUrl}
@@ -3649,7 +3658,7 @@ export default function MenuPage() {
               </div>
             </div>
 
-            <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+            <div className="p-4 space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
               {cart.map((item, index) => (
                 <div key={`cart-item-${index}`} className="rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div className="flex items-center justify-between p-3">
@@ -3923,7 +3932,7 @@ export default function MenuPage() {
       {showPayInstructions && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPayInstructions(false)}>
           <div
-            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto"
+            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto scrollbar-hide"
             style={{ backgroundColor: '#FF4F00', color: '#ffffff' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3986,7 +3995,7 @@ export default function MenuPage() {
       {acceptanceModal.show && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <div
-            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto"
+            className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto scrollbar-hide"
             style={{ backgroundColor: 'var(--amber)', color: '#1a1a2e' }}
           >
             <div className="text-center">
@@ -4235,7 +4244,7 @@ export default function MenuPage() {
       {showPromoModal && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPromoModal(false)}>
           <div
-            className="w-full max-w-md rounded-t-2xl p-5 pb-8"
+            className="w-full max-w-md rounded-t-2xl p-5 pb-8 scrollbar-hide"
             style={{ backgroundColor: '#15171c', maxHeight: '75vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4317,7 +4326,7 @@ export default function MenuPage() {
       {/* Table Selection Modal */}
       {showTableModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto transform animate-slideUp">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto scrollbar-hide transform animate-slideUp">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-[#FFE8DF] rounded-full flex items-center justify-center mx-auto mb-4">
                 <Utensils size={32} className="text-[#FFF5F0]0" />
