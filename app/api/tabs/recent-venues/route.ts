@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
 
     const cacheKey = `recent_venues:${customerId ?? ''}:${deviceIdentifier ?? ''}`;
 
-    const result = await getCachedOrFetch(cacheKey, CACHE_TTL_S, async () => {
-      const db = createServiceRoleClient();
+const result = await getCachedOrFetch(cacheKey, CACHE_TTL_S, async () => {
+        const db = createServiceRoleClient();
 
-      let query = db
-        .from('tabs')
-        .select('bar_id, opened_at, bars(id, name, slug, category)')
-        .order('opened_at', { ascending: false })
-        .limit(50);
+        let query = db
+          .from('tabs')
+          .select('bar_id, opened_at, bars(id, name, slug, venue_type)')
+          .order('opened_at', { ascending: false })
+          .limit(50);
 
       // Match by whichever identifiers are available. Passing both covers the
       // case where a tab was opened anonymously (device) before the customer
@@ -51,7 +51,14 @@ export async function GET(request: NextRequest) {
         return [];
       }
 
-      return data ?? [];
+      const rows = data ?? [];
+      return rows.map((tab: any) => ({
+        ...tab,
+        bars: {
+          ...(tab.bars ?? {}),
+          category: (tab.bars as any)?.venue_type ?? undefined,
+        },
+      }));
     });
 
     return NextResponse.json({ tabs: result });

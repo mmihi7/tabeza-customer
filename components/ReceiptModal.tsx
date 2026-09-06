@@ -1,7 +1,8 @@
 'use client';
 
 import { QRCodeSVG } from 'qrcode.react';
-import { X } from 'lucide-react';
+import { X, Heart } from 'lucide-react';
+import CrewTipButton from '@/components/crew/CrewTipButton';
 
 interface OrderItem {
   id: string;
@@ -34,6 +35,9 @@ interface ReceiptModalProps {
   orders: OrderItem[];
   payment: PaymentInfo;
   openedAt: string;
+  crewName?: string;
+  tipPresets?: number[];
+  onTip?: (amount: number) => Promise<void>;
 }
 
 export function ReceiptModal({
@@ -47,6 +51,9 @@ export function ReceiptModal({
   orders,
   payment,
   openedAt,
+  crewName,
+  tipPresets,
+  onTip,
 }: ReceiptModalProps) {
   if (!isOpen) return null;
 
@@ -232,6 +239,26 @@ export function ReceiptModal({
               </div>
             )}
           </div>
+
+          {/* Tip — after payment, so the guest can tip the crew who served them */}
+          {crewName && onTip && (
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Heart size={14} style={{ color: 'var(--amber)' }} />
+                <p
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >
+                  Thank {crewName}
+                </p>
+              </div>
+              <CrewTipButton
+                crewName={crewName}
+                presetAmounts={tipPresets}
+                onTip={onTip}
+              />
+            </div>
+          )}
 
           {/* QR Code */}
           <div className="flex flex-col items-center mb-4">

@@ -69,8 +69,8 @@ export async function POST(req: NextRequest) {
       crew_member_id,
       tab_id,
       bar_id: tab.bar_id,
-      rating,
-      comment: comment || null,
+      rating_type: 'like',
+      comment_text: comment || null,
     })
     .select()
     .single()

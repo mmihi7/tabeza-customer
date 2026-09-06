@@ -91,7 +91,7 @@ export default function SettingsPage() {
 
   const toggleNotifications = async () => {
     const next = !notificationsEnabled
-    setNotificationsEnabled(true) // optimistic
+    setNotificationsEnabled(next) // optimistic
     setSavingNotifications(true)
 
     try {

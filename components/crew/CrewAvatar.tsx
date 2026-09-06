@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, User } from 'lucide-react'
+import { Heart, Star, User } from 'lucide-react'
 
 export interface CrewMember {
   id: string
@@ -11,18 +11,24 @@ export interface CrewMember {
   performance_score?: number
   total_shifts_completed?: number
   average_rating?: number
+  total_ratings?: number
   total_likes?: number
 }
 
 interface CrewAvatarProps {
   crew: CrewMember | null
   onOpenProfile?: () => void
+  onRate?: () => void
 }
 
-export default function CrewAvatar({ crew, onOpenProfile }: CrewAvatarProps) {
+export default function CrewAvatar({ crew, onOpenProfile, onRate }: CrewAvatarProps) {
   if (!crew) return null
 
   const photoUrl = crew.face_thumbnail_url || crew.face_photo_url
+  // Stars under the name reflect the crew member's like count (clipped to 5).
+  // Likes are the customer-facing rating currency — a heart is a rating.
+  const likeCount = crew.total_likes ?? 0
+  const fillCount = Math.min(5, likeCount)
 
   const content = (
     <>
@@ -63,11 +69,53 @@ export default function CrewAvatar({ crew, onOpenProfile }: CrewAvatarProps) {
         }}>
           {crew.display_name}
         </p>
-        {crew.total_likes != null && crew.total_likes > 0 && (
-          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.125rem' }}>
-            <Heart size={10} style={{ color: '#f87171', fill: '#f87171' }} />
-            {crew.total_likes}
-          </p>
+        {onRate ? (
+          <div
+            role="button"
+            onClick={(e) => { e.stopPropagation(); onRate(); }}
+            title={likeCount > 0 ? `Rate ${crew.display_name}` : `Rate ${crew.display_name} — be the first to rate`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              marginTop: '0.1875rem',
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star
+                  key={n}
+                  size={12}
+                  style={{
+                    color: n <= fillCount ? '#FFB300' : 'rgba(255,255,255,0.22)',
+                    fill: n <= fillCount ? '#FFB300' : 'transparent',
+                  }}
+                />
+              ))}
+            </span>
+            {likeCount === 0 && (
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--amber, #f59e0b)' }}>
+                Rate
+              </span>
+            )}
+            {likeCount > 0 && (
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: '0.2rem',
+                fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)',
+              }}>
+                <Heart size={10} style={{ color: '#f87171', fill: '#f87171' }} />
+                {likeCount}
+              </span>
+            )}
+          </div>
+        ) : (
+          crew.total_likes != null && crew.total_likes > 0 && (
+            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.125rem' }}>
+              <Heart size={10} style={{ color: '#f87171', fill: '#f87171' }} />
+              {crew.total_likes}
+            </p>
+          )
         )}
       </div>
     </>

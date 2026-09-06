@@ -22,7 +22,7 @@ import MessagePanel from './MessagePanel';
 import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
-import { CrewAvatar, CrewTipButton, CrewRatingModal, CrewProfileView, type CrewMember } from '@/components/crew';
+import { CrewAvatar, CrewRatingModal, CrewProfileView, type CrewMember } from '@/components/crew';
 import CustomerMediaBox from '@/components/CustomerMediaBox';
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -157,7 +157,6 @@ export default function MenuPage() {
   const [crewMember, setCrewMember] = useState<CrewMember | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showProfileView, setShowProfileView] = useState(false);
-  const [showTipSection, setShowTipSection] = useState(false);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
 
   // Local activity log (alerts, tips, ratings) — persisted to sessionStorage so
@@ -214,6 +213,27 @@ export default function MenuPage() {
     }
     setShowPayInstructions(true);
   };
+
+  // Send a tip to the crew member assigned to this tab (used in the payment receipt modal).
+  const sendCrewTip = async (amount: number) => {
+    if (!crewMember || !tab) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const res = await fetch('/api/crew/tip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
+      body: JSON.stringify({
+        crew_member_id: crewMember.id,
+        tab_id: tab.id,
+        amount,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to process tip');
+    pushLog('tip');
+    showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` });
+  };
+
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
@@ -379,8 +399,9 @@ export default function MenuPage() {
   const getDisplayImage = useCallback((product: any) => {
     if (!product || typeof product !== 'object') return null;
     if (product.image_url) {
-      console.log('📸 Customer using product image:', product.image_url);
-      return product.image_url;
+      const imageUrl = product.image_url.trim();
+      console.log('📸 Customer using product image:', imageUrl);
+      return imageUrl;
     }
     console.log('❌ Customer no product image found for:', product.category);
     return null;
@@ -2756,6 +2777,9 @@ export default function MenuPage() {
   }
 
   const parallaxOffset = scrollY * 0.5;
+  // Parallax for the docked waiter/alert bar — drifts up gently (max 18px) as
+  // the page scrolls, making the bar feel attached to the content beneath it.
+  const waiterParallax = Math.max(-18, -(scrollY * 0.04));
 
   return (
     <>
@@ -2766,7 +2790,7 @@ export default function MenuPage() {
           🧪 M-Pesa Mock Mode Active - Payments will be simulated
         </div>
       )}
-      <div className="min-h-screen" style={{ background: 'var(--ink)' }}>
+      <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 96 }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
         <div className="px-4 py-3 border-b border-white border-opacity-20">
@@ -2911,35 +2935,55 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Crew + Call Button Section */}
-      <div className="border-b px-4 py-3" style={{ borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-        <div className="flex items-center justify-between gap-3">
-          {/* Left: Waiter profile */}
-          {crewMember ? (
-            <div style={{ flexShrink: 0 }}>
-              <CrewAvatar
-                crew={crewMember}
-                onOpenProfile={() => setShowProfileView(true)}
-              />
-            </div>
-          ) : null}
+      {/* Crew + Call button — docked to the bottom with breathing space + parallax */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 12,
+          right: 12,
+          bottom: 12,
+          zIndex: 40,
+          transform: `translateY(${waiterParallax}px)`,
+          borderRadius: '1rem',
+          background: 'rgba(12,12,22,0.92)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: '0 10px 36px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          padding: '0.625rem 0.875rem',
+          paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          justifyContent: crewMember ? 'space-between' : 'flex-end',
+        }}
+      >
+        {crewMember && (
+          <div style={{ flexShrink: 0, minWidth: 0 }}>
+            <CrewAvatar
+              crew={crewMember}
+              onOpenProfile={() => setShowProfileView(true)}
+              onRate={() => setShowRatingModal(true)}
+            />
+          </div>
+        )}
 
-          {/* Right: Call button */}
-          <button
-            onClick={sendWaiterAlert}
-            style={{
-              padding: '0.625rem 1rem', borderRadius: '0.75rem',
-              background: '#FF4F00', border: 'none',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
-          >
-            <Bell size={16} style={{ color: 'white' }} />
-            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
-          </button>
-        </div>
+        {/* Call button */}
+        <button
+          onClick={sendWaiterAlert}
+          style={{
+            padding: '0.625rem 1rem', borderRadius: '0.75rem',
+            background: '#FF4F00', border: 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+            flexShrink: 0,
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
+        >
+          <Bell size={16} style={{ color: 'white' }} />
+          <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
+        </button>
       </div>
 
       {/* Promo notices live in the Activity Log below; the Promo button opens the modal. */}
@@ -3381,7 +3425,7 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[16/9] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                                   ) : (
@@ -3428,7 +3472,7 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[16/9] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                                   ) : (
@@ -3580,24 +3624,24 @@ export default function MenuPage() {
 
       {/* Cart Section */}
       {cart.length > 0 && (
-        <div ref={cartRef} className="p-4 mb-4 bg-gradient-to-br from-[#FFF5F0] to-[#FFE8DF] border-t border-[#FFCDB8]">
+        <div ref={cartRef} className="p-4 mb-4">
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-[#FF4F00] uppercase tracking-wide">YOUR CART</h2>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-[#FFCDB8] overflow-hidden">
-            <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF4F00] text-white p-4">
+          <div className="rounded-xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--ink)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF7A3D] p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <ShoppingCart size={20} />
+                  <ShoppingCart size={20} className="text-white" />
                   <div>
-                    <h3 className="font-bold text-lg">Cart Items</h3>
-                    <p className="text-sm text-[#FFE8DF]">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
+                    <h3 className="font-bold text-lg text-white">Cart Items</h3>
+                    <p className="text-sm text-white/80">{cartCount} items • {tempFormatCurrency(cartTotal)}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setCart([])}
-                  className="p-2 bg-[#CC3F00] bg-opacity-50 rounded-lg hover:bg-[#993000] transition-colors"
+                  className="p-2 bg-black/25 rounded-lg hover:bg-black/40 transition-colors"
                   title="Clear cart"
                 >
                   <X size={18} className="text-white" />
@@ -3607,28 +3651,28 @@ export default function MenuPage() {
 
             <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
               {cart.map((item, index) => (
-                <div key={`cart-item-${index}`} className="bg-[#FFF5F0] rounded-lg border border-[#FFCDB8]">
+                <div key={`cart-item-${index}`} className="rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div className="flex items-center justify-between p-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-[#662000]">{item.name}</span>
+                        <span className="font-medium" style={{ color: 'var(--cream)' }}>{item.name}</span>
                       </div>
                       <p className="text-sm text-[#FF4F00]">{tempFormatCurrency(item.price)} each</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 bg-[#FFE8DF] border border-[#FF9E7A] rounded-lg">
+                      <div className="flex items-center gap-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
                         <button
                           onClick={() => updateCartQuantity(index, -1)}
-                          className="p-2 hover:bg-[#FFCDB8] transition-colors"
+                          className="p-2 hover:bg-[rgba(255,255,255,0.1)] transition-colors"
                         >
-                          <Minus size={16} className="text-[#CC3F00]" />
+                          <Minus size={16} className="text-[#FF7A3D]" />
                         </button>
-                        <span className="font-bold w-8 text-center text-[#662000]">{item.quantity}</span>
+                        <span className="font-bold w-8 text-center" style={{ color: 'var(--cream)' }}>{item.quantity}</span>
                         <button
                           onClick={() => updateCartQuantity(index, 1)}
-                          className="p-2 hover:bg-[#FFCDB8] transition-colors"
+                          className="p-2 hover:bg-[rgba(255,255,255,0.1)] transition-colors"
                         >
-                          <Plus size={16} className="text-[#CC3F00]" />
+                          <Plus size={16} className="text-[#FF7A3D]" />
                         </button>
                       </div>
                       <button
@@ -3647,16 +3691,16 @@ export default function MenuPage() {
                   
                   {isDrinkItem(item) && (
                     <div className="px-3 pb-3">
-                      <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)' }}>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={notColdPreferences[`cart-item-${index}`] || false}
                             onChange={() => toggleNotCold(`cart-item-${index}`)}
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                            className="w-4 h-4 accent-[#FF4F00]"
                           />
-                          <span className="text-sm text-blue-700 font-medium">Not Cold</span>
-                          <span className="text-xs text-blue-600">(serve at room temperature)</span>
+                          <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Not Cold</span>
+                          <span className="text-xs" style={{ color: 'rgba(147,197,253,0.7)' }}>(serve at room temperature)</span>
                         </label>
                       </div>
                     </div>
@@ -3665,16 +3709,16 @@ export default function MenuPage() {
               ))}
             </div>
 
-            <div className="border-t border-[#FFCDB8] p-4 bg-[#FFF5F0]">
+            <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-sm text-[#FF4F00]">Total</p>
-                  <p className="text-2xl font-bold text-[#662000]">{tempFormatCurrency(cartTotal)}</p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--cream)' }}>{tempFormatCurrency(cartTotal)}</p>
                 </div>
                 <button
                   onClick={confirmOrder}
                   disabled={submittingOrder || cart.length === 0}
-                  className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF7A3D] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {submittingOrder ? (
                     <>
@@ -3698,7 +3742,7 @@ export default function MenuPage() {
       {cart.length > 0 && (
         <button
           onClick={toggleCart}
-          className="fixed bottom-6 right-6 z-50 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:from-blue-700 hover:to-indigo-800 hover:scale-110 active:scale-95 transition-all duration-200 animate-bounce-once"
+          className="fixed bottom-24 right-6 z-50 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:from-blue-700 hover:to-indigo-800 hover:scale-110 active:scale-95 transition-all duration-200 animate-bounce-once"
           style={{ 
             animation: 'bounceOnce 0.5s ease-out',
             boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5), 0 10px 10px -5px rgba(79, 70, 229, 0.2)'
@@ -3843,93 +3887,33 @@ export default function MenuPage() {
           )}
         </div>
       )}
-      {/* Service — rate/comment & tip (visible after ≥1 confirmed order; not on a closed tab) */}
-      {crewMember && tab?.status !== 'closed' && (() => {
-        const confirmed = orders.filter((o: any) => o.status === 'confirmed');
-        if (confirmed.length === 0) return null;
-        const confirmedTotal = confirmed.reduce((s: number, o: any) => s + (parseFloat(o.total || 0) || 0), 0);
-        // Quick tip amounts: 2% / 3% / 5% of the confirmed total, rounded to the
-        // nearest Ksh 50 (unique, > 0).
-        const tipOptions = [0.02, 0.03, 0.05]
-          .map((p) => Math.round((confirmedTotal * p) / 50) * 50)
-          .filter((v) => v > 0)
-          .filter((v, i, arr) => arr.indexOf(v) === i);
-        return (
-        <div className="p-4">
-          <div className="mb-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SERVICE</h2>
-            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Rate {crewMember.display_name} or leave a tip — anytime before you leave.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => setShowRatingModal(true)}
-              style={{ padding: '0.85rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: 'var(--cream)' }}
-            >
-              <Star size={16} style={{ color: 'var(--amber)' }} />
-              Rate service or leave a comment
-            </button>
-            <button
-              onClick={() => setShowTipSection((s) => !s)}
-              style={{ padding: '0.85rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--amber)', border: 'none', color: '#1a1a2e' }}
-            >
-              {showTipSection ? 'Hide tipping' : `Tip ${crewMember.display_name}`}
-            </button>
-            {showTipSection && (
-              <>
-                <CrewTipButton
-                  crewName={crewMember.display_name}
-                  presetAmounts={tipOptions}
-                  onTip={async (amount) => {
-                    const { data: sessionData } = await supabase.auth.getSession()
-                    const accessToken = sessionData.session?.access_token
-                    const res = await fetch('/api/crew/tip', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
-                      body: JSON.stringify({
-                        crew_member_id: crewMember.id,
-                        tab_id: tab?.id,
-                        amount,
-                      }),
-                    })
-                    const data = await res.json()
-                    if (!res.ok) throw new Error(data.error || 'Failed to process tip')
-                    pushLog('tip')
-                    showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` })
-                  }}
-                />
-              </>
-            )}
-          </div>
-        </div>
-        );
-      })()}
       
       {balance === 0 && orders.filter(order => order.status === 'confirmed').length > 0 && (
-        <div className="bg-white p-4">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">All Paid! 🎉</h2>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-4 text-center">
+        <div className="p-4">
+          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--cream)' }}>All Paid! 🎉</h2>
+          <div className="rounded-xl p-6 mb-4 text-center" style={{ backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}>
             <div className="text-5xl mb-3">✓</div>
-            <p className="text-lg font-bold text-green-800 mb-2">Your tab is fully paid!</p>
-            <p className="text-sm text-gray-600">You can close your tab or continue ordering</p>
+            <p className="text-lg font-bold mb-2" style={{ color: '#34d399' }}>Your tab is fully paid!</p>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>You can close your tab or continue ordering</p>
           </div>
           <div className="space-y-3">
             <button
               onClick={() => handleCloseTab()}
-              className="w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
+              className="w-full text-white py-4 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#16a34a' }}
             >
               <CheckCircle size={20} />
               Close My Tab
             </button>
             <button
               onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="w-full bg-gray-200 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-300"
+              className="w-full py-4 rounded-xl font-semibold"
+              style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--cream)' }}
             >
               Order More Food
             </button>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-4">
+          <p className="text-xs text-center mt-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
             💡 Tip: Close your tab when you're done to avoid confusion on your next visit
           </p>
         </div>
@@ -4416,6 +4400,11 @@ export default function MenuPage() {
       orders={orders}
       payment={receiptPayment || { id: '', amount: 0, method: '', status: '', timestamp: '' }}
       openedAt={tab?.opened_at ?? ''}
+      crewName={crewMember?.display_name}
+      tipPresets={receiptPayment?.amount ? [0.02, 0.03, 0.05]
+        .map((p) => Math.round((parseFloat(String(receiptPayment.amount)) * p) / 50) * 50)
+        .filter((v, i, arr) => v > 0 && arr.indexOf(v) === i) : undefined}
+      onTip={sendCrewTip}
     />
     </>
   );
