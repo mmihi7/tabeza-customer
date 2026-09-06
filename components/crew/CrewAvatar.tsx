@@ -1,6 +1,6 @@
 'use client'
 
-import { User } from 'lucide-react'
+import { Heart, User } from 'lucide-react'
 
 export interface CrewMember {
   id: string
@@ -11,6 +11,7 @@ export interface CrewMember {
   performance_score?: number
   total_shifts_completed?: number
   average_rating?: number
+  total_likes?: number
 }
 
 interface CrewAvatarProps {
@@ -62,6 +63,12 @@ export default function CrewAvatar({ crew, onOpenProfile }: CrewAvatarProps) {
         }}>
           {crew.display_name}
         </p>
+        {crew.total_likes != null && crew.total_likes > 0 && (
+          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.125rem' }}>
+            <Heart size={10} style={{ color: '#f87171', fill: '#f87171' }} />
+            {crew.total_likes}
+          </p>
+        )}
       </div>
     </>
   )

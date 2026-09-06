@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Bell, LogIn, UserCheck, Settings } from 'lucide-react';
+  Bell, LogIn, UserCheck, Settings, Gift, Tag } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -44,6 +44,36 @@ const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
   }).format(number)}`;
 };
 
+// Human-readable benefit line for a promotion, derived from its type_config.
+const formatPromoBenefit = (promo: any): string => {
+  const cfg = promo?.type_config || {};
+  switch (promo?.type) {
+    case 'discount':
+      return cfg.percentage ? `${cfg.percentage}% off` : 'Percentage off';
+    case 'bogo':
+      return cfg.buy_quantity && cfg.get_quantity
+        ? `Buy ${cfg.buy_quantity} get ${cfg.get_quantity} free`
+        : 'Buy one, get one';
+    case 'fixed_perk':
+      return cfg.perk_name ? `Free ${cfg.perk_name}` : 'A free perk';
+    case 'happy_hour':
+      return cfg.fixed_price ? `${tempFormatCurrency(cfg.fixed_price)} fixed price` : 'Fixed price';
+    case 'random_award':
+      return 'Enjoy a surprise on us';
+    default:
+      return promo?.name || 'Special offer';
+  }
+};
+
+const PromoChip = () => (
+  <span
+    className="inline-block ml-1.5 rounded px-1.5 py-0.5 align-middle text-[0.6rem] font-bold uppercase"
+    style={{ backgroundColor: 'rgba(255,79,0,0.18)', color: '#FFB084', border: '1px solid rgba(255,79,0,0.4)' }}
+  >
+    Promo
+  </span>
+);
+
 export const dynamic = 'force-dynamic';
 
 // Guard against missing Supabase client during build
@@ -65,6 +95,7 @@ interface BarProduct {
   product_id: string;
   sale_price: number;
   active: boolean;
+  is_promo?: boolean;
   product?: Product;
 }
 
@@ -119,7 +150,6 @@ export default function MenuPage() {
   }, [authLoading, user, router]);
   
   // State declarations
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('Your Tab');
@@ -296,7 +326,7 @@ export default function MenuPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSlideshowPlaying, setIsSlideshowPlaying] = useState(false);
 
-  const [averageResponseTime, setAverageResponseTime] = useState<number | null>(null);
+  const [averageResponseTime, setAverageResponseTime] = useState<string | null>(null);
   const [responseTimeLoading, setResponseTimeLoading] = useState(false);
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
@@ -318,8 +348,23 @@ export default function MenuPage() {
   const [promosLoading, setPromosLoading] = useState(false);
   const [redeemingPromoId, setRedeemingPromoId] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+  // Already-redeemed promos on this tab (for the Activity notice board).
+  const [redemptions, setRedemptions] = useState<any[]>([]);
+  // Promo modal open state + the applied promo discount on the cart.
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [redeemedPromo, setRedeemedPromo] = useState<{ id: string; name: string; percentage: number } | null>(null);
   
   const drinkCategories = ['Beer & Cider', 'Wine & Champagne', 'Spirits', 'Liqueurs & Specialty', 'Non-Alcoholic'];
+
+  // Venue-defined drink categories (bar_categories kind='drink') extend the
+  // static list so staff-created drink categories classify correctly.
+  const drinkCategorySet = useMemo(
+    () => new Set([
+      ...drinkCategories,
+      ...barCategories.filter((c) => c.kind === 'drink').map((c) => c.name),
+    ]),
+    [barCategories, drinkCategories]
+  );
   const loadAttempted = useRef(false);
 
   // Refs for scrolling
@@ -403,18 +448,18 @@ export default function MenuPage() {
   }, []);
 
   const isDrinkItem = useCallback((item: any): boolean => {
-    return item.category ? drinkCategories.includes(item.category) : false;
-  }, []);
+    return item.category ? drinkCategorySet.has(item.category) : false;
+  }, [drinkCategorySet]);
 
   const isDrinkProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
-    return drinkCategories.includes(product.category);
-  }, []);
+    return drinkCategorySet.has(product.category);
+  }, [drinkCategorySet]);
 
   const isFoodProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
-    return !drinkCategories.includes(product.category);
-  }, []);
+    return !drinkCategorySet.has(product.category);
+  }, [drinkCategorySet]);
 
   const isCocktailProduct = useCallback((product: any): boolean => {
     if (!product?.category) return false;
@@ -480,18 +525,16 @@ export default function MenuPage() {
         includeOrders: true
       });
       
-      if (result.error) {
-        console.error('❌ [CUSTOMER] Error calculating response time:', result.error);
+      if (result.error || !result.sampleCount) {
+        console.error('❌ [CUSTOMER] Error/no data calculating response time:', result.error ?? 'no samples');
         setAverageResponseTime(null);
         return;
       }
-      
-      const roundedAvg = Math.round(result.averageMinutes);
-      setAverageResponseTime(roundedAvg);
+
+      setAverageResponseTime(formatResponseTime(result.averageMinutes));
       
       console.log('✅ [CUSTOMER] Average response time calculated:', {
         average: result.formattedString,
-        roundedMinutes: roundedAvg,
         totalSamples: result.sampleCount,
         breakdown: result.breakdown
       });
@@ -642,6 +685,26 @@ export default function MenuPage() {
     return () => clearInterval(timer);
   }, [fetchEligiblePromos]);
 
+  // Fetch the promos already redeemed on this tab (activity notice board).
+  const fetchRedemptions = useCallback(async () => {
+    if (!tab?.id) {
+      setRedemptions([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/promotions/redemptions?tabId=${encodeURIComponent(tab.id)}`);
+      if (!res.ok) return;
+      const body = await res.json();
+      setRedemptions(body.redemptions ?? []);
+    } catch (err) {
+      console.error('Failed to fetch redemptions:', err);
+    }
+  }, [tab?.id]);
+
+  useEffect(() => {
+    fetchRedemptions();
+  }, [fetchRedemptions]);
+
   const handleRedeemPromo = useCallback(async (promotion: any) => {
     if (!tab?.customer_id || !tab?.bar_id || !tab?.id) return;
     setRedeemingPromoId(promotion.id);
@@ -661,8 +724,15 @@ export default function MenuPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? 'Failed to redeem promotion');
       }
-      // Refresh so the redeemed promo disappears from the list.
-      await fetchEligiblePromos();
+      // Apply the promo discount to the cart (effects the offer at checkout).
+      const pct = Number(promotion?.type_config?.percentage) || 0;
+      if (pct > 0) {
+        setRedeemedPromo({ id: promotion.id, name: promotion.name, percentage: pct });
+      }
+      // Refresh: the redeemed promo leaves the eligible list, and appears in
+      // the activity notice board.
+      await Promise.all([fetchEligiblePromos(), fetchRedemptions()]);
+      setShowPromoModal(false);
       showToast({ type: 'success', title: 'Redeemed!', message: `${promotion.name} is now yours — enjoy!` });
     } catch (err) {
       setPromoError(err instanceof Error ? err.message : 'Failed to redeem promotion');
@@ -670,7 +740,7 @@ export default function MenuPage() {
     } finally {
       setRedeemingPromoId(null);
     }
-  }, [tab?.customer_id, tab?.bar_id, tab?.id, fetchEligiblePromos, showToast]);
+  }, [tab?.customer_id, tab?.bar_id, tab?.id, fetchEligiblePromos, fetchRedemptions, showToast]);
 
   // Real-time subscription handlers
   const handleOrderUpdate = useCallback((payload: any) => {
@@ -1517,7 +1587,7 @@ export default function MenuPage() {
         try {
           const { data: barProductsData, error: barProductsError } = await supabase
             .from('bar_products')
-            .select('id, bar_id, product_id, custom_product_id, name, description, category, image_url, sale_price, active')
+            .select('id, bar_id, product_id, custom_product_id, name, description, category, image_url, sale_price, active, is_promo')
             .eq('bar_id', (fullTab as any).bar.id)
             .eq('active', true);
 
@@ -1530,6 +1600,7 @@ export default function MenuPage() {
               product_id: bp.product_id || bp.custom_product_id,
               sale_price: bp.sale_price,
               active: bp.active,
+              is_promo: bp.is_promo === true,
               product: {
                 id: bp.product_id || bp.custom_product_id,
                 name: bp.name,
@@ -2235,6 +2306,12 @@ export default function MenuPage() {
 
   // Computed values
   const cartTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), [cart]);
+  // Promo discount (percentage off order total) when a promo was redeemed.
+  const promoDiscountAmount = useMemo(
+    () => (redeemedPromo?.percentage && redeemedPromo.percentage > 0 ? (cartTotal * redeemedPromo.percentage) / 100 : 0),
+    [redeemedPromo?.percentage, cartTotal]
+  );
+  const cartTotalAfterPromo = useMemo(() => Math.max(0, cartTotal - promoDiscountAmount), [cartTotal, promoDiscountAmount]);
   const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const pendingStaffOrders = useMemo(() => orders.filter(o => o.status === 'pending' && o.initiated_by === 'staff').length, [orders]);
 
@@ -2749,7 +2826,7 @@ export default function MenuPage() {
             {averageResponseTime !== null && !responseTimeLoading && (
               <div className="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
                 <Clock size={14} />
-                ~{averageResponseTime}m response
+                ~{averageResponseTime} response
               </div>
             )}
             {responseTimeLoading && (
@@ -2782,10 +2859,15 @@ export default function MenuPage() {
           <div className="flex items-center justify-between gap-3">
             {venueControls.showCustomerPromos && (
               <button 
-                onClick={() => promoRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+                onClick={() => setShowPromoModal(true)}
+                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
               >
                 Promo
+                {eligiblePromos.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-bold leading-none shadow bg-[#FF4F00] text-white">
+                    {eligiblePromos.length}
+                  </span>
+                )}
               </button>
             )}
             {venueControls.showCustomerMenu && (
@@ -2860,63 +2942,10 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Live Promotions — scroll target for the Promo button; known customers only */}
-      <div ref={promoRef} className="px-4 mb-4">
-        {venueControls.showCustomerPromos && (
-          <>
-            <div className="mb-3">
-              <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>OFFERS FOR YOU</h2>
-            </div>
-            {promosLoading && eligiblePromos.length === 0 ? (
-              <div className="rounded-lg p-4 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-xs" style={{ color: 'var(--muted)' }}>Loading offers…</p>
-              </div>
-            ) : eligiblePromos.length === 0 ? (
-              // No live offers — nothing shown; the Promo button simply scrolls to the activity log below.
-              null
-            ) : (
-              <div className="space-y-2">
-                {promoError && (
-                  <p className="text-xs" style={{ color: '#f87171' }}>{promoError}</p>
-                )}
-                {eligiblePromos.map((promo: any) => (
-                  <div
-                    key={promo.id}
-                    className="rounded-lg p-4 flex items-center justify-between gap-3"
-                    style={{ backgroundColor: 'rgba(255,79,0,0.08)', border: '1px solid rgba(255,79,0,0.25)' }}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--cream)' }}>
-                        {promo.name}
-                      </p>
-                      {promo.type_config?.percentage && (
-                        <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                          {promo.type_config.percentage}% off {promo.applies_to === 'all' ? 'your whole order' : promo.applies_to}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleRedeemPromo(promo)}
-                      disabled={redeemingPromoId === promo.id}
-                      className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity"
-                      style={{
-                        backgroundColor: '#FF4F00',
-                        color: 'white',
-                        opacity: redeemingPromoId === promo.id ? 0.6 : 1,
-                      }}
-                    >
-                      {redeemingPromoId === promo.id ? 'Redeeming…' : 'Redeem'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
+      {/* Promo notices live in the Activity Log below; the Promo button opens the modal. */}
+      
       {/* Activity Log — shown across all menu plans */}
-      <div className="px-4 mb-4">
+      <div ref={promoRef} className="px-4 mb-4">
           <div className="mb-3">
             <h2 className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>ACTIVITY</h2>
           </div>
@@ -2932,7 +2961,38 @@ export default function MenuPage() {
                   message: <span className="text-xs" style={{ color: 'var(--muted)' }}>Connected to <span style={{ color: 'var(--cream)' }}>{tab.bar?.name || barName}</span></span>,
                 });
               }
-              
+
+              // Promo notices (passive — no links/actions, just the notice board).
+              // Offered: while a promo is eligible, show a small 'you have an offer' line.
+              eligiblePromos.forEach((promo: any) => {
+                const pct = Number(promo?.type_config?.percentage) || 0;
+                events.push({
+                  id: `promo-offered-${promo.id}`,
+                  time: new Date(),
+                  icon: <Gift size={14} className="text-amber-400" />,
+                  message: (
+                    <span className="text-xs" style={{ color: 'var(--amber)' }}>
+                      {promo.name}{pct > 0 ? ` — ${pct}% off${promo.applies_to === 'all' ? ' your order' : ''}` : ''} is waiting for you
+                    </span>
+                  ),
+                });
+              });
+              // Redeemed: a durable summary of promos already redeemed on this tab.
+              redemptions.forEach((r: any) => {
+                const pct = Number(r?.percentage) || 0;
+                events.push({
+                  id: `promo-redeemed-${r.id}`,
+                  time: new Date(r.redeemed_at),
+                  icon: <Tag size={14} className="text-orange-400" />,
+                  message: (
+                    <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                      You redeemed: <span style={{ color: 'var(--cream)' }}>{r.name}</span>
+                      {pct > 0 ? ` · ${pct}% off your order` : ''}
+                    </span>
+                  ),
+                });
+              });
+
               if (typeof window !== 'undefined') {
                 const alertLog = sessionStorage.getItem(`tab-alerts-${tab?.id}`);
                 if (alertLog) {
@@ -3045,11 +3105,6 @@ export default function MenuPage() {
             })()}
           </div>
         </div>
-
-          {/* Platform customer media advert — auto-playing full-screen interstitial */}
-          {tab?.bar?.id && (
-            <CustomerMediaBox barId={tab.bar.id} />
-          )}
 
           {/* Menu Section */}
       {!venueControls.showCustomerMenu ? (
@@ -3295,6 +3350,7 @@ export default function MenuPage() {
                               >
                                 <span className="text-sm text-gray-100 font-medium truncate flex-1 mr-2">
                                   {bp.product?.name}
+                                  {bp.is_promo && <PromoChip />}
                                 </span>
                                 <div className="flex items-baseline gap-1.5 flex-shrink-0">
                                   {showStrikethrough && (
@@ -3337,6 +3393,7 @@ export default function MenuPage() {
                                 <div className="p-3 flex flex-col gap-0.5">
                                   <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
+                                    {bp.is_promo && <PromoChip />}
                                   </span>
                                   {bp.product?.description && (
                                     <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
@@ -3383,6 +3440,7 @@ export default function MenuPage() {
                                 <div className="p-3 flex flex-col gap-0.5">
                                   <span className="text-gray-100 text-base font-medium leading-tight line-clamp-2">
                                     {bp.product?.name}
+                                    {bp.is_promo && <PromoChip />}
                                   </span>
                                   {bp.product?.description && (
                                     <p className="text-xs text-gray-400 line-clamp-3">{bp.product.description}</p>
@@ -3490,7 +3548,10 @@ export default function MenuPage() {
               className="px-5 pt-4 pb-6 text-center"
               style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)' }}
             >
-              <h3 style={{ color: 'var(--cream)', fontSize: '1.25rem', fontWeight: 700 }}>{p?.name}</h3>
+              <h3 style={{ color: 'var(--cream)', fontSize: '1.25rem', fontWeight: 700 }}>
+                {p?.name}
+                {bp?.is_promo && <PromoChip />}
+              </h3>
               {p?.description && (
                 <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>{p.description}</p>
               )}
@@ -3855,7 +3916,7 @@ export default function MenuPage() {
           </div>
           <div className="space-y-3">
             <button
-              onClick={() => openPayInstructions()}
+              onClick={() => handleCloseTab()}
               className="w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
             >
               <CheckCircle size={20} />
@@ -4186,35 +4247,89 @@ export default function MenuPage() {
       
       {/* Close Tab Section — removed (duplicate of payment success view Close My Tab) */}
       
-      {/* Close Tab Confirmation Modal */}
-      {showCloseConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-3">Close Your Tab?</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to close your tab? You'll need to start a new one if you want to order again later.
-            </p>
-            <div className="flex gap-3">
+      {/* Promo modal */}
+      {showPromoModal && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPromoModal(false)}>
+          <div
+            className="w-full max-w-md rounded-t-2xl p-5 pb-8"
+            style={{ backgroundColor: '#15171c', maxHeight: '75vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Gift size={18} className="text-amber-400" />
+                Offers for you
+              </h2>
               <button
-                onClick={() => setShowCloseConfirm(false)}
-                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300"
+                onClick={() => setShowPromoModal(false)}
+                className="p-1.5 rounded-full hover:bg-white/10"
+                aria-label="Close promotions"
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowCloseConfirm(false);
-                  handleCloseTab();
-                }}
-                className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold hover:bg-green-600"
-              >
-                Close Tab
+                <X size={18} style={{ color: 'rgba(255,255,255,0.7)' }} />
               </button>
             </div>
+
+            {redeemedPromo && (
+              <div className="mb-3 rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                <p className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <CheckCircle size={14} />
+                  {redeemedPromo.name} applied — {redeemedPromo.percentage}% off your order.
+                </p>
+              </div>
+            )}
+
+            {promoError && (
+              <div className="mb-3 rounded-xl p-3 text-sm" style={{ backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                <p className="font-semibold" style={{ color: '#fca5a5' }}>{promoError}</p>
+              </div>
+            )}
+
+            {promosLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400"></div>
+              </div>
+            ) : eligiblePromos.length === 0 ? (
+              <div className="text-center py-12">
+                <Gift size={28} className="mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>No active offers right now — check back soon.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {eligiblePromos.map((promo: any) => (
+                  <div key={promo.id} className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white text-sm">{promo.name}</p>
+                        {promo.description ? (
+                          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{promo.description}</p>
+                        ) : null}
+                        <p className="text-xs mt-1.5 font-medium text-amber-400">
+                          <Tag size={12} className="inline mr-1" />
+                          {formatPromoBenefit(promo)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleRedeemPromo(promo)}
+                        disabled={redeemingPromoId === promo.id}
+                        className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: '#FF4F00', color: 'white', border: 'none', cursor: redeemingPromoId === promo.id ? 'default' : 'pointer' }}
+                      >
+                        {redeemingPromoId === promo.id ? 'Applying…' : 'Redeem'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
-      
+
+      {/* Platform customer media advert — bottom placement on the menu page */}
+      {tab?.bar?.id && (
+        <CustomerMediaBox barId={tab.bar.id} />
+      )}
+
       {/* Table Selection Modal */}
       {showTableModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
