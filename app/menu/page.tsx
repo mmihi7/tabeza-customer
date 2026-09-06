@@ -2790,7 +2790,7 @@ export default function MenuPage() {
           🧪 M-Pesa Mock Mode Active - Payments will be simulated
         </div>
       )}
-      <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 96 }}>
+      <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 120 }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
         <div className="px-4 py-3 border-b border-white border-opacity-20">
@@ -2869,79 +2869,18 @@ export default function MenuPage() {
                 />
               </div>
             )}
-            <button
-              onClick={() => router.push('/settings')}
-              className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors"
-              title="Settings"
-            >
-              <Settings size={18} />
-            </button>
-          </div>
-        </div>
-        
-        <div className="px-4 py-2.5">
-          <div className="flex items-center justify-between gap-3">
-            {venueControls.showCustomerPromos && (
-              <button 
-                onClick={() => setShowPromoModal(true)}
-                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all relative"
-              >
-                Promo
-                {eligiblePromos.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-bold leading-none shadow bg-[#FF4F00] text-white">
-                    {eligiblePromos.length}
-                  </span>
-                )}
-              </button>
-            )}
-            {venueControls.showCustomerMenu && (
-              <button 
-                onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-                className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-              >
-                Menu
-              </button>
-            )}
-            <button 
-              onClick={() => orders.length > 0 && ordersRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              disabled={orders.length === 0}
-              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all relative ${
-                orders.length === 0
-                  ? 'opacity-40 cursor-not-allowed'
-                  : 'bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30'
-              }`}
-            >
-              Orders
-              {(pendingStaffOrders > 0 || pendingOrderTime !== null) && (
-                <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold leading-none shadow ${
-                  pendingStaffOrders > 0 ? 'bg-yellow-400 text-gray-900' : 'bg-white text-red-600'
-                }`}>
-                  {pendingStaffOrders > 0 ? pendingStaffOrders : '!'}
-                </span>
-              )}
-            </button>
-            <button 
-              onClick={() => balance > 0 && paymentRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              disabled={balance <= 0 && tabTotal <= 0}
-              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                (balance <= 0 && tabTotal <= 0)
-                  ? 'opacity-40 cursor-not-allowed'
-                  : 'bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30'
-              }`}
-            >
-              Pay
-            </button>
+
           </div>
         </div>
       </div>
 
-      {/* Crew + Call button — docked to the bottom with breathing space + parallax */}
+      {/* Crew + Call button — docked above the bottom nav footer + parallax */}
       <div
         style={{
           position: 'fixed',
           left: 12,
           right: 12,
-          bottom: 12,
+          bottom: 84,
           zIndex: 40,
           transform: `translateY(${waiterParallax}px)`,
           borderRadius: '1rem',
@@ -2985,6 +2924,136 @@ export default function MenuPage() {
           <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
         </button>
       </div>
+
+      {/* Bottom navigation — fixed icon bar */}
+      <nav
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 50,
+          background: 'rgba(12,12,22,0.96)',
+          borderTop: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: '0 -6px 24px rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          paddingTop: '0.5rem',
+          paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-around',
+        }}
+      >
+        {venueControls.showCustomerPromos && (
+          <button
+            onClick={() => setShowPromoModal(true)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0.75rem',
+              flex: 1, color: 'rgba(255,255,255,0.85)', position: 'relative',
+            }}
+          >
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              <Gift size={22} />
+              {eligiblePromos.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -6, minWidth: 16, height: 16, padding: '0 3px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999,
+                  fontSize: 10, fontWeight: 700, lineHeight: 1, background: '#FF4F00', color: '#fff',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                }}>
+                  {eligiblePromos.length}
+                </span>
+              )}
+            </span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Promo</span>
+          </button>
+        )}
+        {venueControls.showCustomerMenu && (
+          <button
+            onClick={() => menuRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0.75rem',
+              flex: 1, color: 'rgba(255,255,255,0.85)',
+            }}
+          >
+            <Utensils size={22} />
+            <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Menu</span>
+          </button>
+        )}
+        <button
+          onClick={() => orders.length > 0 && ordersRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          disabled={orders.length === 0}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+            background: 'none', border: 'none', cursor: orders.length === 0 ? 'not-allowed' : 'pointer',
+            padding: '0.25rem 0.75rem', flex: 1,
+            color: orders.length === 0 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)',
+            position: 'relative',
+          }}
+        >
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <ShoppingCart size={22} />
+            {(pendingStaffOrders > 0 || pendingOrderTime !== null) && (
+              <span style={{
+                position: 'absolute', top: -4, right: -6, minWidth: 14, height: 14, padding: '0 2px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999,
+                fontSize: 9, fontWeight: 700, lineHeight: 1,
+                background: pendingStaffOrders > 0 ? '#FBBF24' : '#fff',
+                color: pendingStaffOrders > 0 ? '#111827' : '#DC2626',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+              }}>
+                {pendingStaffOrders > 0 ? pendingStaffOrders : '!'}
+              </span>
+            )}
+          </span>
+          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Orders</span>
+        </button>
+        <button
+          onClick={() => balance > 0 && paymentRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          disabled={balance <= 0 && tabTotal <= 0}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+            background: 'none', border: 'none', cursor: (balance <= 0 && tabTotal <= 0) ? 'not-allowed' : 'pointer',
+            padding: '0.25rem 0.75rem', flex: 1,
+            color: (balance <= 0 && tabTotal <= 0) ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)',
+          }}
+        >
+          <CreditCard size={22} />
+          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Pay</span>
+        </button>
+        <button
+          onClick={() => router.push('/settings')}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0.75rem',
+            flex: 1, color: 'rgba(255,255,255,0.85)',
+          }}
+        >
+          <Settings size={22} />
+          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Settings</span>
+        </button>
+      </nav>
+  
+      {/* Platform customer media advert — permanent fixed banner above footer */}
+      {tab?.bar?.id && (
+        <div
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 140,
+            zIndex: 45,
+            pointerEvents: 'none',
+          }}
+        >
+          <div className="px-2">
+            <CustomerMediaBox barId={tab.bar.id} />
+          </div>
+        </div>
+      )}
 
       {/* Promo notices live in the Activity Log below; the Promo button opens the modal. */}
       
@@ -4316,11 +4385,6 @@ export default function MenuPage() {
             )}
           </div>
         </div>
-      )}
-
-      {/* Platform customer media advert — bottom placement on the menu page */}
-      {tab?.bar?.id && (
-        <CustomerMediaBox barId={tab.bar.id} />
       )}
 
       {/* Table Selection Modal */}
