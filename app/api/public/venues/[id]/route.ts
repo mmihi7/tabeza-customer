@@ -35,14 +35,35 @@ export async function GET(
         .select(
           'id, name, address, location, area, latitude, longitude, ' +
           'logo_url, phone, business_hours_simple, business_hours_mode, ' +
-          'qr_code_url, show_customer_menu, menu_plan'
+          'qr_code_url, show_customer_menu, menu_plan, venue_plan'
         )
         .eq('id', id)
         .single();
 
       if (barError || !bar) return null;
 
-      const menuLimit = bar.menu_plan === 'standard' ? 30 : 15;
+      // The cap is SYSTEM-determined: MIN(platform_settings.max_menu_products,
+      // venue_plans[venue_plan].max_menu_products). The legacy bars.menu_plan
+      // flag is retired and no longer drives the limit.
+      const { data: platformSetting } = await db
+        .from('platform_settings')
+        .select('max_menu_products')
+        .eq('id', 1)
+        .maybeSingle();
+      const platformMax = platformSetting?.max_menu_products ?? 50;
+
+      let planMax: number | null = null;
+      if (bar.venue_plan) {
+        const { data: plan } = await db
+          .from('venue_plans')
+          .select('max_menu_products')
+          .eq('id', bar.venue_plan)
+          .maybeSingle();
+        if (plan && typeof plan.max_menu_products === 'number') {
+          planMax = plan.max_menu_products;
+        }
+      }
+      const menuLimit = planMax == null ? platformMax : Math.min(platformMax, planMax);
       const { data: menu } = await db
         .from('bar_products')
         .select('id, name, description, category, image_url, sale_price, is_promo')
