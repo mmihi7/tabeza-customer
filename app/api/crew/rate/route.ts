@@ -46,20 +46,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tab not found' }, { status: 404 })
   }
 
-  if (tab.status !== 'closed' && tab.status !== 'paid') {
-    return NextResponse.json({ error: 'Can only rate after tab is closed or paid' }, { status: 400 })
+  if (!['open', 'pending', 'closed', 'paid'].includes(tab.status as string)) {
+    return NextResponse.json({ error: 'This tab is no longer rateable' }, { status: 400 })
   }
 
-  // Check for existing rating — use any cast since table may not be in types yet
+  // Check for an existing reaction — one like/review per crew member per tab.
   const { data: existingRating } = await (supabase as any)
     .from('customer_crew_ratings')
     .select('id')
     .eq('customer_id', customer.id)
+    .eq('crew_member_id', crew_member_id)
     .eq('tab_id', tab_id)
-    .single()
+    .maybeSingle()
 
   if (existingRating) {
-    return NextResponse.json({ error: 'You have already rated this tab' }, { status: 409 })
+    return NextResponse.json({ error: 'You have already rated this crew member on this tab' }, { status: 409 })
   }
 
   const { data: ratingRecord, error: ratingError } = await (supabase as any)

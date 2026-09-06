@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Bell, LogIn, UserCheck, Settings, Gift, Tag } from 'lucide-react';
+  Bell, LogIn, UserCheck, Settings, Gift, Tag, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -22,7 +22,7 @@ import MessagePanel from './MessagePanel';
 import { ReceiptModal } from '@/components/ReceiptModal';
 import { playCustomerNotification } from '@/lib/notifications'; 
 import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
-import { CrewAvatar, CrewRatingModal, CrewProfileView, type CrewMember } from '@/components/crew';
+import { CrewAvatar, CrewRatingModal, CrewProfileView, VenueCrewModal, type CrewMember } from '@/components/crew';
 import CustomerMediaBox from '@/components/CustomerMediaBox';
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -157,6 +157,7 @@ export default function MenuPage() {
   const [crewMember, setCrewMember] = useState<CrewMember | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showProfileView, setShowProfileView] = useState(false);
+  const [showCrewModal, setShowCrewModal] = useState(false);
   const [showPayInstructions, setShowPayInstructions] = useState(false);
 
   // Local activity log (alerts, tips, ratings) — persisted to sessionStorage so
@@ -233,6 +234,38 @@ export default function MenuPage() {
     pushLog('tip');
     showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crewMember.display_name}` });
   };
+
+  // Tip / rate any crew member surfaced in the venue crew modal (manager, chef,
+  // assigned waiter…). Reuses the same API routes as the tab-level flows.
+  const sendTipTo = useCallback(async (crew: { id: string; display_name: string }, amount: number) => {
+    if (!tab?.id) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const res = await fetch('/api/crew/tip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
+      body: JSON.stringify({ crew_member_id: crew.id, tab_id: tab.id, amount }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to process tip');
+    pushLog('tip');
+    showToast({ type: 'success', title: 'Tip sent!', message: `You tipped KES ${amount} to ${crew.display_name}` });
+  }, [tab?.id, pushLog, showToast]);
+
+  const rateCrewMember = useCallback(async (crew: { id: string; display_name: string }, rating: number, comment?: string) => {
+    if (!tab?.id) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const res = await fetch('/api/crew/rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
+      body: JSON.stringify({ crew_member_id: crew.id, tab_id: tab.id, rating, comment }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to submit rating');
+    pushLog('rate');
+    showToast({ type: 'success', title: 'Rating submitted!', message: `Thank you for rating ${crew.display_name}` });
+  }, [tab?.id, pushLog, showToast]);
 
   const [barProducts, setBarProducts] = useState<BarProduct[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -2846,7 +2879,8 @@ export default function MenuPage() {
                 )}
               </div>
             </div>
-            
+
+            <div className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
             {averageResponseTime !== null && !responseTimeLoading && (
               <div className="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
                 <Clock size={14} />
@@ -2869,6 +2903,17 @@ export default function MenuPage() {
                 />
               </div>
             )}
+
+            <button
+              onClick={() => router.push('/settings')}
+              className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors flex items-center justify-center"
+              title="Settings"
+              aria-label="Settings"
+              style={{ flexShrink: 0 }}
+            >
+              <Settings size={18} />
+            </button>
+            </div>
 
           </div>
         </div>
@@ -3025,15 +3070,23 @@ export default function MenuPage() {
           <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Pay</span>
         </button>
         <button
-          onClick={() => router.push('/settings')}
+          onClick={() => setShowCrewModal(true)}
           style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
             background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0.75rem',
-            flex: 1, color: 'rgba(255,255,255,0.85)',
+            flex: 1, color: 'rgba(255,255,255,0.85)', position: 'relative',
           }}
         >
-          <Settings size={22} />
-          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Settings</span>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <Users size={22} />
+            {(crewMember || null) && (
+              <span style={{
+                position: 'absolute', top: -2, right: -4, width: 8, height: 8, borderRadius: '50%',
+                background: '#22c55e', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              }} />
+            )}
+          </span>
+          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Crew</span>
         </button>
       </nav>
   
@@ -4460,6 +4513,17 @@ export default function MenuPage() {
       isOpen={showProfileView}
       onClose={() => setShowProfileView(false)}
       crewId={crewMember?.id || ''}
+    />
+
+    {/* Venue Crew modal — meet the team (manager, chef, assigned waiter…) */}
+    <VenueCrewModal
+      isOpen={showCrewModal}
+      onClose={() => setShowCrewModal(false)}
+      barId={tab?.bar?.id || (tab as any)?.bar_id}
+      venueName={tab?.bar?.name || barName}
+      assignedCrew={crewMember}
+      onTip={sendTipTo}
+      onRate={rateCrewMember}
     />
 
     <ReceiptModal
