@@ -44,24 +44,36 @@ const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
   }).format(number)}`;
 };
 
-// Pulls a short, human subject (item / order scope) out of a promotion so the
-// benefit line reads specifically rather than vaguely. Prefers an explicit
-// description, then the promo name (stripping leading "buy/get" wording), then
-// the applies_to scope.
+// Pulls a short, human subject (the actual item / scope) out of a promotion so
+// the benefit line reads specifically. Returns '' unless a real noun remains:
+// offer jargon like "3 for 1", "buy 3 get 1", "2 free", "50% off" is stripped
+// so the benefit never repeats itself (e.g. "Buy 3, get 1 free on 3 for 1").
 const promoSubject = (promo: any): string => {
-  const desc = (promo?.description || '').trim();
-  if (desc) {
-    const cleaned = desc.replace(/\s*\d+\s*(free|off|%)\s*/i, '').trim();
-    if (cleaned) return cleaned.slice(0, 48);
-  }
-  const name = (promo?.name || '').trim();
-  const shortName = name
-    .replace(/^(buy\s+\d+\s+get\s+\d+|buy\s+one\s+get\s+one)\s+/i, '')
-    .replace(/^\d+\s*(free|off)\s*/i, '')
-    .trim();
-  if (shortName) return shortName.slice(0, 48);
-  if (promo?.applies_to && promo.applies_to !== 'all') {
-    return String(promo.applies_to).toLowerCase();
+  const candidates = [
+    promo?.type_config?.free_item,
+    promo?.message_template?.free_item,
+    promo?.description,
+    promo?.name,
+    promo?.applies_to && promo.applies_to !== 'all' ? promo.applies_to : '',
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+
+  for (const raw of candidates) {
+    const cleaned = raw
+      .replace(/buy\s+\d+\s+get\s+\d+/gi, ' ')
+      .replace(/buy\s+one\s+get\s+one/gi, ' ')
+      .replace(/\b\d+\s+for\s+\d+\b/gi, ' ')
+      .replace(/\b\d+\s*[+x×]\s*\d+\b/gi, ' ')
+      .replace(/\b\d+\s*free\b/gi, ' ')
+      .replace(/\b\d+%?\s*off\b/gi, ' ')
+      .replace(/\bpercent|percentage\b/gi, ' ')
+      .replace(/\bfor\s+(the\s+)?one\b|\bfor\s+1\b/gi, ' ')
+      .replace(/\bon\s+us\b|\bon\s+the\s+house\b|\bfree\b/gi, ' ')
+      .replace(/^\s*on\s+/i, ' ')
+      .replace(/^\s*(?:welcome|first\s*visit|house|special|grand\s*opening|save|deal|offer|promo|surprise|bonus|new|super)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const meaningful = cleaned.replace(/[^a-zA-Z]/g, '');
+    if (meaningful.length >= 3) return cleaned.slice(0, 48);
   }
   return '';
 };
@@ -79,11 +91,10 @@ const formatPromoBenefit = (promo: any): string => {
     case 'bogo': {
       const buy = cfg.buy_quantity;
       const get = cfg.get_quantity;
-      if (!buy || !get) return 'Buy one, get one free';
+      if (!buy || !get) return 'Buy one, get one free on your favourite drink';
       const subject = promoSubject(promo);
-      return subject
-        ? `Buy ${buy}, get ${get} free on ${subject}`
-        : `Buy ${buy}, get ${get} free`;
+      if (subject) return `Buy ${buy}, get ${get} free on ${subject}`;
+      return `Buy ${buy} of your favourite drinks, get ${get} free`;
     }
     case 'fixed_perk':
       return cfg.perk_name ? `Free ${cfg.perk_name}` : 'A free perk';
