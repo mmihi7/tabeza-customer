@@ -2810,9 +2810,6 @@ export default function MenuPage() {
   }
 
   const parallaxOffset = scrollY * 0.5;
-  // Parallax for the docked waiter/alert bar — drifts up gently (max 18px) as
-  // the page scrolls, making the bar feel attached to the content beneath it.
-  const waiterParallax = Math.max(-18, -(scrollY * 0.04));
 
   return (
     <>
@@ -2917,57 +2914,6 @@ export default function MenuPage() {
 
           </div>
         </div>
-      </div>
-
-      {/* Crew + Call button — docked above the bottom nav footer + parallax */}
-      <div
-        style={{
-          position: 'fixed',
-          left: 12,
-          right: 12,
-          bottom: 84,
-          zIndex: 40,
-          transform: `translateY(${waiterParallax}px)`,
-          borderRadius: '1rem',
-          background: 'rgba(12,12,22,0.92)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          boxShadow: '0 10px 36px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          padding: '0.625rem 0.875rem',
-          paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          justifyContent: crewMember ? 'space-between' : 'flex-end',
-        }}
-      >
-        {crewMember && (
-          <div style={{ flexShrink: 0, minWidth: 0 }}>
-            <CrewAvatar
-              crew={crewMember}
-              onOpenProfile={() => setShowProfileView(true)}
-              onRate={() => setShowRatingModal(true)}
-            />
-          </div>
-        )}
-
-        {/* Call button */}
-        <button
-          onClick={sendWaiterAlert}
-          style={{
-            padding: '0.625rem 1rem', borderRadius: '0.75rem',
-            background: '#FF4F00', border: 'none',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-            flexShrink: 0,
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
-        >
-          <Bell size={16} style={{ color: 'white' }} />
-          <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
-        </button>
       </div>
 
       {/* Bottom navigation — fixed icon bar */}
@@ -3090,24 +3036,6 @@ export default function MenuPage() {
         </button>
       </nav>
   
-      {/* Platform customer media advert — permanent fixed banner above footer */}
-      {tab?.bar?.id && (
-        <div
-          style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 140,
-            zIndex: 45,
-            pointerEvents: 'none',
-          }}
-        >
-          <div className="px-2">
-            <CustomerMediaBox barId={tab.bar.id} />
-          </div>
-        </div>
-      )}
-
       {/* Promo notices live in the Activity Log below; the Promo button opens the modal. */}
       
       {/* Activity Log — shown across all menu plans */}
@@ -3558,7 +3486,7 @@ export default function MenuPage() {
                               >
                                 <div className="w-full aspect-[3/2] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <Martini size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
@@ -3605,7 +3533,7 @@ export default function MenuPage() {
                               >
                                 <div className="w-full aspect-[3/2] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
-                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
+                                    <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <Package size={32} style={{ color: 'rgba(255,255,255,0.18)' }} />
@@ -3646,6 +3574,50 @@ export default function MenuPage() {
           )}
         </div>
       )}
+
+      {/* Crew + Call button — below the menu categories */}
+      <div className="px-4">
+        <div
+          style={{
+            borderRadius: '1rem',
+            background: 'rgba(12,12,22,0.92)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            boxShadow: '0 10px 36px rgba(0,0,0,0.5)',
+            padding: '0.625rem 0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            justifyContent: crewMember ? 'space-between' : 'flex-end',
+          }}
+        >
+          {crewMember && (
+            <div style={{ flexShrink: 0, minWidth: 0 }}>
+              <CrewAvatar
+                crew={crewMember}
+                onOpenProfile={() => setShowProfileView(true)}
+                onRate={() => setShowRatingModal(true)}
+              />
+            </div>
+          )}
+
+          {/* Call button */}
+          <button
+            onClick={sendWaiterAlert}
+            style={{
+              padding: '0.625rem 1rem', borderRadius: '0.75rem',
+              background: '#FF4F00', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
+          >
+            <Bell size={16} style={{ color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
+          </button>
+        </div>
+      </div>
 
       {/* Two-tap ordering guide — shown once per session */}
       {showMenuTapHint && (
@@ -4481,6 +4453,9 @@ export default function MenuPage() {
           </div>
         </div>
       )}
+
+      {/* Platform customer media advert — last thing before the footer */}
+      {tab?.bar?.id && <CustomerMediaBox barId={tab.bar.id} />}
     </div>
 
     {/* Crew Rating Modal */}

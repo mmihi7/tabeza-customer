@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 
 // Platform-controlled customer media banner.
 //
-// A permanent inline advert banner (NOT full screen):
+// A permanent edge-to-edge advert banner shown as the last thing before the
+// footer (NOT full screen, NOT controllable by the customer):
 //   - media starts automatically (video muted/looping; slideshows advance)
-//   - it is NOT controllable by the customer (no controls, no interactions)
-//   - it fills the full content width with a fixed height (120px),
+//   - it has no rounded corners and bleeds edge to edge
+//   - it fills the full content width with a fixed height (160px),
 //     using object-cover to preserve aspect ratio
 //   - stays visible as long as media exists and the page is open
 //
@@ -66,11 +67,11 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
       style={{
         position: 'relative',
         width: '100%',
-        height: '120px',
+        height: '160px',
         overflow: 'hidden',
         backgroundColor: '#000',
-        borderRadius: '0.5rem',
-        margin: '0.75rem 0',
+        borderRadius: 0,
+        margin: 0,
       }}
     >
       {media.media_type === 'video' ? (
