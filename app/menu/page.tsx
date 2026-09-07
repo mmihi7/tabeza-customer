@@ -3556,7 +3556,7 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                <div className="w-full aspect-[3/2] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
                                   ) : (
@@ -3603,7 +3603,7 @@ export default function MenuPage() {
                                 className="flex flex-col overflow-hidden rounded-xl active:scale-95 transition-transform text-left"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                               >
-                                <div className="w-full aspect-[3/4] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                                <div className="w-full aspect-[3/2] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
                                   {imageUrl ? (
                                     <img src={imageUrl} alt={bp.product?.name} className="w-full h-full object-contain" />
                                   ) : (
