@@ -2820,7 +2820,7 @@ export default function MenuPage() {
           🧪 M-Pesa Mock Mode Active - Payments will be simulated
         </div>
       )}
-      <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 120 }}>
+      <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 285 }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
         <div className="px-4 py-3 border-b border-white border-opacity-20">
@@ -4453,10 +4453,23 @@ export default function MenuPage() {
           </div>
         </div>
       )}
-
-      {/* Platform customer media advert — last thing before the footer */}
-      {tab?.bar?.id && <CustomerMediaBox barId={tab.bar.id} />}
     </div>
+
+    {/* Platform customer media advert — outside the main body, pinned above the footer */}
+    {tab?.bar?.id && (
+      <div
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+          zIndex: 45,
+          pointerEvents: 'none',
+        }}
+      >
+        <CustomerMediaBox barId={tab.bar.id} />
+      </div>
+    )}
 
     {/* Crew Rating Modal */}
     <CrewRatingModal
