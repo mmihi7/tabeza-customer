@@ -44,22 +44,57 @@ const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
   }).format(number)}`;
 };
 
+// Pulls a short, human subject (item / order scope) out of a promotion so the
+// benefit line reads specifically rather than vaguely. Prefers an explicit
+// description, then the promo name (stripping leading "buy/get" wording), then
+// the applies_to scope.
+const promoSubject = (promo: any): string => {
+  const desc = (promo?.description || '').trim();
+  if (desc) {
+    const cleaned = desc.replace(/\s*\d+\s*(free|off|%)\s*/i, '').trim();
+    if (cleaned) return cleaned.slice(0, 48);
+  }
+  const name = (promo?.name || '').trim();
+  const shortName = name
+    .replace(/^(buy\s+\d+\s+get\s+\d+|buy\s+one\s+get\s+one)\s+/i, '')
+    .replace(/^\d+\s*(free|off)\s*/i, '')
+    .trim();
+  if (shortName) return shortName.slice(0, 48);
+  if (promo?.applies_to && promo.applies_to !== 'all') {
+    return String(promo.applies_to).toLowerCase();
+  }
+  return '';
+};
+
 // Human-readable benefit line for a promotion, derived from its type_config.
 const formatPromoBenefit = (promo: any): string => {
   const cfg = promo?.type_config || {};
   switch (promo?.type) {
-    case 'discount':
-      return cfg.percentage ? `${cfg.percentage}% off` : 'Percentage off';
-    case 'bogo':
-      return cfg.buy_quantity && cfg.get_quantity
-        ? `Buy ${cfg.buy_quantity} get ${cfg.get_quantity} free`
-        : 'Buy one, get one';
+    case 'discount': {
+      const subject = promoSubject(promo);
+      const pct = cfg.percentage;
+      if (!pct) return 'Percentage off';
+      return subject ? `${pct}% off ${subject}` : `${pct}% off your order`;
+    }
+    case 'bogo': {
+      const buy = cfg.buy_quantity;
+      const get = cfg.get_quantity;
+      if (!buy || !get) return 'Buy one, get one free';
+      const subject = promoSubject(promo);
+      return subject
+        ? `Buy ${buy}, get ${get} free on ${subject}`
+        : `Buy ${buy}, get ${get} free`;
+    }
     case 'fixed_perk':
       return cfg.perk_name ? `Free ${cfg.perk_name}` : 'A free perk';
     case 'happy_hour':
-      return cfg.fixed_price ? `${tempFormatCurrency(cfg.fixed_price)} fixed price` : 'Fixed price';
-    case 'random_award':
-      return 'Enjoy a surprise on us';
+      return cfg.fixed_price ? `Happy hour — ${tempFormatCurrency(cfg.fixed_price)} fixed price` : 'Fixed price during happy hour';
+    case 'random_award': {
+      const pool = Array.isArray(cfg.drink_pool) && cfg.drink_pool.length
+        ? cfg.drink_pool.slice(0, 2).join(' or ')
+        : '';
+      return pool ? `Free ${pool} on us` : 'Enjoy a surprise on us';
+    }
     default:
       return promo?.name || 'Special offer';
   }
