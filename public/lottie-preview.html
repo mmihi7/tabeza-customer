@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lottie Scene Preview</title>
+<style>
+  body { margin: 0; background: #111; color: #ffedd6; font-family: system-ui, sans-serif; }
+  #wrap { display: flex; flex-direction: column; gap: 24px; padding: 24px; max-width: 780px; margin: 0 auto; }
+  .row { background: #111; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+  .head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; color: #ffa83a; }
+  .stage { position: relative; width: 100%; height: 160px; display: flex; align-items: center; }
+  .scene { width: 150px; height: 150px; flex: 0 0 150px; margin-left: 8px; }
+  .ticks { flex: 1; font-size: 12px; color: #ffedd6; padding: 0 16px; line-height: 1.6; }
+  .ok { color: #6fdc8c; }
+  .bad { color: #ff4f4f; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<script src="/lottie-preview-lottie.min.js"></script>
+<script>
+fetch('/lottie-preview-scenes.json')
+  .then((r) => r.json())
+  .then(scenes => {
+    const wrap = document.getElementById('wrap');
+    for (const [name, data] of Object.entries(scenes)) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML =
+        '<div class="head"><span>' + name + '</span><span class="status">loading…</span></div>' +
+        '<div class="stage"><div class="scene"></div><div class="ticks"></div></div>';
+      wrap.appendChild(row);
+
+      const status = row.querySelector('.status');
+      const ticks = row.querySelector('.ticks');
+      const container = row.querySelector('.scene');
+      let anim;
+      try {
+        anim = lottie.loadAnimation({
+          container,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          animationData: data,
+        });
+        status.textContent = 'loaded, auto-playing';
+        status.className = 'status ok';
+      } catch (e) {
+        status.textContent = 'ERROR: ' + e.message;
+        status.className = 'status bad';
+        ticks.textContent = 'throw during loadAnimation';
+        continue;
+      }
+      const t0 = performance.now();
+      let lastFrame = anim.currentFrame;
+      setInterval(() => {
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+        const frame = anim.currentFrame;
+        const advancing = frame !== lastFrame;
+        lastFrame = frame;
+        ticks.innerHTML = 'elapsed: ' + elapsed + 's &nbsp;|&nbsp; frame: <b>' + frame.toFixed(0) +
+          '/' + anim.totalFrames + '</b> &nbsp;|&nbsp; <span class="' + (advancing ? 'ok' : 'bad') + '">' + (advancing ? 'advancing ✓' : 'STATIC (frame not moving)') + '</span>';
+      }, 500);
+    }
+  })
+  .catch((e) => {
+    document.getElementById('wrap').innerHTML = '<div class="bad">failed to fetch scenes: ' + e.message + '</div>';
+  });
+</script>
+</body>
+</html>
