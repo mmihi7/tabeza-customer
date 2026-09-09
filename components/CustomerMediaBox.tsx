@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import BenefitsCarousel from './tabeza-benefits/BenefitsCarousel';
 
 // Platform-controlled customer media banner.
 //
@@ -22,7 +23,13 @@ interface MediaPayload {
   slide_urls: string[];
 }
 
-export default function CustomerMediaBox({ barId }: { barId: string }) {
+export default function CustomerMediaBox({
+  barId,
+  onActivate,
+}: {
+  barId: string;
+  onActivate?: () => void;
+}) {
   const [media, setMedia] = useState<MediaPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -59,7 +66,13 @@ export default function CustomerMediaBox({ barId }: { barId: string }) {
     return () => clearInterval(t);
   }, [loaded, media]);
 
-  if (!media || !loaded) return null;
+  if (!loaded) return null;
+
+  // No venue media configured → fall back to the Tabeza benefits carousel so
+  // the advert slot is still put to use (it never overrides real media).
+  if (!media) {
+    return <BenefitsCarousel onActivate={onActivate} />;
+  }
 
   return (
     <div

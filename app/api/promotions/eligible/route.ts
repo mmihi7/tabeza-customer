@@ -8,6 +8,10 @@
  * Requires a known (linked/authenticated) customer — anonymous/device-only
  * tabs return an empty list.
  *
+ * Also returns favouriteDrink — the customer's top drink (from
+ * customer_favorites) — so promo copy can name the customer's actual
+ * favourite instead of a verbatim "favourite drinks" phrase.
+ *
  * Results are cached for 30s (Redis, TTL 30s) and invalidated on redemption.
  *
  * Query: ?customerId=xxx&barId=yyy&tabId=zzz
@@ -46,10 +50,25 @@ export async function GET(request: NextRequest) {
         throw error;
       }
 
-      return data ?? [];
+      // Resolve the customer's top favourite drink so promo copy can reference
+      // their actual favourite (a variable) rather than a literal phrase.
+      let favouriteDrink: string | null = null;
+      const { data: favs, error: favError } = await (supabase as any)
+        .from('customer_favorites')
+        .select('item_name, order_count')
+        .eq('customer_id', customerId)
+        .eq('item_type', 'drink')
+        .order('order_count', { ascending: false })
+        .limit(1);
+
+      if (!favError && favs?.length) {
+        favouriteDrink = favs[0].item_name;
+      }
+
+      return { promotions: data ?? [], favouriteDrink };
     });
 
-    return NextResponse.json({ promotions });
+    return NextResponse.json(promotions);
   } catch (error) {
     console.error('[promotions/eligible] unhandled', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

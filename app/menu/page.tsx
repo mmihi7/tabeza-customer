@@ -79,7 +79,10 @@ const promoSubject = (promo: any): string => {
 };
 
 // Human-readable benefit line for a promotion, derived from its type_config.
-const formatPromoBenefit = (promo: any): string => {
+// favouriteDrink is the customer's top favourite drink resolved from
+// customer_favorites — when the promo names no item, the favourite (a
+// variable) stands in so the copy never hardcodes the phrase "favourite drinks".
+const formatPromoBenefit = (promo: any, favouriteDrink?: string): string => {
   const cfg = promo?.type_config || {};
   switch (promo?.type) {
     case 'discount': {
@@ -91,10 +94,13 @@ const formatPromoBenefit = (promo: any): string => {
     case 'bogo': {
       const buy = cfg.buy_quantity;
       const get = cfg.get_quantity;
-      if (!buy || !get) return 'Buy one, get one free on your favourite drink';
-      const subject = promoSubject(promo);
-      if (subject) return `Buy ${buy}, get ${get} free on ${subject}`;
-      return `Buy ${buy} of your favourite drinks, get ${get} free`;
+      const subject = promoSubject(promo) || favouriteDrink || '';
+      if (!buy || !get) {
+        return subject ? `Buy one, get one free on ${subject}` : 'Buy one, get one free on any drink';
+      }
+      return subject
+        ? `Buy ${buy}, get ${get} free on ${subject}`
+        : `Buy ${buy}, get ${get} free on any drink`;
     }
     case 'fixed_perk':
       return cfg.perk_name ? `Free ${cfg.perk_name}` : 'A free perk';
@@ -445,6 +451,9 @@ export default function MenuPage() {
   // ── Live promotions (known customer only) ─────────────────────────────
   const [eligiblePromos, setEligiblePromos] = useState<any[]>([]);
   const [promosLoading, setPromosLoading] = useState(false);
+  // Customer's top favourite drink (from customer_favorites) — promo copy
+  // references it as a variable, it is never hardcoded.
+  const [favouriteDrink, setFavouriteDrink] = useState<string | null>(null);
   const [redeemingPromoId, setRedeemingPromoId] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   // Already-redeemed promos on this tab (for the Activity notice board).
@@ -759,6 +768,7 @@ export default function MenuPage() {
   const fetchEligiblePromos = useCallback(async () => {
     if (!tab?.customer_id || !tab?.bar_id || !tab?.id || !venueControls.showCustomerPromos) {
       setEligiblePromos([]);
+      setFavouriteDrink(null);
       return;
     }
     try {
@@ -769,6 +779,7 @@ export default function MenuPage() {
       if (!res.ok) throw new Error('Failed to load promotions');
       const body = await res.json();
       setEligiblePromos(body.promotions ?? []);
+      setFavouriteDrink(body.favouriteDrink ?? null);
       setPromoError(null);
     } catch (err) {
       // Non-fatal — keep whatever we had; promotions are best-effort.
@@ -2962,6 +2973,50 @@ export default function MenuPage() {
         </div>
       </div>
 
+      {/* Crew + Call — assigned waiter, right under the header */}
+      <div className="px-4 pt-3">
+        <div
+          style={{
+            borderRadius: '1rem',
+            background: 'rgba(12,12,22,0.92)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            boxShadow: '0 10px 36px rgba(0,0,0,0.5)',
+            padding: '0.625rem 0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            justifyContent: crewMember ? 'space-between' : 'flex-end',
+          }}
+        >
+          {crewMember && (
+            <div style={{ flexShrink: 0, minWidth: 0 }}>
+              <CrewAvatar
+                crew={crewMember}
+                onOpenProfile={() => setShowProfileView(true)}
+                onRate={() => setShowRatingModal(true)}
+              />
+            </div>
+          )}
+
+          {/* Call button */}
+          <button
+            onClick={sendWaiterAlert}
+            style={{
+              padding: '0.625rem 1rem', borderRadius: '0.75rem',
+              background: '#FF4F00', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
+          >
+            <Bell size={16} style={{ color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
+          </button>
+        </div>
+      </div>
+
       {/* Bottom navigation — fixed icon bar */}
       <nav
         style={{
@@ -3620,50 +3675,6 @@ export default function MenuPage() {
           )}
         </div>
       )}
-
-      {/* Crew + Call button — below the menu categories */}
-      <div className="px-4">
-        <div
-          style={{
-            borderRadius: '1rem',
-            background: 'rgba(12,12,22,0.92)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            boxShadow: '0 10px 36px rgba(0,0,0,0.5)',
-            padding: '0.625rem 0.875rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            justifyContent: crewMember ? 'space-between' : 'flex-end',
-          }}
-        >
-          {crewMember && (
-            <div style={{ flexShrink: 0, minWidth: 0 }}>
-              <CrewAvatar
-                crew={crewMember}
-                onOpenProfile={() => setShowProfileView(true)}
-                onRate={() => setShowRatingModal(true)}
-              />
-            </div>
-          )}
-
-          {/* Call button */}
-          <button
-            onClick={sendWaiterAlert}
-            style={{
-              padding: '0.625rem 1rem', borderRadius: '0.75rem',
-              background: '#FF4F00', border: 'none',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-              flexShrink: 0,
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
-          >
-            <Bell size={16} style={{ color: 'white' }} />
-            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
-          </button>
-        </div>
-      </div>
 
       {/* Two-tap ordering guide — shown once per session */}
       {showMenuTapHint && (
@@ -4438,7 +4449,7 @@ export default function MenuPage() {
                         ) : null}
                         <p className="text-xs mt-1.5 font-medium text-amber-400">
                           <Tag size={12} className="inline mr-1" />
-                          {formatPromoBenefit(promo)}
+                          {formatPromoBenefit(promo, favouriteDrink ?? undefined)}
                         </p>
                       </div>
                       <button
@@ -4513,7 +4524,10 @@ export default function MenuPage() {
           pointerEvents: 'none',
         }}
       >
-        <CustomerMediaBox barId={tab.bar.id} />
+        <CustomerMediaBox
+          barId={tab.bar.id}
+          onActivate={venueControls.showCustomerPromos ? () => setShowPromoModal(true) : undefined}
+        />
       </div>
     )}
 

@@ -94,11 +94,6 @@ export default function CrewAvatar({ crew, onOpenProfile, onRate }: CrewAvatarPr
                 />
               ))}
             </span>
-            {likeCount === 0 && (
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--amber, #f59e0b)' }}>
-                Rate
-              </span>
-            )}
             {likeCount > 0 && (
               <span style={{
                 display: 'flex', alignItems: 'center', gap: '0.2rem',
