@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -362,53 +363,9 @@ export default function StepAccount({
         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
-      {/* Social buttons — Requirements: 2.2 — all disabled / coming soon */}
+      {/* Social sign-up buttons */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {[
-          { label: 'Phone', icon: '📱' },
-          { label: 'Google', icon: 'G' },
-          { label: 'Apple', icon: '' },
-        ].map(({ label, icon }) => (
-          <button
-            key={label}
-            type="button"
-            disabled
-            aria-disabled="true"
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              color: 'var(--muted2)',
-              fontFamily: 'Lato, sans-serif',
-              fontSize: '0.875rem',
-              cursor: 'not-allowed',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              opacity: 0.5,
-            }}
-          >
-            <span style={{ fontSize: label === 'Google' ? '0.875rem' : '1rem', fontWeight: label === 'Google' ? 700 : 400 }}>
-              {icon}
-            </span>
-            <span>{label}</span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: '0.65rem',
-                color: 'var(--muted)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                marginLeft: 4,
-              }}
-            >
-              coming soon
-            </span>
-          </button>
-        ))}
+        <GoogleSignInButton mode="signup" />
       </div>
 
       {/* Sign-in link */}

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast'
@@ -11,12 +11,23 @@ import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { showToast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Surface OAuth / callback failures passed via ?error= redirect
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (err === 'oauth_failed') {
+      setError('Google sign-in failed. Please try again or use email.')
+    } else if (err === 'callback_failed') {
+      setError('Something went wrong completing sign-in. Please try again.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -366,7 +377,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div>
-            <GoogleSignInButton />
+            <GoogleSignInButton onError={setError} />
           </div>
         </div>
 

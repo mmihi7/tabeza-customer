@@ -1,24 +1,73 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     async function handleCallback() {
-      // Parse the hash fragment — Supabase puts the tokens here for email links
+      // ── 1. OAuth PKCE flow (Google etc.) ────────────────────────────
+      // Supabase redirects with ?code=... in query params
+      const code = searchParams.get('code')
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          console.error('[auth/callback] exchangeCodeForSession error:', error.message)
+          router.replace('/login?error=oauth_failed')
+          return
+        }
+        // Check if user has a consent record → returning user; else → new user
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            const { data: consent } = await supabase
+              .from('consent_records')
+              .select('id')
+              .eq('user_id', session.user.id)
+              .limit(1)
+              .maybeSingle()
+
+            if (!consent) {
+              // First time Google user — needs consent
+              router.replace('/signup?step=consent')
+              return
+            }
+
+            // Multi-role check
+            const rolesRes = await fetch('/api/auth/roles', {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            })
+            if (rolesRes.ok) {
+              const { roles } = await rolesRes.json()
+              if (roles.length > 1) {
+                router.replace('/select-role')
+                return
+              }
+            }
+
+            router.replace('/start')
+            return
+          }
+        } catch {
+          // Non-fatal — fall through to start
+        }
+        router.replace('/start')
+        return
+      }
+
+      // ── 2. Hash fragment flow (email confirmation links) ─────────────
       const hash = window.location.hash.substring(1)
       const params = new URLSearchParams(hash)
 
       const accessToken  = params.get('access_token')
       const refreshToken = params.get('refresh_token')
-      const type         = params.get('type') // 'signup' | 'recovery' | 'invite' etc.
+      const type         = params.get('type') // 'signup' | 'recovery' | 'invite'
 
       if (accessToken && refreshToken) {
-        // Exchange the tokens so Supabase stores the session
         const { error } = await supabase.auth.setSession({
           access_token:  accessToken,
           refresh_token: refreshToken,
@@ -31,15 +80,12 @@ export default function AuthCallbackPage() {
         }
       }
 
-      // Route based on the link type
       if (type === 'signup') {
-        // New user confirmed their email — send them to the consent step
-        // The signup page reads this flag and jumps to step 4 (consent)
         router.replace('/signup?step=consent')
       } else if (type === 'recovery') {
         router.replace('/reset-password')
       } else {
-        // Existing user login via magic link — check for multiple roles
+        // Magic link login — check for multiple roles
         try {
           const { data: { session } } = await supabase.auth.getSession()
           if (session) {
@@ -55,15 +101,14 @@ export default function AuthCallbackPage() {
             }
           }
         } catch {
-          // Non-fatal — fall through to start screen
+          // Non-fatal
         }
-        // Fallback — go to start screen (StepHome with recent venues)
         router.replace('/start')
       }
     }
 
     handleCallback()
-  }, [router])
+  }, [router, searchParams])
 
   return (
     <div
@@ -97,7 +142,7 @@ export default function AuthCallbackPage() {
             margin: 0,
           }}
         >
-          Verifying your email...
+          Signing you in...
         </p>
       </div>
 
