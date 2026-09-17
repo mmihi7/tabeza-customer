@@ -16,9 +16,18 @@ export default function AuthCallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
-          console.error('[auth/callback] exchangeCodeForSession error:', error.message)
-          router.replace('/login?error=oauth_failed')
-          return
+          // Tolerant PKCE: AuthProvider's internal _initialize() may have ALREADY
+          // exchanged the code (detectSessionInUrl defaults to true) and deleted the
+          // code-verifier, so our manual exchange throws locally
+          // (AuthPKCECodeVerifierMissingError). If a session still exists, the
+          // sign-in actually succeeded — continue normally instead of failing.
+          console.warn('[auth/callback] OAuth exchange error — checking for existing session:', error.name, '-', error.message)
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session?.user) {
+            console.error('[auth/callback] No session after OAuth exchange:', error.name, '-', error.message)
+            router.replace('/login?error=oauth_failed')
+            return
+          }
         }
         // Check if user has a consent record → returning user; else → new user
         try {
@@ -32,7 +41,25 @@ export default function AuthCallbackPage() {
               .maybeSingle()
 
             if (!consent) {
-              // First time Google user — needs consent
+              // No customer profile yet. If the user already belongs to another
+              // Tabeza app (crew / staff), ask whether to create a customer
+              // account here or continue to that app instead of silently
+              // starting signup. Brand-new identities go straight to consent.
+              try {
+                const rolesRes = await fetch('/api/auth/roles', {
+                  headers: { Authorization: `Bearer ${session.access_token}` },
+                })
+                if (rolesRes.ok) {
+                  const { roles } = await rolesRes.json()
+                  const otherRoles = roles.filter((r: { type: string }) => r.type !== 'customer')
+                  if (roles.length > 0 && otherRoles.length > 0) {
+                    router.replace('/choose-app')
+                    return
+                  }
+                }
+              } catch {
+                // Non-fatal — fall through to consent signup
+              }
               router.replace('/signup?step=consent')
               return
             }
