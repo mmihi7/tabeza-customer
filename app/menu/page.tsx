@@ -1913,9 +1913,12 @@ export default function MenuPage() {
     const subscribeToPush = async () => {
       try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('Notification' in window)) return;
 
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
+        // Never auto-prompt for notification permission here. The first ask
+        // happens once on /start; re-enabling lives in Settings. We only
+        // register the push subscription when permission is already granted.
+        if (Notification.permission !== 'granted') return;
 
         const registration = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;

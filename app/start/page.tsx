@@ -222,13 +222,23 @@ function ConsentContent() {
   };
 
   useEffect(() => {
+    // Ask for system permissions at most once ever. Without this guard the
+    // page re-requested notification permission on every open. Re-enabling
+    // lives in Settings > Push Notifications.
+    const ASKED_KEY = 'tabeza-notif-asked-v1';
+    if (localStorage.getItem(ASKED_KEY) === 'true') {
+      setPermissionRequested(true);
+      return;
+    }
+
     const requestPermissions = async () => {
       const perms = await requestSystemPermissions();
+      localStorage.setItem(ASKED_KEY, 'true');
       setSystemPermissions(perms);
       console.log('📋 System permissions requested:', perms);
       setPermissionRequested(true);
     };
-    
+
     // Request permissions after a short delay to allow UI to load
     setTimeout(requestPermissions, 1000);
   }, []);
