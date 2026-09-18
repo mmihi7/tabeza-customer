@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
   Coffee, Utensils, Pizza, Sandwich, Cookie, IceCream, Apple, Beef, Fish, Wine, Beer, Sunrise, Sunset, Moon, Star, Heart, Flame, Zap, Droplets, Leaf, Wheat, Milk, Egg, ChefHat, Cake, Candy, Popcorn, IceCream2, Glasses, Martini, LayoutGrid, UtensilsCrossed,
-  Bell, LogIn, UserCheck, Settings, Gift, Tag, Users } from 'lucide-react';
+  Bell, LogIn, UserCheck, Settings, Gift, Tag } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatUtils';
 import { useVibrate } from '@/hooks/useVibrate';
@@ -3118,25 +3118,6 @@ export default function MenuPage() {
         >
           <CreditCard size={22} />
           <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Pay</span>
-        </button>
-        <button
-          onClick={() => setShowCrewModal(true)}
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
-            background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0.75rem',
-            flex: 1, color: 'rgba(255,255,255,0.85)', position: 'relative',
-          }}
-        >
-          <span style={{ position: 'relative', display: 'inline-flex' }}>
-            <Users size={22} />
-            {(crewMember || null) && (
-              <span style={{
-                position: 'absolute', top: -2, right: -4, width: 8, height: 8, borderRadius: '50%',
-                background: '#22c55e', boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-              }} />
-            )}
-          </span>
-          <span style={{ fontSize: '0.62rem', fontWeight: 600 }}>Crew</span>
         </button>
       </nav>
   
