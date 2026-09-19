@@ -2,6 +2,8 @@
 // Requirements: 8.1–8.5, 11.1–11.7
 'use client'
 
+import { usePlatformSettings } from '@/hooks/usePlatformSettings'
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface StepIdentityProps {
@@ -38,6 +40,8 @@ export default function StepIdentity({
   onConfirm,
   onBack,
 }: StepIdentityProps) {
+  const { flags } = usePlatformSettings()
+  const loyaltyHidden = flags.loyalty_shadow_mode
   return (
     <div
       style={{
@@ -156,7 +160,7 @@ export default function StepIdentity({
               )}
 
               {/* Anonymous warning — Requirement 8.3: shown when "Stay anonymous" is selected */}
-              {mode === 'anonymous' && isSelected && (
+              {mode === 'anonymous' && isSelected && !loyaltyHidden && (
                 <p
                   style={{
                     fontFamily: "'Lato', sans-serif",

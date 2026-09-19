@@ -4,9 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Smartphone, QrCode, CreditCard, Shield, Star, ArrowRight, Menu, X, Clock, MapPin } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { flags } = usePlatformSettings();
+  const loyaltyEnabled = flags.loyalty_enabled && !flags.loyalty_shadow_mode;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -31,7 +34,9 @@ export default function LandingPage() {
             <div className="hidden md:flex items-center gap-8">
               <a href="#how-it-works" className="text-sm" style={{ color: 'var(--muted)' }}>How it works</a>
               <a href="#features" className="text-sm" style={{ color: 'var(--muted)' }}>Features</a>
-              <a href="#loyalty" className="text-sm" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              {loyaltyEnabled && (
+                <a href="#loyalty" className="text-sm" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              )}
               <button
                 onClick={() => router.push('/login')}
                 className="px-4 py-2 rounded-lg text-sm font-medium"
@@ -53,7 +58,9 @@ export default function LandingPage() {
             <div className="flex flex-col gap-4">
               <a href="#how-it-works" className="text-sm py-2" style={{ color: 'var(--muted)' }}>How it works</a>
               <a href="#features" className="text-sm py-2" style={{ color: 'var(--muted)' }}>Features</a>
-              <a href="#loyalty" className="text-sm py-2" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              {loyaltyEnabled && (
+                <a href="#loyalty" className="text-sm py-2" style={{ color: 'var(--muted)' }}>Loyalty</a>
+              )}
               <button
                 onClick={() => router.push('/login')}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-center"
@@ -209,16 +216,19 @@ export default function LandingPage() {
               title="Order Tracking"
               description="Track your orders in real-time. Know exactly when your drinks are ready."
             />
-            <FeatureCard
-              icon={<Star size={32} style={{ color: 'var(--amber)' }} />}
-              title="Loyalty Rewards"
-              description="Earn badges and unlock exclusive perks as a regular at your favorite venues."
-            />
+            {loyaltyEnabled && (
+              <FeatureCard
+                icon={<Star size={32} style={{ color: 'var(--amber)' }} />}
+                title="Loyalty Rewards"
+                description="Earn badges and unlock exclusive perks as a regular at your favorite venues."
+              />
+            )}
           </div>
         </div>
       </section>
 
       {/* Loyalty Section */}
+      {loyaltyEnabled && (
       <section id="loyalty" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
@@ -251,6 +261,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* CTA Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(255,79,0,0.1)' }}>
@@ -282,7 +293,7 @@ export default function LandingPage() {
               Everything you need to know about using Tabeza.
             </p>
           </div>
-          <FaqAccordion items={CUSTOMER_FAQS} />
+          <FaqAccordion items={loyaltyEnabled ? CUSTOMER_FAQS : CUSTOMER_FAQS.filter(f => f.q !== 'What are loyalty badges?')} />
           <p className="text-center text-sm mt-8" style={{ color: 'var(--muted)' }}>
             Still have questions?{' '}
             <a href="mailto:hello@tabeza.co.ke" style={{ color: 'var(--amber)', fontWeight: 600 }}>
@@ -310,7 +321,9 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
                 <li><a href="#how-it-works" className="hover:text-white transition-colors">How it works</a></li>
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#loyalty" className="hover:text-white transition-colors">Loyalty</a></li>
+                {loyaltyEnabled && (
+                  <li><a href="#loyalty" className="hover:text-white transition-colors">Loyalty</a></li>
+                )}
                 <li><a href="https://tabeza.co.ke" className="hover:text-white transition-colors">For Venues</a></li>
               </ul>
             </div>

@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
 import Link from 'next/link'
 import { persistConsentRecord, APP_VERSION } from '@/lib/consent-records'
+import { usePlatformSettings } from '@/hooks/usePlatformSettings'
 import StepBirthday from './StepBirthday'
 
 export default function SignupPage() {
@@ -26,6 +27,8 @@ function SignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
+  const { flags } = usePlatformSettings()
+  const loyaltyHidden = flags.loyalty_shadow_mode
 
   // If redirected from email confirmation, jump straight to consent
   const initialStep = searchParams.get('step') === 'consent' ? 'consent' : 'account'
@@ -556,23 +559,27 @@ function SignupContent() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <CheckCircle style={{ width: 20, height: 20, color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <p style={{ fontSize: '14px', color: 'var(--cream)', fontWeight: 500, marginBottom: 4 }}>
-                    How often you visit a venue — shown as visit icons on your profile
-                  </p>
-                </div>
-              </div>
+              {!loyaltyHidden && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <CheckCircle style={{ width: 20, height: 20, color: '#10b981', flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <p style={{ fontSize: '14px', color: 'var(--cream)', fontWeight: 500, marginBottom: 4 }}>
+                        How often you visit a venue — shown as visit icons on your profile
+                      </p>
+                    </div>
+                  </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <CheckCircle style={{ width: 20, height: 20, color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <p style={{ fontSize: '14px', color: 'var(--cream)', fontWeight: 500, marginBottom: 4 }}>
-                    What you spend per visit — used to determine your tier at each venue
-                  </p>
-                </div>
-              </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <CheckCircle style={{ width: 20, height: 20, color: '#10b981', flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <p style={{ fontSize: '14px', color: 'var(--cream)', fontWeight: 500, marginBottom: 4 }}>
+                        What you spend per visit — used to determine your tier at each venue
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <CheckCircle style={{ width: 20, height: 20, color: '#10b981', flexShrink: 0, marginTop: 2 }} />

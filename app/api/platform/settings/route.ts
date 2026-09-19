@@ -31,6 +31,7 @@ const SAFE_DEFAULTS = {
   global_products_enabled: true,
   customer_ordering_enabled: true,
   loyalty_enabled: true,
+  loyalty_shadow_mode: false,
   promotions_ai_enabled: false,
   media_system_enabled: true,
   mpesa_enabled: true,
@@ -43,14 +44,14 @@ export async function GET(_req: NextRequest) {
   try {
     const payload = await getCachedOrFetch('platform:settings:public', 60, async () => {
       const db = createServiceRoleClient();
-      const { data, error } = await (db as any)
-        .from('platform_settings')
-        .select(SELECT_FIELDS)
-        .eq('id', 1)
-        .maybeSingle();
+      const [settingsRes, loyaltyRes] = await Promise.all([
+        (db as any).from('platform_settings').select(SELECT_FIELDS).eq('id', 1).maybeSingle(),
+        (db as any).from('loyalty_system_config').select('is_shadow_mode').eq('id', true).maybeSingle(),
+      ]);
 
-      if (error || !data) return SAFE_DEFAULTS;
-      return { ...SAFE_DEFAULTS, ...data };
+      const base = (settingsRes.error || !settingsRes.data) ? SAFE_DEFAULTS : { ...SAFE_DEFAULTS, ...settingsRes.data };
+      const loyalty_shadow_mode = loyaltyRes?.data?.is_shadow_mode ?? SAFE_DEFAULTS.loyalty_shadow_mode;
+      return { ...base, loyalty_shadow_mode };
     });
 
     return NextResponse.json(payload);

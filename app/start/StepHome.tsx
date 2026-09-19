@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { getDeviceId } from '@/lib/device-identity'
 import VisitFrequencyDots from '@/components/onboarding/VisitFrequencyDots'
 import { Star } from 'lucide-react'
+import { usePlatformSettings } from '@/hooks/usePlatformSettings'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ function deriveInitials(
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }: StepHomeProps) {
+  const { flags } = usePlatformSettings()
+  const loyaltyHidden = flags.loyalty_shadow_mode
   const [recentVenues, setRecentVenues] = useState<RecentVenue[]>([])
   const [savedVenues, setSavedVenues] = useState<RecentVenue[]>([])
   const [venuesLoaded, setVenuesLoaded] = useState(false)
@@ -280,18 +283,20 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
       </div>
 
       {/* ── Motivational message — Requirement 7.5 ────────────────────── */}
-      <p
-        style={{
-          fontFamily: "'Lato', sans-serif",
-          fontStyle: 'italic',
-          fontSize: '0.875rem',
-          color: 'var(--muted)',
-          marginBottom: '1.75rem',
-          lineHeight: 1.5,
-        }}
-      >
-        Visit and spend more to pay less and get freebies.
-      </p>
+      {!loyaltyHidden && (
+        <p
+          style={{
+            fontFamily: "'Lato', sans-serif",
+            fontStyle: 'italic',
+            fontSize: '0.875rem',
+            color: 'var(--muted)',
+            marginBottom: '1.75rem',
+            lineHeight: 1.5,
+          }}
+        >
+          Visit and spend more to pay less and get freebies.
+        </p>
+      )}
 
       {/* ── Saved Places — Requirement 7.3, 7.4 ─────────────────────── */}
       {venuesLoaded && savedVenues.length > 0 && (
@@ -437,7 +442,7 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
 
                   {/* Right: visit frequency dots */}
                   <div className="flex items-center gap-2">
-                    <VisitFrequencyDots visits={venue.weeklyVisits} max={7} />
+                    {!loyaltyHidden && <VisitFrequencyDots visits={venue.weeklyVisits} max={7} />}
                     <button
                       onClick={(e) => toggleSaveVenue(e, venue)}
                       disabled={savingVenueId === venue.id}

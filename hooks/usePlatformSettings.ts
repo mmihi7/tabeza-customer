@@ -14,6 +14,7 @@ export interface PlatformFlags {
   global_products_enabled: boolean
   customer_ordering_enabled: boolean
   loyalty_enabled: boolean
+  loyalty_shadow_mode: boolean
   promotions_ai_enabled: boolean
   media_system_enabled: boolean
   mpesa_enabled: boolean
@@ -30,6 +31,7 @@ const DEFAULTS: PlatformFlags = {
   global_products_enabled: true,
   customer_ordering_enabled: true,
   loyalty_enabled: true,
+  loyalty_shadow_mode: false,
   promotions_ai_enabled: false,
   media_system_enabled: true,
   mpesa_enabled: true,
