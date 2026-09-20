@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Fingerprint } from 'lucide-react'
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
@@ -17,7 +17,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeySupported, setPasskeySupported] = useState(false)
   const [error, setError] = useState('')
+
+  // Passkeys need WebAuthn (secure context + platform support) to have any
+  // session to resolve — show the button only where the browser can do it.
+  useEffect(() => {
+    setPasskeySupported(
+      typeof window !== 'undefined' &&
+        'PublicKeyCredential' in window &&
+        !!window.isSecureContext
+    )
+  }, [])
 
   // Surface OAuth / callback failures passed via ?error= redirect
   useEffect(() => {
@@ -28,6 +40,33 @@ export default function LoginPage() {
       setError('Something went wrong completing sign-in. Please try again.')
     }
   }, [searchParams])
+
+  // Shared post-auth routing: check for role picker, then land on /start.
+  const routeAfterAuth = async (
+    successMessage: { type: 'success'; title: string; message: string }
+  ) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const rolesRes = await fetch('/api/auth/roles', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (rolesRes.ok) {
+          const { roles } = await rolesRes.json()
+          if (roles.length > 1) {
+            router.push('/select-role')
+            return
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — fall through to default destination
+    }
+
+    showToast(successMessage)
+
+    router.push('/start')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,40 +81,37 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // ── Multi-role check ─────────────────────────────────────────
-      // If this user also has venue manager or crew access, show the
-      // role picker so they can choose which platform to enter.
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          const rolesRes = await fetch('/api/auth/roles', {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          })
-          if (rolesRes.ok) {
-            const { roles } = await rolesRes.json()
-            if (roles.length > 1) {
-              router.push('/select-role')
-              return
-            }
-          }
-        }
-      } catch {
-        // Non-fatal — fall through to default destination
-      }
-
-      // Success — send existing users directly to the start/home screen
-      showToast({
-        type: 'success',
-        title: 'Signed in',
-        message: 'Welcome back!',
-      })
-
-      router.push('/start')
+      await routeAfterAuth({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
     } catch (err: any) {
       console.error('Login error:', err)
       setError(err.message || 'Invalid email or password')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Sign in with a passkey — discoverable credential, no email asked upfront.
+  // Resolves only passkeys previously enrolled on THIS device/browser for the
+  // user's confirmed account; anonymous device sessions have none.
+  const handlePasskeySignIn = async () => {
+    setError('')
+    setPasskeyLoading(true)
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPasskey()
+      if (error) throw error
+
+      await routeAfterAuth({ type: 'success', title: 'Signed in', message: 'Welcome back!' })
+    } catch (err: any) {
+      const msg = err?.message || ''
+      if (/cancelled|canceled/i.test(msg) || err?.code === 'user_canceled') {
+        // User dismissed the authenticator prompt — no error shown.
+        return
+      }
+      console.error('Passkey sign-in error:', err)
+      setError(msg || 'Sign in with Face ID failed. Try your password instead.')
+    } finally {
+      setPasskeyLoading(false)
     }
   }
 
@@ -350,6 +386,35 @@ export default function LoginPage() {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          {passkeySupported && (
+            <button
+              type="button"
+              onClick={handlePasskeySignIn}
+              disabled={loading || passkeyLoading}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                color: 'var(--amber)',
+                padding: '12px 24px',
+                borderRadius: 8,
+                fontFamily: 'Lato, sans-serif',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: loading || passkeyLoading ? 'not-allowed' : 'pointer',
+                opacity: loading || passkeyLoading ? 0.5 : 1,
+                transition: 'all 0.15s',
+                border: '1px solid var(--amber)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Fingerprint size={18} />
+              {passkeyLoading ? 'Waiting for Face ID…' : 'Sign in with Face ID'}
+            </button>
+          )}
         </form>
 
         <div style={{ marginTop: 24, textAlign: 'center', fontSize: '0.875rem', color: 'var(--muted)', fontFamily: 'Lato, sans-serif' }}>

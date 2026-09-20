@@ -15,7 +15,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.105.0",
     "@tabeza/shared": "file:./lib/shared",
     "@types/web-push": "^3.6.4",
     "@upstash/ratelimit": "^2.0.8",

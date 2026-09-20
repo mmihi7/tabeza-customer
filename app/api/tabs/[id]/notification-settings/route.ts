@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import type { Database } from '@/types/supabase';
 
 export async function PATCH(
   request: NextRequest,
@@ -11,7 +12,7 @@ export async function PATCH(
 
     const supabase = createServiceRoleClient();
 
-    const updates: Record<string, any> = {};
+    const updates: Database['public']['Tables']['tabs']['Update'] = {};
 
     if (typeof soundEnabled === 'boolean') updates.sound_enabled = soundEnabled;
     if (typeof vibrationEnabled === 'boolean') updates.vibration_enabled = vibrationEnabled;

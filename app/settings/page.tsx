@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings, Bell, LogOut, Trash2, ArrowLeft, AlertTriangle, Check, Percent } from 'lucide-react'
+import { Settings, Bell, LogOut, Trash2, ArrowLeft, AlertTriangle, Check, Percent, Fingerprint, KeyRound, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { getDeviceId, getActiveTab } from '@/lib/device-identity'
@@ -20,6 +20,71 @@ export default function SettingsPage() {
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // Passkeys (WebAuthn) — enroll/manage for the signed-in account only.
+  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeys, setPasskeys] = useState<{ id: string; friendly_name?: string; created_at: string }[]>([])
+  const [passkeysLoaded, setPasskeysLoaded] = useState(false)
+  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false)
+  const [passkeyError, setPasskeyError] = useState('')
+  const isAccountUser = Boolean(user?.email)
+
+  useEffect(() => {
+    setPasskeySupported(
+      typeof window !== 'undefined' &&
+        'PublicKeyCredential' in window &&
+        !!window.isSecureContext
+    )
+  }, [])
+
+  // Load enrolled passkeys for the signed-in account. Anonymous sessions
+  // (device-only, open tab by scanning) never see this panel.
+  useEffect(() => {
+    if (!isAccountUser || !passkeySupported) return
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.auth.passkey.list()
+        if (error) throw error
+        setPasskeys(data ?? [])
+      } catch (err) {
+        console.error('Failed to load passkeys:', err)
+      } finally {
+        setPasskeysLoaded(true)
+      }
+    })()
+  }, [isAccountUser, passkeySupported])
+
+  const handleEnrollPasskey = async () => {
+    setPasskeyError('')
+    setPasskeyEnrolling(true)
+    try {
+      const { error } = await supabase.auth.registerPasskey()
+      if (error) throw error
+      const { data } = await supabase.auth.passkey.list()
+      setPasskeys(data ?? [])
+    } catch (err: any) {
+      const msg = err?.message || ''
+      if (/cancelled|canceled/i.test(msg) || err?.code === 'user_canceled') return
+      console.error('Passkey enrollment failed:', err)
+      setPasskeyError(
+        msg || 'Could not save Face ID on this device or browser. Try again later.'
+      )
+    } finally {
+      setPasskeyEnrolling(false)
+    }
+  }
+
+  const handleRemovePasskey = async (passkeyId: string) => {
+    setPasskeyError('')
+    try {
+      const { error } = await supabase.auth.passkey.delete({ passkeyId })
+      if (error) throw error
+      setPasskeys((prev) => prev.filter((pk) => pk.id !== passkeyId))
+    } catch (err) {
+      console.error('Failed to remove passkey:', err)
+      setPasskeyError('Could not remove this passkey. Please try again.')
+    }
+  }
 
   // Per-venue outbound promo consent ("Deals from this venue")
   const [promoOptInEnabled, setPromoOptInEnabled] = useState(false)
@@ -252,6 +317,83 @@ export default function SettingsPage() {
             {user?.email || 'Anonymous'}
           </p>
         </div>
+
+        {/* Passkeys — account holders only; anonymous device sessions skip */}
+        {isAccountUser && passkeySupported && (
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <Fingerprint size={18} style={{ color: '#FF2E00' }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Sign in with Face ID</p>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>Fast, secure sign-in on this device</p>
+              </div>
+            </div>
+
+            {passkeyError && (
+              <p className="text-xs mt-2" style={{ color: '#ef4444' }}>{passkeyError}</p>
+            )}
+
+            {passkeysLoaded && passkeys.length === 0 && (
+              <p className="text-xs mt-3" style={{ color: '#94a3b8' }}>
+                No Face ID saved yet. Add one to skip passwords on your next visit.
+              </p>
+            )}
+
+            {passkeys.map((pk) => (
+              <div
+                key={pk.id}
+                className="mt-3 flex items-center justify-between"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}
+              >
+                <div className="flex items-center gap-3">
+                  <KeyRound size={16} style={{ color: '#94a3b8' }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#e2e8f0' }}>
+                      {pk.friendly_name || 'This device'}
+                    </p>
+                    <p className="text-xs" style={{ color: '#64748b' }}>
+                      Saved {new Date(pk.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRemovePasskey(pk.id)}
+                  className="text-xs font-medium"
+                  style={{ color: '#94a3b8', textDecoration: 'underline' }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+
+            <button
+              onClick={handleEnrollPasskey}
+              disabled={passkeyEnrolling}
+              className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: passkeyEnrolling ? 'rgba(255,46,0,0.4)' : '#FF2E00',
+                color: '#fff',
+                opacity: passkeyEnrolling ? 0.7 : 1,
+                cursor: passkeyEnrolling ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {passkeyEnrolling ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  Waiting for Face ID…
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Add Face ID sign-in
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Sign out */}
         <button

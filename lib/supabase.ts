@@ -16,6 +16,7 @@ export const supabase = (() => {
         flowType: 'pkce',
         storageKey: 'tabeza-customer-auth',
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        experimental: { passkey: true },
       },
     })
   }

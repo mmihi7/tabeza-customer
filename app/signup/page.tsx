@@ -43,6 +43,17 @@ function SignupContent() {
   const [lastSignupAttempt, setLastSignupAttempt] = useState<number>(0)
   // userId captured after consent so birthday step can save to the right record
   const [consentedUserId, setConsentedUserId] = useState<string | null>(null)
+  // Passkey offer on the success step — account holders only
+  const [passkeyOfferSupported, setPasskeyOfferSupported] = useState(false)
+  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false)
+
+  useEffect(() => {
+    setPasskeyOfferSupported(
+      typeof window !== 'undefined' &&
+        'PublicKeyCredential' in window &&
+        !!window.isSecureContext
+    )
+  }, [])
 
   // Poll for email confirmation when on verify step
   useEffect(() => {
@@ -144,6 +155,30 @@ function SignupContent() {
   const handleConnect = () => {
     // Pass mode=code to show StepHome with recent venues and manual code entry after signup
     router.push('/start?mode=code')
+  }
+
+  const handleSavePasskey = async () => {
+    setPasskeyEnrolling(true)
+    try {
+      const { error } = await supabase.auth.registerPasskey()
+      if (error) throw error
+      showToast({
+        type: 'success',
+        title: 'Face ID Saved',
+        message: 'You can now sign in with Face ID instead of a password.',
+      })
+    } catch (err: any) {
+      const msg = err?.message || ''
+      if (/cancelled|canceled/i.test(msg) || err?.code === 'user_canceled') return
+      console.error('Passkey enrollment failed:', err)
+      showToast({
+        type: 'error',
+        title: 'Not Saved',
+        message: msg || 'Face ID is not available in this browser. Try a supported browser.',
+      })
+    } finally {
+      setPasskeyEnrolling(false)
+    }
   }
 
   return (
@@ -667,6 +702,33 @@ function SignupContent() {
             >
               Continue
             </button>
+
+            {passkeyOfferSupported && (
+              <button
+                onClick={handleSavePasskey}
+                disabled={passkeyEnrolling}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  width: '100%',
+                  background: 'transparent',
+                  color: 'var(--amber)',
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: passkeyEnrolling ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  border: '1px solid var(--amber)',
+                  opacity: passkeyEnrolling ? 0.6 : 1,
+                }}
+              >
+                {passkeyEnrolling
+                  ? 'Waiting for Face ID…'
+                  : 'Save Face ID sign-in (recommended)'}
+              </button>
+            )}
           </div>
         )}
       </div>

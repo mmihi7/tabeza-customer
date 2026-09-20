@@ -244,7 +244,7 @@ export default function MenuPage() {
           initiated_by: 'customer',
           customer_name: displayName,
           status: 'pending',
-        });
+        } as any);
         pushLog('alert');
       }
       showToast({
