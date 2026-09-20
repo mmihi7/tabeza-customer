@@ -164,8 +164,8 @@ function SignupContent() {
       if (error) throw error
       showToast({
         type: 'success',
-        title: 'Face ID Saved',
-        message: 'You can now sign in with Face ID instead of a password.',
+        title: 'Fingerprint Saved',
+        message: 'You can now sign in with your fingerprint instead of a password.',
       })
     } catch (err: any) {
       const msg = err?.message || ''
@@ -174,7 +174,7 @@ function SignupContent() {
       showToast({
         type: 'error',
         title: 'Not Saved',
-        message: msg || 'Face ID is not available in this browser. Try a supported browser.',
+        message: msg || 'Fingerprint sign-in is not available in this browser. Try a supported browser.',
       })
     } finally {
       setPasskeyEnrolling(false)
@@ -725,8 +725,8 @@ function SignupContent() {
                 }}
               >
                 {passkeyEnrolling
-                  ? 'Waiting for Face ID…'
-                  : 'Save Face ID sign-in (recommended)'}
+                  ? 'Waiting for fingerprint…'
+                  : 'Save fingerprint sign-in (recommended)'}
               </button>
             )}
           </div>

@@ -109,7 +109,7 @@ export default function LoginPage() {
         return
       }
       console.error('Passkey sign-in error:', err)
-      setError(msg || 'Sign in with Face ID failed. Try your password instead.')
+      setError(msg || 'Sign in with fingerprint failed. Try your password instead.')
     } finally {
       setPasskeyLoading(false)
     }
@@ -412,7 +412,7 @@ export default function LoginPage() {
               }}
             >
               <Fingerprint size={18} />
-              {passkeyLoading ? 'Waiting for Face ID…' : 'Sign in with Face ID'}
+              {passkeyLoading ? 'Waiting for fingerprint…' : 'Sign in with fingerprint'}
             </button>
           )}
         </form>

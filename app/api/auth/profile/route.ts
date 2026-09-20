@@ -1,7 +1,7 @@
 /**
  * PATCH /api/auth/profile
  *
- * Updates optional profile fields on the customer's consent_records row.
+ * Updates the customer's consent_records row (created by the consent step).
  * Currently supports birthday fields added in migration 20260828010000.
  *
  * Body: {
@@ -11,7 +11,6 @@
  *   birthday_year?:  number | null   — optional, 1900–current year
  * }
  *
- * Upserts on user_id so the row is created if it doesn't exist yet.
  * Uses service role to bypass RLS.
  */
 
@@ -52,15 +51,26 @@ export async function PATCH(request: NextRequest) {
     if (birthday_day !== undefined)   updates.birthday_day   = birthday_day;
     if ('birthday_year' in body)      updates.birthday_year  = birthday_year ?? null;
 
+    // Update the existing consent record. A plain update avoids Postgres'
+    // NOT NULL check on the INSERT candidate (upsert would fail because
+    // `decision` is NOT NULL and not part of this payload).
     const { data, error } = await (supabase as any)
       .from('consent_records')
-      .upsert(updates, { onConflict: 'user_id' })
+      .update(updates)
+      .eq('user_id', userId)
       .select('user_id, birthday_month, birthday_day, birthday_year')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('[auth/profile PATCH]', error);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { error: 'No consent record found for this account. Please complete the consent step.' },
+        { status: 400 },
+      );
     }
 
     return NextResponse.json({ profile: data });

@@ -67,7 +67,7 @@ export default function SettingsPage() {
       if (/cancelled|canceled/i.test(msg) || err?.code === 'user_canceled') return
       console.error('Passkey enrollment failed:', err)
       setPasskeyError(
-        msg || 'Could not save Face ID on this device or browser. Try again later.'
+        msg || 'Could not save fingerprint on this device or browser. Try again later.'
       )
     } finally {
       setPasskeyEnrolling(false)
@@ -327,7 +327,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3 mb-1">
               <Fingerprint size={18} style={{ color: '#FF2E00' }} />
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Sign in with Face ID</p>
+                <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Sign in with fingerprint</p>
                 <p className="text-xs" style={{ color: '#94a3b8' }}>Fast, secure sign-in on this device</p>
               </div>
             </div>
@@ -338,7 +338,7 @@ export default function SettingsPage() {
 
             {passkeysLoaded && passkeys.length === 0 && (
               <p className="text-xs mt-3" style={{ color: '#94a3b8' }}>
-                No Face ID saved yet. Add one to skip passwords on your next visit.
+                No fingerprint saved yet. Add one to skip passwords on your next visit.
               </p>
             )}
 
@@ -383,12 +383,12 @@ export default function SettingsPage() {
               {passkeyEnrolling ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  Waiting for Face ID…
+                  Waiting for fingerprint…
                 </>
               ) : (
                 <>
                   <Plus size={16} />
-                  Add Face ID sign-in
+                  Add fingerprint sign-in
                 </>
               )}
             </button>
