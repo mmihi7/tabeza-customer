@@ -152,11 +152,11 @@ export default function ChatPage() {
           <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
               msg.sender === 'user' 
-                ? 'bg-[#FF4F00] text-white rounded-br-sm' 
+                ? 'bg-[#FF2E00] text-white rounded-br-sm' 
                 : 'bg-white shadow-sm rounded-bl-sm'
             }`}>
               <p className={msg.sender === 'user' ? 'text-white' : 'text-gray-800'}>{msg.text}</p>
-              <p className={`text-xs mt-1 ${msg.sender === 'user' ? 'text-[#FFE8DF]' : 'text-gray-400'}`}>
+              <p className={`text-xs mt-1 ${msg.sender === 'user' ? 'text-[#FFE4DE]' : 'text-gray-400'}`}>
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>

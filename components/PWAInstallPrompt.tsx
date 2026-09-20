@@ -60,7 +60,7 @@ export default function PWAInstallPrompt() {
     }}>
       <div style={{
         background: 'var(--ink2)',
-        border: '1px solid rgba(255,79,0,0.25)',
+        border: '1px solid rgba(255,46,0,0.25)',
         borderRadius: 16,
         padding: '1rem 1.125rem',
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
@@ -71,8 +71,8 @@ export default function PWAInstallPrompt() {
         {/* Icon */}
         <div style={{
           width: 44, height: 44, borderRadius: 10,
-          background: 'rgba(255,79,0,0.12)',
-          border: '1px solid rgba(255,79,0,0.25)',
+          background: 'rgba(255,46,0,0.12)',
+          border: '1px solid rgba(255,46,0,0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>

@@ -178,7 +178,7 @@ export default function CrewRatingModal({ isOpen, onClose, onSubmit, crewName }:
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               fontWeight: 600,
-              background: rating === 0 ? 'rgba(255,79,0,0.3)' : 'var(--amber)',
+              background: rating === 0 ? 'rgba(255,46,0,0.3)' : 'var(--amber)',
               border: 'none',
               color: rating === 0 ? 'var(--muted)' : '#1a1a2e',
               cursor: rating === 0 ? 'not-allowed' : 'pointer',

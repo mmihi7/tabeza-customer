@@ -52,7 +52,7 @@ export default function AnonymousToggle({
           checked={anonymous}
           onChange={(e) => handleToggle(e.target.checked)}
           disabled={disabled}
-          className="w-4 h-4 text-[#FFF5F0]0 border-gray-300 rounded focus:ring-[#FF4F00] focus:ring-2"
+          className="w-4 h-4 text-[#FFF3F0]0 border-gray-300 rounded focus:ring-[#FF2E00] focus:ring-2"
         />
       </div>
       <div className="flex-1">

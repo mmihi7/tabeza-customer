@@ -120,7 +120,7 @@ export default function ChooseAppPage() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid rgba(255,79,0,0.2)', borderTopColor: 'var(--amber)', animation: 'spin 0.7s linear infinite' }} />
+        <div style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid rgba(255,46,0,0.2)', borderTopColor: 'var(--amber)', animation: 'spin 0.7s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )

@@ -270,7 +270,7 @@ export const VenueInfoModal: React.FC<VenueInfoModalProps> = ({ barId, barName, 
             <button
               onClick={onStart}
               className="w-full flex items-center justify-center gap-2 text-white py-3.5 rounded-xl font-bold text-base transition-all"
-              style={{ background: 'linear-gradient(135deg, var(--amber) 0%, #CC3F00 100%)' }}
+              style={{ background: 'linear-gradient(135deg, var(--amber) 0%, #CC2500 100%)' }}
             >
               <Trophy size={18} />
               Start tab at {venue?.name || barName}

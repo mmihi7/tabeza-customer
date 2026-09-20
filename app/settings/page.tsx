@@ -164,7 +164,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#0f172a' }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
+      <div className="bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white sticky top-0 z-20 shadow-lg">
         <div className="px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => router.back()}
@@ -186,7 +186,7 @@ export default function SettingsPage() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Bell size={18} style={{ color: '#FF4F00' }} />
+              <Bell size={18} style={{ color: '#FF2E00' }} />
               <div>
                 <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Push Notifications</p>
                 <p className="text-xs" style={{ color: '#94a3b8' }}>Order updates, messages & alerts</p>
@@ -197,7 +197,7 @@ export default function SettingsPage() {
               disabled={savingNotifications}
               className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
               style={{
-                backgroundColor: notificationsEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)',
+                backgroundColor: notificationsEnabled ? '#FF2E00' : 'rgba(255,255,255,0.15)',
                 opacity: savingNotifications ? 0.6 : 1,
               }}
             >
@@ -216,7 +216,7 @@ export default function SettingsPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Percent size={18} style={{ color: '#FF4F00' }} />
+                  <Percent size={18} style={{ color: '#FF2E00' }} />
                   <div>
                     <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Deals from this venue</p>
                     <p className="text-xs" style={{ color: '#94a3b8' }}>Occasional offers even when you are away</p>
@@ -228,7 +228,7 @@ export default function SettingsPage() {
                   aria-pressed={promoOptInEnabled}
                   className="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
                   style={{
-                    backgroundColor: promoOptInEnabled ? '#FF4F00' : 'rgba(255,255,255,0.15)',
+                    backgroundColor: promoOptInEnabled ? '#FF2E00' : 'rgba(255,255,255,0.15)',
                     opacity: promoOptInLoaded ? 1 : 0.5,
                   }}
                 >

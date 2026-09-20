@@ -12,7 +12,13 @@ import { AuthProvider } from '@/contexts/AuthContext';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Tabeza v2.0',
+  title: 'Tabeza',
+  applicationName: 'Tabeza',
+  appleWebApp: {
+    capable: true,
+    title: 'Tabeza',
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

@@ -120,7 +120,7 @@ const formatPromoBenefit = (promo: any, favouriteDrink?: string): string => {
 const PromoChip = () => (
   <span
     className="inline-block ml-1.5 rounded px-1.5 py-0.5 align-middle text-[0.6rem] font-bold uppercase"
-    style={{ backgroundColor: 'rgba(255,79,0,0.18)', color: '#FFB084', border: '1px solid rgba(255,79,0,0.4)' }}
+    style={{ backgroundColor: 'rgba(255,46,0,0.18)', color: '#FFB084', border: '1px solid rgba(255,46,0,0.4)' }}
   >
     Promo
   </span>
@@ -2860,7 +2860,7 @@ export default function MenuPage() {
           <p className="text-gray-600 mb-6">This tab may have been closed, expired, or is no longer accessible.</p>
           <button
             onClick={() => router.push('/')}
-            className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF4F00]"
+            className="bg-[#FF2E00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF2E00]"
           >
             Start New Tab
           </button>
@@ -2882,7 +2882,7 @@ export default function MenuPage() {
       )}
       <div className="min-h-screen" style={{ background: 'var(--ink)', paddingBottom: 285 }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white sticky top-0 z-20 shadow-lg">
+      <div className="bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white sticky top-0 z-20 shadow-lg">
         <div className="px-4 py-3 border-b border-white border-opacity-20">
           <div className="flex items-center justify-between">
             <div>
@@ -3006,13 +3006,13 @@ export default function MenuPage() {
             onClick={sendWaiterAlert}
             style={{
               padding: '0.625rem 1rem', borderRadius: '0.75rem',
-              background: '#FF4F00', border: 'none',
+              background: '#FF2E00', border: 'none',
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
               flexShrink: 0,
               transition: 'background 0.15s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#CC3F00')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#FF4F00')}
+            onMouseEnter={e => (e.currentTarget.style.background = '#CC2500')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#FF2E00')}
           >
             <Bell size={16} style={{ color: 'white' }} />
             <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>Call Waiter</span>
@@ -3055,7 +3055,7 @@ export default function MenuPage() {
                 <span style={{
                   position: 'absolute', top: -4, right: -6, minWidth: 16, height: 16, padding: '0 3px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999,
-                  fontSize: 10, fontWeight: 700, lineHeight: 1, background: '#FF4F00', color: '#fff',
+                  fontSize: 10, fontWeight: 700, lineHeight: 1, background: '#FF2E00', color: '#fff',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
                 }}>
                   {eligiblePromos.length}
@@ -3299,7 +3299,7 @@ export default function MenuPage() {
         <div className="px-4 mt-4">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF4F00] mx-auto mb-3"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF2E00] mx-auto mb-3"></div>
               <p className="text-gray-500 text-sm">Loading menu...</p>
             </div>
           </div>
@@ -3401,7 +3401,7 @@ export default function MenuPage() {
                       onClick={() => setSelectedCategory(cat)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                         selectedCategory === cat
-                          ? 'bg-[#FF4F00] text-white'
+                          ? 'bg-[#FF2E00] text-white'
                           : 'bg-white bg-opacity-10 text-gray-300 hover:bg-opacity-20'
                       }`}
                     >
@@ -3546,7 +3546,7 @@ export default function MenuPage() {
                                       {tempFormatCurrency(bp.sale_price)}
                                     </span>
                                   )}
-                                  <span className="text-[#FF4F00] text-sm font-semibold">
+                                  <span className="text-[#FF2E00] text-sm font-semibold">
                                     {tempFormatCurrency(displayPrice)}
                                   </span>
                                 </div>
@@ -3592,7 +3592,7 @@ export default function MenuPage() {
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
-                                    <span className="text-[#FF4F00] text-base font-semibold">
+                                    <span className="text-[#FF2E00] text-base font-semibold">
                                       {tempFormatCurrency(displayPrice)}
                                     </span>
                                   </div>
@@ -3639,7 +3639,7 @@ export default function MenuPage() {
                                         {tempFormatCurrency(bp.sale_price)}
                                       </span>
                                     )}
-                                    <span className="text-[#FF4F00] text-base font-semibold">
+                                    <span className="text-[#FF2E00] text-base font-semibold">
                                       {tempFormatCurrency(displayPrice)}
                                     </span>
                                   </div>
@@ -3770,11 +3770,11 @@ export default function MenuPage() {
       {cart.length > 0 && (
         <div ref={cartRef} className="p-4 mb-4">
           <div className="mb-3">
-            <h2 className="text-xs font-semibold text-[#FF4F00] uppercase tracking-wide">YOUR CART</h2>
+            <h2 className="text-xs font-semibold text-[#FF2E00] uppercase tracking-wide">YOUR CART</h2>
           </div>
 
           <div className="rounded-xl shadow-sm overflow-hidden" style={{ backgroundColor: 'var(--ink)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div className="bg-gradient-to-r from-[#FF4F00] to-[#FF7A3D] p-4">
+            <div className="bg-gradient-to-r from-[#FF2E00] to-[#FF7A3D] p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <ShoppingCart size={20} className="text-white" />
@@ -3801,7 +3801,7 @@ export default function MenuPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium" style={{ color: 'var(--cream)' }}>{item.name}</span>
                       </div>
-                      <p className="text-sm text-[#FF4F00]">{tempFormatCurrency(item.price)} each</p>
+                      <p className="text-sm text-[#FF2E00]">{tempFormatCurrency(item.price)} each</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -3841,7 +3841,7 @@ export default function MenuPage() {
                             type="checkbox"
                             checked={notColdPreferences[`cart-item-${index}`] || false}
                             onChange={() => toggleNotCold(`cart-item-${index}`)}
-                            className="w-4 h-4 accent-[#FF4F00]"
+                            className="w-4 h-4 accent-[#FF2E00]"
                           />
                           <span className="text-sm font-medium" style={{ color: '#93c5fd' }}>Not Cold</span>
                           <span className="text-xs" style={{ color: 'rgba(147,197,253,0.7)' }}>(serve at room temperature)</span>
@@ -3856,13 +3856,13 @@ export default function MenuPage() {
             <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm text-[#FF4F00]">Total</p>
+                  <p className="text-sm text-[#FF2E00]">Total</p>
                   <p className="text-2xl font-bold" style={{ color: 'var(--cream)' }}>{tempFormatCurrency(cartTotal)}</p>
                 </div>
                 <button
                   onClick={confirmOrder}
                   disabled={submittingOrder || cart.length === 0}
-                  className="bg-[#FF4F00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF7A3D] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="bg-[#FF2E00] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#FF7A3D] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {submittingOrder ? (
                     <>
@@ -3917,7 +3917,7 @@ export default function MenuPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Orders</p>
-              <p className="text-2xl font-bold text-[#FF4F00]">{tempFormatCurrency(tabTotal)}</p>
+              <p className="text-2xl font-bold text-[#FF2E00]">{tempFormatCurrency(tabTotal)}</p>
               <p className="text-xs text-transparent mt-1">-</p>
             </div>
           </div>
@@ -4068,7 +4068,7 @@ export default function MenuPage() {
         <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowPayInstructions(false)}>
           <div
             className="w-full max-w-lg mx-auto rounded-t-3xl p-6 max-h-[82vh] overflow-y-auto scrollbar-hide"
-            style={{ backgroundColor: '#FF4F00', color: '#ffffff' }}
+            style={{ backgroundColor: '#FF2E00', color: '#ffffff' }}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-1">Close your tab</h2>
@@ -4309,7 +4309,7 @@ export default function MenuPage() {
                     value={reason.value}
                     checked={selectedRejectionReason === reason.value}
                     onChange={(e) => setSelectedRejectionReason(e.target.value)}
-                    className="w-4 h-4 text-[#FFF5F0]0 focus:ring-[#FF4F00]"
+                    className="w-4 h-4 text-[#FFF3F0]0 focus:ring-[#FF2E00]"
                   />
                   <span className="text-sm text-gray-700">{reason.label}</span>
                 </label>
@@ -4440,7 +4440,7 @@ export default function MenuPage() {
                         onClick={() => handleRedeemPromo(promo)}
                         disabled={redeemingPromoId === promo.id}
                         className="shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-                        style={{ backgroundColor: '#FF4F00', color: 'white', border: 'none', cursor: redeemingPromoId === promo.id ? 'default' : 'pointer' }}
+                        style={{ backgroundColor: '#FF2E00', color: 'white', border: 'none', cursor: redeemingPromoId === promo.id ? 'default' : 'pointer' }}
                       >
                         {redeemingPromoId === promo.id ? 'Applying…' : 'Redeem'}
                       </button>
@@ -4458,8 +4458,8 @@ export default function MenuPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto scrollbar-hide transform animate-slideUp">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-[#FFE8DF] rounded-full flex items-center justify-center mx-auto mb-4">
-                <Utensils size={32} className="text-[#FFF5F0]0" />
+              <div className="w-16 h-16 bg-[#FFE4DE] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Utensils size={32} className="text-[#FFF3F0]0" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">What's your table number?</h2>
               <p className="text-gray-600">
@@ -4475,7 +4475,7 @@ export default function MenuPage() {
                     console.log('🪑 Table button clicked:', tableNum);
                     selectTable(tableNum);
                   }}
-                  className="aspect-square bg-[#FFF5F0] border-2 border-[#FFCDB8] rounded-lg hover:bg-[#FFE8DF] hover:border-[#FF9E7A] transition-all duration-200 flex items-center justify-center font-bold text-[#CC3F00] hover:scale-105"
+                  className="aspect-square bg-[#FFF3F0] border-2 border-[#FFCDB8] rounded-lg hover:bg-[#FFE4DE] hover:border-[#FF9E7A] transition-all duration-200 flex items-center justify-center font-bold text-[#CC2500] hover:scale-105"
                 >
                   {tableNum}
                 </button>

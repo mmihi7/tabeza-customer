@@ -5,7 +5,7 @@
 // and encodes ONE benefit of Tabeza from a customer's point of view.
 //
 // Palette mirrors the customer app brand:
-//   orange #FF4F00  -> [1, 0.31, 0,    1]
+//   orange #FF2E00  -> [1, 0.31, 0,    1]
 //   amber  #FFA83A  -> [1, 0.66, 0.23, 1]
 //   cream  #FFEDD6  -> [1, 0.93, 0.84, 1]
 

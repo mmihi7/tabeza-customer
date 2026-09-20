@@ -264,7 +264,7 @@ export default function LandingPage() {
       )}
 
       {/* CTA Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(255,79,0,0.1)' }}>
+      <section className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: 'rgba(255,46,0,0.1)' }}>
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--cream)' }}>
             Ready to transform your night out?

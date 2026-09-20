@@ -166,7 +166,7 @@ export default function MessagePanel({ isOpen, onClose, tabId, initialMessages, 
                     <div
                       className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${
                         msg.initiated_by === 'customer'
-                          ? 'bg-[#FFE8DF] text-gray-900 rounded-br-none border border-[#FFCDB8]'
+                          ? 'bg-[#FFE4DE] text-gray-900 rounded-br-none border border-[#FFCDB8]'
                           : 'bg-blue-100 text-gray-900 rounded-bl-none border border-blue-200'
                       }`}
                     >
@@ -185,15 +185,15 @@ export default function MessagePanel({ isOpen, onClose, tabId, initialMessages, 
                             </div>
                           )}
                           <p className="text-sm leading-relaxed">{msg.message}</p>
-                          <div className={`flex items-center gap-2 mt-2 ${msg.initiated_by === 'customer' ? 'text-[#CC3F00]' : 'text-blue-700'}`}>
+                          <div className={`flex items-center gap-2 mt-2 ${msg.initiated_by === 'customer' ? 'text-[#CC2500]' : 'text-blue-700'}`}>
                             <span className="text-xs font-medium">
                               {formatTime(msg.created_at)}
                             </span>
                             {msg.initiated_by === 'customer' && (
                               <>
                                 <span className="text-xs">•</span>
-                                {msg.status === 'pending' && <Clock size={12} className="text-[#FF4F00]" />}
-                                {msg.status === 'acknowledged' && <CheckCircle size={12} className="text-[#CC3F00]" />}
+                                {msg.status === 'pending' && <Clock size={12} className="text-[#FF2E00]" />}
+                                {msg.status === 'acknowledged' && <CheckCircle size={12} className="text-[#CC2500]" />}
                                 <span className="text-xs capitalize font-medium">{msg.status}</span>
                               </>
                             )}

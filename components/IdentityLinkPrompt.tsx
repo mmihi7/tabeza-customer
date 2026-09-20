@@ -124,7 +124,7 @@ export function IdentityLinkPrompt() {
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-[#FFF1E8] flex items-center justify-center">
-              <Link2 size={18} className="text-[#FF4F00]" />
+              <Link2 size={18} className="text-[#FF2E00]" />
             </div>
             <h2 className="text-base font-semibold text-gray-900">Another account used this device</h2>
           </div>
@@ -153,7 +153,7 @@ export function IdentityLinkPrompt() {
               type="checkbox"
               checked={acknowledged}
               onChange={(e) => setAcknowledged(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#FF4F00]"
+              className="mt-0.5 h-4 w-4 accent-[#FF2E00]"
             />
             <span className="text-sm text-gray-700">
               I understand and accept that my accounts will share liability for unpaid tabs.
@@ -165,7 +165,7 @@ export function IdentityLinkPrompt() {
             disabled={!acknowledged || linking}
             className="mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: acknowledged && !linking ? '#FF4F00' : '#F5F5F5',
+              background: acknowledged && !linking ? '#FF2E00' : '#F5F5F5',
               color: acknowledged && !linking ? '#fff' : '#9CA3AF',
             }}
           >

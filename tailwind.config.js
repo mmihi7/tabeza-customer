@@ -19,9 +19,9 @@ module.exports = {
           2: '#C8B898',
         },
         amber: {
-          DEFAULT: '#FF4F00',
-          soft: '#FF7033',
-          pale: 'rgba(255,79,0,0.08)',
+          DEFAULT: '#FF2E00',
+          soft: '#FF5631',
+          pale: 'rgba(255,46,0,0.08)',
         },
         muted: {
           DEFAULT: '#7A6A54',
@@ -40,7 +40,7 @@ module.exports = {
           300: '#fdba74',
           400: '#fb923c',
           500: '#f97316',
-          600: '#FF4F00',
+          600: '#FF2E00',
           700: '#c2410c',
           800: '#9a3412',
           900: '#7c2d12',

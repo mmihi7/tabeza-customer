@@ -23,7 +23,7 @@ export default function PaymentTabs({
           onClick={() => onTabChange('cash')}
           className={`flex-1 px-6 py-4 font-medium text-sm transition-colors ${
             activeTab === 'cash'
-              ? 'text-[#FF4F00] border-b-2 border-[#FF4F00] bg-[#FFF5F0]'
+              ? 'text-[#FF2E00] border-b-2 border-[#FF2E00] bg-[#FFF3F0]'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >

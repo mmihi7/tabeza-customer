@@ -116,7 +116,7 @@ export default function SavedRestaurantsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00]">
+    <div className="min-h-screen bg-gradient-to-br from-[#FF2E00] to-[#CC2500]">
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-sm border-b border-white/20">
         <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
@@ -153,7 +153,7 @@ export default function SavedRestaurantsPage() {
             <p className="text-gray-600 mb-6">{error}</p>
             <button
               onClick={loadSavedBars}
-              className="px-6 py-3 bg-[#FF4F00] text-white rounded-xl font-semibold hover:bg-[#CC3F00] transition"
+              className="px-6 py-3 bg-[#FF2E00] text-white rounded-xl font-semibold hover:bg-[#CC2500] transition"
             >
               Try Again
             </button>
@@ -170,7 +170,7 @@ export default function SavedRestaurantsPage() {
             </p>
             <button
               onClick={() => router.push('/login')}
-              className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition"
+              className="px-6 py-3 bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-xl font-semibold hover:from-[#FF2E00] hover:to-red-700 transition"
             >
               Sign In
             </button>
@@ -187,7 +187,7 @@ export default function SavedRestaurantsPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition"
+              className="px-6 py-3 bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-xl font-semibold hover:from-[#FF2E00] hover:to-red-700 transition"
             >
               Explore Venues
             </button>
@@ -205,7 +205,7 @@ export default function SavedRestaurantsPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-12 h-12 bg-[#FFE8DF] rounded-xl flex items-center justify-center">
+                      <div className="w-12 h-12 bg-[#FFE4DE] rounded-xl flex items-center justify-center">
                         {saved.bar.logoUrl ? (
                           <img
                             src={saved.bar.logoUrl}
@@ -213,7 +213,7 @@ export default function SavedRestaurantsPage() {
                             className="w-full h-full object-cover rounded-xl"
                           />
                         ) : (
-                          <Star size={24} className="text-[#FF4F00]" />
+                          <Star size={24} className="text-[#FF2E00]" />
                         )}
                       </div>
                       <div>
@@ -240,7 +240,7 @@ export default function SavedRestaurantsPage() {
                   <div className="flex flex-col gap-3 ml-4">
                     <button
                       onClick={() => handleQuickConnect(saved.bar.slug)}
-                      className="px-6 py-3 bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition flex items-center justify-center gap-2"
+                      className="px-6 py-3 bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-xl font-semibold hover:from-[#FF2E00] hover:to-red-700 transition flex items-center justify-center gap-2"
                     >
                       <span>Quick Connect</span>
                       <ChevronRight size={20} />

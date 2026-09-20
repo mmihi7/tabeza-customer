@@ -51,7 +51,7 @@ export default function CrewProfileView({ isOpen, onClose, crewId }: CrewProfile
 
   function getBadgeColor(tier: string) {
     switch (tier) {
-      case 'gold': return { bg: 'rgba(255,79,0,0.15)', border: 'rgba(255,79,0,0.3)', color: 'var(--amber)' }
+      case 'gold': return { bg: 'rgba(255,46,0,0.15)', border: 'rgba(255,46,0,0.3)', color: 'var(--amber)' }
       case 'silver': return { bg: 'rgba(192,192,192,0.15)', border: 'rgba(192,192,192,0.3)', color: '#c0c0c0' }
       default: return { bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.15)', color: 'var(--muted)' }
     }
@@ -273,8 +273,8 @@ export default function CrewProfileView({ isOpen, onClose, crewId }: CrewProfile
                           fontSize: '0.75rem',
                           padding: '0.25rem 0.5rem',
                           borderRadius: '999px',
-                          background: 'rgba(255,79,0,0.1)',
-                          border: '1px solid rgba(255,79,0,0.2)',
+                          background: 'rgba(255,46,0,0.1)',
+                          border: '1px solid rgba(255,46,0,0.2)',
                           color: 'var(--amber)',
                         }}
                       >

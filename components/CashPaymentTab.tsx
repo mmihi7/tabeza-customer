@@ -34,7 +34,7 @@ export default function CashPaymentTab({
             value={amount}
             onChange={(e) => onAmountChange(e.target.value)}
             placeholder="0.00"
-            className="w-full pl-16 pr-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF4F00] focus:border-transparent"
+            className="w-full pl-16 pr-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF2E00] focus:border-transparent"
             disabled={isProcessing}
           />
         </div>
@@ -47,7 +47,7 @@ export default function CashPaymentTab({
       <button
         onClick={onPayment}
         disabled={isProcessing || !amount || parseFloat(amount) <= 0}
-        className="w-full bg-[#FF4F00] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#FF4F00] disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+        className="w-full bg-[#FF2E00] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#FF2E00] disabled:bg-gray-300 disabled:cursor-not-allowed transition"
       >
         {isProcessing ? (
           <>

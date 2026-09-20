@@ -145,7 +145,7 @@ export default function BenefitsCarousel({ onActivate }: BenefitsCarouselProps) 
                 margin: '8px 0 0',
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#FF4F00',
+                color: '#FF2E00',
               }}
             >
               {slide.hint}
@@ -172,7 +172,7 @@ export default function BenefitsCarousel({ onActivate }: BenefitsCarouselProps) 
               width: i === index ? 18 : 6,
               height: 6,
               borderRadius: 3,
-              backgroundColor: i === index ? '#FF4F00' : 'rgba(255, 237, 214, 0.35)',
+              backgroundColor: i === index ? '#FF2E00' : 'rgba(255, 237, 214, 0.35)',
               transition: 'width 0.3s ease, background-color 0.3s ease',
             }}
           />

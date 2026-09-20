@@ -196,7 +196,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
               <div 
                 key={day} 
                 className={`flex justify-between items-center py-1 px-2 rounded ${
-                  isToday ? 'bg-[#FFF5F0] font-semibold text-[#CC3F00]' : 'text-gray-600'
+                  isToday ? 'bg-[#FFF3F0] font-semibold text-[#CC2500]' : 'text-gray-600'
                 }`}
               >
                 <span className="text-sm">{day}</span>
@@ -247,8 +247,8 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
         <div className="px-6 pb-8 pt-4">
           {/* Icon and title */}
           <div className="text-center mb-6">
-            <div className="w-20 h-20 bg-[#FFE8DF] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Store size={40} className="text-[#FF4F00]" />
+            <div className="w-20 h-20 bg-[#FFE4DE] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Store size={40} className="text-[#FF2E00]" />
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">{barName}</h2>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full">
@@ -262,7 +262,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
             <p className="text-gray-700 mb-3">
               {countdown.isToday ? 'Opens later today' : 'Opens next time in'}:
             </p>
-            <div className="bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white rounded-2xl p-4 shadow-lg">
+            <div className="bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-2xl p-4 shadow-lg">
               <div className="text-3xl font-bold mb-1">
                 {formatCountdown()}
               </div>
@@ -283,7 +283,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
           <div className="space-y-3">
             <button
               onClick={handleClose}
-              className="w-full bg-gradient-to-r from-[#FF4F00] to-[#CC3F00] text-white py-3 rounded-xl font-semibold hover:from-[#FF4F00] hover:to-red-700 transition-all shadow-lg"
+              className="w-full bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white py-3 rounded-xl font-semibold hover:from-[#FF2E00] hover:to-red-700 transition-all shadow-lg"
             >
               Set Reminder
             </button>

@@ -827,7 +827,7 @@ function ConsentContent() {
   // Loading state
   if (loading || redirecting) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF2E00] to-[#CC2500] flex items-center justify-center p-4">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-lg font-medium">
@@ -951,7 +951,7 @@ function ConsentContent() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF2E00] to-[#CC2500] flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -966,7 +966,7 @@ function ConsentContent() {
               sessionStorage.clear();
               router.replace('/');
             }}
-            className="w-full bg-[#FF4F00] text-white py-3 rounded-xl font-semibold hover:bg-[#FF4F00] transition"
+            className="w-full bg-[#FF2E00] text-white py-3 rounded-xl font-semibold hover:bg-[#FF2E00] transition"
           >
             Go Back Home
           </button>
@@ -982,14 +982,14 @@ function ConsentContent() {
   // Bar closed state - show slide-in instead of consent form
   if (showBarClosed && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00] flex items-center justify-center p-4 relative">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF2E00] to-[#CC2500] flex items-center justify-center p-4 relative">
         {/* Back arrow button */}
         <button
           onClick={() => {
             sessionStorage.clear();
             router.replace('/');
           }}
-          className="absolute top-4 left-4 p-3 bg-[#FF4F00]/80 backdrop-blur-sm rounded-full text-white hover:bg-[#CC3F00]/90 transition z-10 shadow-lg border-2 border-white/30"
+          className="absolute top-4 left-4 p-3 bg-[#FF2E00]/80 backdrop-blur-sm rounded-full text-white hover:bg-[#CC2500]/90 transition z-10 shadow-lg border-2 border-white/30"
           title="Go Back"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1132,7 +1132,7 @@ function ConsentContent() {
 export default function ConsentPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-[#FF4F00] to-[#CC3F00] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF2E00] to-[#CC2500] flex items-center justify-center p-4">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading...</p>
