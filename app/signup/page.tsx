@@ -726,7 +726,7 @@ function SignupContent() {
               >
                 {passkeyEnrolling
                   ? 'Waiting for fingerprint…'
-                  : 'Save fingerprint sign-in (recommended)'}
+                  : 'Use biometrics for quick sign-in next time'}
               </button>
             )}
           </div>
