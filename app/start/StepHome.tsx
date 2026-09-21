@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getDeviceId } from '@/lib/device-identity'
 import VisitFrequencyDots from '@/components/onboarding/VisitFrequencyDots'
-import { Star } from 'lucide-react'
+import { Star, AlertCircle } from 'lucide-react'
+import { formatCurrency } from '@/lib/formatUtils'
 import { usePlatformSettings } from '@/hooks/usePlatformSettings'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ interface StepHomeProps {
   onVenueSelected: (venue: { id: string; slug: string; name: string; category?: string }) => void
   onScan: () => void
   onCodeSubmit: (slug: string) => void
+  onOverdueTab: (tab: any) => void
 }
 
 interface RecentVenue {
@@ -49,11 +51,12 @@ function deriveInitials(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }: StepHomeProps) {
+export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit, onOverdueTab }: StepHomeProps) {
   const { flags } = usePlatformSettings()
   const loyaltyHidden = flags.loyalty_shadow_mode
   const [recentVenues, setRecentVenues] = useState<RecentVenue[]>([])
   const [savedVenues, setSavedVenues] = useState<RecentVenue[]>([])
+  const [overdueTab, setOverdueTab] = useState<any>(null)
   const [venuesLoaded, setVenuesLoaded] = useState(false)
   const [codeInput, setCodeInput] = useState('')
   const [savingVenueId, setSavingVenueId] = useState<string | null>(null)
@@ -116,7 +119,14 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
         ? fetch(`${baseUrl}/api/customer/saved-bars?customerId=${customerId}`)
         : Promise.resolve(null)
 
-      const [recentRes, savedRes] = await Promise.all([recentPromise, savedPromise])
+      // Overdue tab reminder (status=overdue) — works for both identities
+      const overduePromise = fetch(`/api/tabs/overdue?${lookupParam}`)
+
+      const [recentRes, savedRes, overdueRes] = await Promise.all([
+        recentPromise,
+        savedPromise,
+        overduePromise,
+      ])
 
       // Parse saved bars for fast lookup
       const savedBarIds = new Set<string>()
@@ -142,13 +152,13 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
         }
       }
 
-      // Parse recent venues from tabs
-      const recentVenuesList: RecentVenue[] = []
+      // Parse recent venues from tabs — build counts for every bar in the
+      // returned set so saved places can also show their own visit totals.
+      const venueMap = new Map<string, RecentVenue>()
       if (recentRes.ok) {
         const { tabs } = await recentRes.json()
         if (tabs && Array.isArray(tabs) && tabs.length > 0) {
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          const venueMap = new Map<string, RecentVenue>()
 
           for (const row of tabs) {
             const bar = row.bars
@@ -174,11 +184,25 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
               venue.weeklyVisits += 1
             }
           }
-
-          // Take the 5 most recently seen
-          const venues = Array.from(venueMap.values()).slice(0, 5)
-          recentVenuesList.push(...venues)
         }
+      }
+
+      // Recent venues: the 3 most recently seen bars
+      const recentVenuesList = Array.from(venueMap.values()).slice(0, 3)
+
+      // Enrich saved places with their visit counts from the same tab set
+      for (const saved of savedVenuesList) {
+        const counts = venueMap.get(saved.id)
+        if (counts) {
+          saved.tabCount = counts.tabCount
+          saved.weeklyVisits = counts.weeklyVisits
+        }
+      }
+
+      // Overdue tab reminder
+      if (overdueRes.ok) {
+        const { tab } = await overdueRes.json()
+        if (tab) setOverdueTab(tab)
       }
 
       setRecentVenues(recentVenuesList)
@@ -298,6 +322,123 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
         </p>
       )}
 
+      {/* ── Overdue tab reminder — Requirement 2.2 ───────────────────── */}
+      {venuesLoaded && overdueTab && (
+        <button
+          onClick={() => onOverdueTab(overdueTab)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            background: 'rgba(178, 34, 34, 0.12)',
+            border: '1px solid rgba(220, 38, 38, 0.5)',
+            borderRadius: '0.5rem',
+            padding: '0.875rem 1rem',
+            marginBottom: '1.75rem',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+          aria-label="View overdue tab"
+        >
+          <AlertCircle size={20} color="#f87171" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+            <span style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.9375rem', color: '#fca5a5' }}>
+              Overdue tab
+            </span>
+            <span style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)' }}>
+              {overdueTab?.bars?.name || 'Your venue'} · {formatCurrency(overdueTab?.balance ?? 0)} due
+            </span>
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" color="#a0a0a0"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      )}
+
+      {/* ── Recent Venues — Requirement 7.3, 7.4 ─────────────────────── */}
+      {venuesLoaded && recentVenues.length > 0 && (
+        <div style={{ marginBottom: '1.75rem' }}>
+          <p className="section-label" style={{ marginBottom: '0.75rem' }}>
+            Recent venues
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            {recentVenues.map((venue) => (
+              <div key={venue.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  onClick={() =>
+                    onVenueSelected({
+                      id: venue.id,
+                      slug: venue.slug,
+                      name: venue.name,
+                      category: venue.category,
+                    })
+                  }
+                  style={{
+                    flex: 1,
+                    background: 'var(--ink)',
+                    border: '1px solid var(--amber-border)',
+                    borderRadius: '0.5rem',
+                    padding: '0.875rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--amber)')
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--amber-border)')
+                  }
+                  aria-label={`Connect to ${venue.name}`}
+                >
+                  {/* Left: venue name + saved indicator */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <span
+                      style={{
+                        fontFamily: "'Lato', sans-serif",
+                        fontWeight: 700,
+                        fontSize: '0.9375rem',
+                        color: 'var(--cream)',
+                      }}
+                    >
+                      {venue.name}
+                    </span>
+                    <span style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)' }}>
+                      {venue.isSaved && 'Saved'}
+                    </span>
+                  </div>
+
+                  {/* Right: save toggle only (no visit dots here) */}
+                  <button
+                    onClick={(e) => toggleSaveVenue(e, venue)}
+                    disabled={savingVenueId === venue.id}
+                    style={{
+                      flexShrink: 0,
+                      padding: '0.25rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      borderRadius: '50%',
+                    }}
+                    title={venue.isSaved ? 'Remove from saved' : 'Save this place'}
+                  >
+                    <Star
+                      size={16}
+                      fill={venue.isSaved ? '#FFD700' : 'transparent'}
+                      stroke={venue.isSaved ? '#FFD700' : '#a0a0a0'}
+                      strokeWidth={2}
+                    />
+                  </button>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Saved Places — Requirement 7.3, 7.4 ─────────────────────── */}
       {venuesLoaded && savedVenues.length > 0 && (
         <div style={{ marginBottom: '1.75rem' }}>
@@ -349,120 +490,14 @@ export default function StepHome({ user, onVenueSelected, onScan, onCodeSubmit }
                       {venue.name}
                     </span>
                     <span style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)' }}>
-                      Saved
-                    </span>
-                  </div>
-                </button>
-                {/* Save toggle */}
-                <button
-                  onClick={(e) => toggleSaveVenue(e, venue)}
-                  disabled={savingVenueId === venue.id}
-                  style={{
-                    flexShrink: 0,
-                    padding: '0.5rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    borderRadius: '50%',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.background = 'transparent')
-                  }
-                  title="Remove from saved"
-                >
-                  <Star size={18} fill="#FFD700" stroke="#FFD700" strokeWidth={2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Recent Venues — Requirement 7.3, 7.4 ─────────────────────── */}
-      {venuesLoaded && recentVenues.length > 0 && (
-        <div style={{ marginBottom: '1.75rem' }}>
-          <p className="section-label" style={{ marginBottom: '0.75rem' }}>
-            Recent venues
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            {recentVenues.map((venue) => (
-              <div key={venue.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
-                  onClick={() =>
-                    onVenueSelected({
-                      id: venue.id,
-                      slug: venue.slug,
-                      name: venue.name,
-                      category: venue.category,
-                    })
-                  }
-                  style={{
-                    flex: 1,
-                    background: 'var(--ink)',
-                    border: '1px solid var(--amber-border)',
-                    borderRadius: '0.5rem',
-                    padding: '0.875rem 1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'border-color 0.15s',
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--amber)')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--amber-border)')
-                  }
-                  aria-label={`Connect to ${venue.name}`}
-                >
-                  {/* Left: venue name */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span
-                      style={{
-                        fontFamily: "'Lato', sans-serif",
-                        fontWeight: 700,
-                        fontSize: '0.9375rem',
-                        color: 'var(--cream)',
-                      }}
-                    >
-                      {venue.name}
-                    </span>
-                    <span style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: 'var(--muted)' }}>
-                      {venue.tabCount} visit{venue.tabCount !== 1 ? 's' : ''}
-                      {venue.isSaved && ' · Saved'}
+                      {venue.tabCount > 0
+                        ? `${venue.tabCount} visit${venue.tabCount !== 1 ? 's' : ''}`
+                        : venue.category}
                     </span>
                   </div>
 
-                  {/* Right: visit frequency dots */}
                   <div className="flex items-center gap-2">
                     {!loyaltyHidden && <VisitFrequencyDots visits={venue.weeklyVisits} max={7} />}
-                    <button
-                      onClick={(e) => toggleSaveVenue(e, venue)}
-                      disabled={savingVenueId === venue.id}
-                      style={{
-                        flexShrink: 0,
-                        padding: '0.25rem',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        borderRadius: '50%',
-                      }}
-                      title={venue.isSaved ? 'Remove from saved' : 'Save this place'}
-                    >
-                      <Star
-                        size={16}
-                        fill={venue.isSaved ? '#FFD700' : 'transparent'}
-                        stroke={venue.isSaved ? '#FFD700' : '#a0a0a0'}
-                        strokeWidth={2}
-                      />
-                    </button>
                   </div>
                 </button>
               </div>

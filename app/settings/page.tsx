@@ -388,7 +388,7 @@ export default function SettingsPage() {
               ) : (
                 <>
                   <Plus size={16} />
-                  Add fingerprint sign-in
+                  {passkeys.length > 0 ? 'Add another device' : 'Add fingerprint sign-in'}
                 </>
               )}
             </button>

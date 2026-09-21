@@ -1066,6 +1066,11 @@ function ConsentContent() {
             sessionStorage.setItem('scanned_bar_slug', slug);
             await loadBarInfo(slug);
           }}
+          onOverdueTab={(tab) => {
+            setOverdueTab(tab);
+            setBarName(tab?.bars?.name || 'Bar');
+            setShowOverdueModal(true);
+          }}
         />
         <IdentityLinkPrompt />
         </div>
