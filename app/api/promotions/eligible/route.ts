@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
         .from('customer_favorites')
         .select('item_name, order_count')
         .eq('customer_id', customerId)
+        .eq('bar_id', barId)
         .eq('item_type', 'drink')
         .order('order_count', { ascending: false })
         .limit(1);
