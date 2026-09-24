@@ -48,6 +48,7 @@ function ConsentContent() {
   const [barSlug, setBarSlug] = useState<string | null>(null);
   const [barId, setBarId] = useState<string | null>(null);
   const [barName, setBarName] = useState<string>('Default Bar Name');
+  const [venueCoords, setVenueCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [permissionRequested, setPermissionRequested] = useState(false);
   const [systemPermissions, setSystemPermissions] = useState<any>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -349,7 +350,7 @@ function ConsentContent() {
       
       const { data: bar, error: barError } = await (supabase as any)
         .from('bars')
-        .select('id, name, active, location, slug, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
+        .select('id, name, active, location, slug, latitude, longitude, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
         .eq('slug', slug)
         .maybeSingle();
 
@@ -379,6 +380,9 @@ function ConsentContent() {
       console.log('✅ Bar loaded successfully:', bar.name);
       setBarId(bar.id);
       setBarName(bar.name || 'Bar');
+      setVenueCoords(bar.latitude != null && bar.longitude != null
+        ? { latitude: bar.latitude, longitude: bar.longitude }
+        : null);
 
       // Always route through the wizard — set selectedVenue and go to Identity step.
       // Existing tab / overdue / business-hours checks still run first (below).
@@ -627,6 +631,75 @@ function ConsentContent() {
     router.replace('/');
   };
 
+  // ── Venue proximity gate ──────────────────────────────────────────────
+  // Only customers physically at or near the venue can open a tab. Both
+  // connection paths (QR scan and slug URL input) reach this check.
+  const PROXIMITY_RADIUS_METERS = 500;
+
+  function haversineMeters(aLat: number, aLon: number, bLat: number, bLon: number): number {
+    const R = 6371000; // Earth radius in metres
+    const dLat = (bLat - aLat) * Math.PI / 180;
+    const dLon = (bLon - aLon) * Math.PI / 180;
+    const la1 = aLat * Math.PI / 180;
+    const la2 = bLat * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  const checkVenueProximity = async (): Promise<{ allowed: boolean; message: string }> => {
+    const barCoords = barId ? venueCoords : null;
+
+    // Venue has no coordinates on record — can't verify distance. Block rather
+    // than silently allow, so venues without geo data surface the gap (staff
+    // should add their location at signup). To relax this, return allowed here.
+    if (!barCoords) {
+      return {
+        allowed: false,
+        message: 'This venue has not set its location yet. Try again shortly.'
+      };
+    }
+
+    // Geolocation unavailable in this browser (e.g. insecure context) — cannot
+    // prove the customer is at the venue, so block the connection.
+    if (!navigator.geolocation) {
+      return {
+        allowed: false,
+        message: 'Location is required to connect to this venue — enable GPS on your device.'
+      };
+    }
+
+    const position = await new Promise<GeolocationPosition | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    });
+
+    if (!position) {
+      return {
+        allowed: false,
+        message: 'We could not get your location. Enable GPS and try again — you must be at the venue to open a tab.'
+      };
+    }
+
+    const distance = haversineMeters(
+      position.coords.latitude,
+      position.coords.longitude,
+      barCoords.latitude,
+      barCoords.longitude
+    );
+
+    if (distance > PROXIMITY_RADIUS_METERS) {
+      return {
+        allowed: false,
+        message: `You're about ${Math.round(distance)} m from this venue — please connect from inside or near the venue.`
+      };
+    }
+
+    return { allowed: true, message: '' };
+  };
+
   const handleStartTab = async () => {
     // Check if user is fully authenticated before allowing tab creation
     if (!user?.id) {
@@ -639,6 +712,17 @@ function ConsentContent() {
       
       // Redirect to authentication page
       router.push('/auth/signin');
+      return;
+    }
+
+    // Proximity gate — only people at or near the venue may connect (QR scan / slug URL).
+    const proximity = await checkVenueProximity();
+    if (!proximity.allowed) {
+      showToast({
+        type: 'error',
+        title: 'You seem to be away from this venue',
+        message: proximity.message
+      });
       return;
     }
 
@@ -1053,11 +1137,24 @@ function ConsentContent() {
           </button>
           <StepHome
             user={user}
-            onVenueSelected={(venue) => {
+            onVenueSelected={async (venue) => {
               setSelectedVenue(venue);
             setBarSlug(venue.slug);
             setBarId(venue.id);
             setBarName(venue.name);
+            // Fetch venue coordinates for the proximity gate (saved/recent venue bypasses loadBarInfo).
+            try {
+              const { data: v } = await (supabase as any)
+                .from('bars')
+                .select('latitude, longitude')
+                .eq('id', venue.id)
+                .maybeSingle();
+              setVenueCoords(v && v.latitude != null && v.longitude != null
+                ? { latitude: v.latitude, longitude: v.longitude }
+                : null);
+            } catch {
+              setVenueCoords(null);
+            }
             setWizardStep(1);
           }}
           onScan={() => setIsScannerMode(true)}
