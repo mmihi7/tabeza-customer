@@ -50,6 +50,9 @@ function ConsentContent() {
   const [barId, setBarId] = useState<string | null>(null);
   const [barName, setBarName] = useState<string>('Default Bar Name');
   const [venueCoords, setVenueCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  // Per-venue opt-out from the "are you at the venue?" geofence. Test/demo
+  // venues set this false so customers can connect from anywhere.
+  const [locationCheckEnabled, setLocationCheckEnabled] = useState(true);
   const [permissionRequested, setPermissionRequested] = useState(false);
   const [systemPermissions, setSystemPermissions] = useState<any>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -383,7 +386,7 @@ function ConsentContent() {
       
       const { data: bar, error: barError } = await (supabase as any)
         .from('bars')
-          .select('id, name, active, location, slug, latitude, longitude, timezone, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
+          .select('id, name, active, location, slug, latitude, longitude, timezone, location_check_enabled, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
         .eq('slug', slug)
         .maybeSingle();
 
@@ -419,6 +422,7 @@ function ConsentContent() {
       setVenueCoords(bar.latitude != null && bar.longitude != null
         ? { latitude: bar.latitude, longitude: bar.longitude }
         : null);
+      setLocationCheckEnabled(bar.location_check_enabled !== false);
 
       // Always route through the wizard — set selectedVenue and go to Identity step.
       // Existing tab / overdue / business-hours checks still run first (below).
@@ -584,11 +588,19 @@ function ConsentContent() {
   }
 
   const checkVenueProximity = async (): Promise<{ allowed: boolean; message: string }> => {
+    // Venue has opted out of the geofence (test/demo venues, or any venue that
+    // allows remote ordering). Never ask for GPS.
+    if (!locationCheckEnabled) {
+      return { allowed: true, message: '' };
+    }
+
     const barCoords = barId ? venueCoords : null;
 
-    // Venue has no coordinates on record — can't verify distance. Block rather
-    // than silently allow, so venues without geo data surface the gap (staff
-    // should add their location at signup). To relax this, return allowed here.
+    // Venue has no coordinates on record, so there is no distance to compute and the
+    // in-place check cannot be satisfied. Tabeza is an in-place venue app, so this
+    // blocks rather than silently allowing a customer anywhere in the country to
+    // open a tab here. The fix is on the venue side: VenueLocationGate prompts
+    // the venue to confirm its location on every app open until it does.
     if (!barCoords) {
       return {
         allowed: false,
