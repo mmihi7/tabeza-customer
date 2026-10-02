@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { enforceVenueOpen, refusalResponse } from '@/lib/services/tab-hours';
 
 export async function PATCH(
   request: NextRequest,
@@ -27,7 +28,7 @@ export async function PATCH(
     // Fetch the tab to validate current status
     const { data: tab, error: fetchError } = await supabase
       .from('tabs')
-      .select('id, status')
+      .select('id, status, bar_id')
       .eq('id', tabId)
       .maybeSingle();
 
@@ -44,6 +45,15 @@ export async function PATCH(
     if (tab.status !== 'overdue') {
       return NextResponse.json({ error: 'Tab is not overdue' }, { status: 400 });
     }
+
+    /* Server-side business-hours gate. Reopening revives an overdue tab, so it
+       is just as capable of serving a closed venue as creating a new one. The
+       tab is already known here, so there is no active-tab lookup to do — but
+       the gate is the same shared one, and a failed hours query stays a 503
+       rather than being mistaken for "closed". */
+    const decision = await enforceVenueOpen(supabase, tab.bar_id, { tabId: tab.id });
+    const refusal = refusalResponse(decision);
+    if (refusal) return refusal;
 
     // Update status from 'overdue' to 'open'
     const { data: updatedTab, error: updateError } = await supabase

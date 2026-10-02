@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { decideTabCreation, refusalResponse } from '@/lib/services/tab-hours';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,30 +22,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Check if customer already has an active tab
-    const { data: existingTabs, error: existingError } = await supabase
-      .from('tabs')
-      .select('id, tab_number, status')
-      .eq('bar_id', barId)
-      .eq('owner_identifier', ownerIdentifier)
-      .in('status', ['open', 'closing']);
-
-    if (existingError) {
-      console.error('❌ Error checking existing tabs:', existingError);
-      return NextResponse.json(
-        { error: 'Failed to check existing tabs' },
-        { status: 500 }
-      );
-    }
-
-    if (existingTabs && existingTabs.length > 0) {
-      console.log('ℹ️ Customer already has active tab:', existingTabs[0]);
-      return NextResponse.json({
-        success: false,
-        message: 'You already have an active tab',
-        existingTab: existingTabs[0]
-      });
-    }
+    /* Tab access decision: existing-tab lookup FIRST, then the authoritative
+       business-hours gate. The order is enforced inside `decideTabCreation` —
+       an existing open/closing tab must stay usable even after the venue
+       shuts, so the lookup cannot come after the gate. */
+    const decision = await decideTabCreation(supabase, { barId, ownerIdentifier });
+    const refusal = refusalResponse(decision);
+    if (refusal) return refusal;
 
     // Get the next tab number for this bar
     const { data: maxTabData, error: maxTabError } = await supabase

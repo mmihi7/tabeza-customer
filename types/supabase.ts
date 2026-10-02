@@ -6382,8 +6382,21 @@ export type Database = {
         Args: { device_id_param: string }
         Returns: undefined
       }
-      is_bar_admin: { Args: { p_bar_id: string }; Returns: boolean }
-      is_bar_closed_now: { Args: { p_bar_id: string }; Returns: boolean }
+        is_bar_admin: { Args: { p_bar_id: string }; Returns: boolean }
+        is_bar_closed_now: { Args: { p_bar_id: string }; Returns: boolean }
+        /** Added by migration 20261002010000. */
+        bar_valid_timezone: { Args: { p_tz: string }; Returns: string }
+        /** Added by migration 20261002010000. */
+        get_bar_open_state: {
+          Args: { p_bar_id: string; p_at?: string }
+          Returns: {
+            is_open: boolean
+            opens_at: string | null
+            closes_at: string | null
+            timezone: string
+            reason: string
+          }[]
+        }
       is_within_business_hours: {
         Args: { business_hours: Json }
         Returns: boolean

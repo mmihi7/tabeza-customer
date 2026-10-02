@@ -2,19 +2,47 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Clock, Calendar, Store } from 'lucide-react';
+import { getOpenState, type BarSchedule, type AdvancedHours } from '@tabeza/schedule';
 
 interface BarClosedSlideInProps {
   isOpen: boolean;
   onClose: () => void;
   barName: string;
   nextOpenTime: string;
-  businessHours?: {
-    [key: string]: {
-      open: string;
-      close: string;
-      closeNextDay?: boolean;
+  /** The venue's full schedule. Authoritative source for the countdown. */
+  schedule?: BarSchedule;
+  /** Advanced hours as stored on `bars` — an ARRAY, or a legacy day-keyed object. */
+  businessHours?: AdvancedHours;
+}
+
+const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Normalise the stored advanced-hours shape into a day-indexed lookup. */
+function normalizeAdvanced(hours: AdvancedHours) {
+  const byDay: Record<number, { open: string; close: string; nextDay: boolean }> = {};
+  if (!hours) return byDay;
+
+  const entries = Array.isArray(hours) ? hours : Object.values(hours);
+  for (const entry of entries) {
+    if (!entry) continue;
+    const label = (entry.day ?? entry.label ?? '').toString().trim().toLowerCase();
+    const dayIndex = DAY_LABELS.findIndex((d) => d.toLowerCase().startsWith(label.slice(0, 3)));
+    if (dayIndex < 0) continue;
+
+    const openTime = entry.openTime ?? (typeof entry.open === 'string' ? entry.open : null);
+    const closeTime = entry.closeTime ?? entry.close ?? null;
+    if (!openTime || !closeTime) continue;
+
+    // `open: false` means the venue does not trade that day.
+    if (entry.open === false) continue;
+
+    byDay[dayIndex] = {
+      open: openTime,
+      close: closeTime,
+      nextDay: Boolean(entry.openNextDay ?? entry.closeNextDay),
     };
-  };
+  }
+  return byDay;
 }
 
 export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
@@ -22,6 +50,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
   onClose,
   barName,
   nextOpenTime,
+  schedule,
   businessHours
 }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -30,7 +59,8 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
     minutes: number;
     seconds: number;
     isToday: boolean;
-  }>({ hours: 0, minutes: 0, seconds: 0, isToday: true });
+    known: boolean;
+  }>({ hours: 0, minutes: 0, seconds: 0, isToday: true, known: false });
 
   useEffect(() => {
     if (isOpen) {
@@ -48,108 +78,78 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
     };
   }, [isOpen]);
 
-  // Calculate countdown to next opening time
+  // Countdown to the venue's next opening moment.
   useEffect(() => {
     if (!isOpen) return;
 
     const calculateCountdown = () => {
       const now = new Date();
-      const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      
-      // Try to get business hours for today
       let nextOpeningTime: Date | null = null;
       let isToday = true;
-      
-      if (businessHours) {
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        
-        // Check if bar opens later today
-        const todayHours = businessHours[dayNames[today]];
-        if (todayHours && todayHours.open) {
-          const [openHour, openMinute] = todayHours.open.split(':').map(Number);
-          const todayOpening = new Date();
-          todayOpening.setHours(openHour, openMinute, 0, 0);
-          
-          if (todayOpening > now) {
-            nextOpeningTime = todayOpening;
-            isToday = true;
-          }
-        }
-        
-        // If not opening today, find next opening day
-        if (!nextOpeningTime) {
-          for (let i = 1; i <= 7; i++) {
-            const nextDay = (today + i) % 7;
-            const nextDayHours = businessHours[dayNames[nextDay]];
-            
-            if (nextDayHours && nextDayHours.open) {
-              const [openHour, openMinute] = nextDayHours.open.split(':').map(Number);
-              const nextOpening = new Date();
-              nextOpening.setDate(now.getDate() + i);
-              nextOpening.setHours(openHour, openMinute, 0, 0);
-              
-              nextOpeningTime = nextOpening;
-              isToday = false;
-              break;
-            }
-          }
+
+      // Prefer the schedule evaluator: it is timezone-aware and already handles
+      // overnight and closed-today venues. The previous version re-derived this
+      // from the browser's clock and assumed a day-keyed object, so the countdown
+      // disagreed with the open/closed answer.
+      if (schedule) {
+        const state = getOpenState(schedule, now);
+        if (state.opensAt && state.opensAt > now) {
+          nextOpeningTime = state.opensAt;
+          isToday = new Date(state.opensAt).toDateString() === now.toDateString();
         }
       }
-      
-      // Fallback to simple parsing if no business hours
+
+      // Fallback: parse a "at HH:MM" label when no schedule was supplied.
       if (!nextOpeningTime && nextOpenTime.includes('at')) {
         const timeMatch = nextOpenTime.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
         if (timeMatch) {
-          let [_, hourStr, minuteStr, period] = timeMatch;
+          const [, hourStr, minuteStr, period] = timeMatch;
           let hour = parseInt(hourStr);
           const minute = parseInt(minuteStr);
-          
-          // Convert to 24-hour format
+
           if (period?.toLowerCase() === 'pm' && hour < 12) hour += 12;
           if (period?.toLowerCase() === 'am' && hour === 12) hour = 0;
-          
+
           const targetDate = new Date();
           targetDate.setHours(hour, minute, 0, 0);
-          
-          // If time has passed, assume tomorrow
+
           if (targetDate <= now) {
             targetDate.setDate(targetDate.getDate() + 1);
             isToday = false;
           }
-          
+
           nextOpeningTime = targetDate;
         }
       }
-      
+
       if (!nextOpeningTime) {
-        // Default fallback - assume 8 hours from now
-        nextOpeningTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-        isToday = false;
+        // Nothing known — hide the countdown rather than invent "8 hours".
+        return { hours: 0, minutes: 0, seconds: 0, isToday: false, known: false };
       }
-      
+
       const diff = nextOpeningTime.getTime() - now.getTime();
-      
+
       if (diff <= 0) {
-        return { hours: 0, minutes: 0, seconds: 0, isToday: true };
+        return { hours: 0, minutes: 0, seconds: 0, isToday: true, known: false };
       }
-      
+
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
-      return { hours, minutes, seconds, isToday };
+
+      return { hours, minutes, seconds, isToday, known: true };
     };
 
     // Initial calculation
     setCountdown(calculateCountdown());
 
-    // Update countdown every second
     const interval = setInterval(() => {
       setCountdown(calculateCountdown());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOpen, nextOpenTime, businessHours]);
+  }, [isOpen, nextOpenTime, schedule]);
+
 
   const handleClose = () => {
     setIsVisible(false);
@@ -177,21 +177,26 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
   const formatBusinessHours = () => {
     if (!businessHours) return null;
 
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    // `business_hours_advanced` is stored as an ARRAY; the old code indexed it
+    // by day name, so this table rendered nothing at all.
+    const byDay = normalizeAdvanced(businessHours);
     const today = new Date().getDay();
-    
+
+    const rows = DAY_LABELS.map((day, index) => ({ day, hours: byDay[index] })).filter(
+      (r) => r.hours,
+    );
+
+    if (rows.length === 0) return null;
+
     return (
       <div className="space-y-2">
         <h4 className="font-semibold text-gray-800 mb-3">Business Hours</h4>
         <div className="space-y-2">
-          {dayNames.map((day, index) => {
-            const dayKey = day.toLowerCase();
-            const hours = businessHours[dayKey];
-            
-            if (!hours || !hours.open || !hours.close) return null;
-            
-            const isToday = index === today;
-            
+          {rows.map(({ day, hours }, ) => {
+            if (!hours) return null;
+
+            const isToday = DAY_LABELS.indexOf(day) === today;
+
             return (
               <div 
                 key={day} 
@@ -202,7 +207,7 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
                 <span className="text-sm">{day}</span>
                 <span className="text-sm">
                   {hours.open} - {hours.close}
-                  {hours.closeNextDay && ' (next day)'}
+                  {hours.nextDay && ' (next day)'}
                 </span>
               </div>
             );
@@ -257,20 +262,22 @@ export const BarClosedSlideIn: React.FC<BarClosedSlideInProps> = ({
             </div>
           </div>
           
-          {/* Countdown Timer */}
-          <div className="text-center mb-6">
-            <p className="text-gray-700 mb-3">
-              {countdown.isToday ? 'Opens later today' : 'Opens next time in'}:
-            </p>
-            <div className="bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-2xl p-4 shadow-lg">
-              <div className="text-3xl font-bold mb-1">
-                {formatCountdown()}
-              </div>
-              <div className="text-sm opacity-90">
-                {countdown.isToday ? 'Later today' : nextOpenTime}
+          {/* Countdown Timer — only when we actually know when it reopens */}
+          {countdown.known && (
+            <div className="text-center mb-6">
+              <p className="text-gray-700 mb-3">
+                {countdown.isToday ? 'Opens later today' : 'Opens next time in'}:
+              </p>
+              <div className="bg-gradient-to-r from-[#FF2E00] to-[#CC2500] text-white rounded-2xl p-4 shadow-lg">
+                <div className="text-3xl font-bold mb-1">
+                  {formatCountdown()}
+                </div>
+                <div className="text-sm opacity-90">
+                  {countdown.isToday ? 'Later today' : nextOpenTime}
+                </div>
               </div>
             </div>
-          </div>
+          )}
           
           {/* Business hours (if available) */}
           {businessHours && (

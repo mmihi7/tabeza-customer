@@ -1,7 +1,7 @@
 // app/start/page.tsx - FIXED QR SCANNER
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+  import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Shield, Bell, Store, AlertCircle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,8 @@ import QrScanner from 'qr-scanner';
 import { BarClosedSlideIn } from '../../components/BarClosedSlideIn';
 import { playCustomerNotification, requestVibrationPermission, isVibrationSupported } from '@/lib/notifications';
 import { requestSystemPermissions, checkPermissions } from '@/lib/permissions';
-import { isWithinBusinessHours } from '@/lib/business-hours';
+import { isWithinBusinessHours, getVenueOpenState, describeOpenState } from '@/lib/business-hours';
+import type { BarSchedule } from '@tabeza/schedule';
 import { OverdueTabModal } from '@/components/OverdueTabModal';
 import { OverduePaymentModal } from '@/components/OverduePaymentModal';
 import { IdentityLinkPrompt } from '@/components/IdentityLinkPrompt';
@@ -70,11 +71,43 @@ function ConsentContent() {
     barName: string;
     nextOpenTime: string;
     businessHours?: any;
+    schedule?: BarSchedule;
   }>({
     barName: '',
     nextOpenTime: '',
-    businessHours: undefined
+    businessHours: undefined,
+    schedule: undefined
   });
+
+  // The venue's schedule, lifted out of loadBarInfo so that both the pre-flight
+  // check and the post-submit refusal can render the same closed-venue UI.
+  const [barSchedule, setBarSchedule] = useState<BarSchedule | null>(null);
+
+  const showVenueClosed = useCallback(() => {
+    if (!barSchedule) {
+      // The database refused the tab but no schedule is loaded, so there is no
+      // honest "opens at" to show. Render the panel without a countdown rather
+      // than inventing one.
+      setBarClosedInfo({
+        barName: barName || 'Bar',
+        nextOpenTime: '',
+        businessHours: undefined,
+        schedule: undefined
+      });
+      setShowBarClosed(true);
+      return;
+    }
+
+    const openState = getVenueOpenState(barSchedule);
+    setBarClosedInfo({
+      barName: barName || 'Bar',
+      nextOpenTime: describeOpenState(openState),
+      businessHours: barSchedule.business_hours_advanced ?? undefined,
+      schedule: barSchedule
+    });
+    setShowBarClosed(true);
+  }, [barSchedule, barName]);
+
 
   // Overdue tab resolution state (requirements 2.1, 2.2)
   const [showOverdueModal, setShowOverdueModal] = useState(false);
@@ -350,7 +383,7 @@ function ConsentContent() {
       
       const { data: bar, error: barError } = await (supabase as any)
         .from('bars')
-        .select('id, name, active, location, slug, latitude, longitude, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
+          .select('id, name, active, location, slug, latitude, longitude, timezone, business_hours_mode, business_hours_simple, business_hours_advanced, business_24_hours')
         .eq('slug', slug)
         .maybeSingle();
 
@@ -380,6 +413,9 @@ function ConsentContent() {
       console.log('✅ Bar loaded successfully:', bar.name);
       setBarId(bar.id);
       setBarName(bar.name || 'Bar');
+      // Keep the schedule available to the submit handler: the database can
+      // refuse a tab for a reason the pre-flight check did not see.
+      setBarSchedule(bar as BarSchedule);
       setVenueCoords(bar.latitude != null && bar.longitude != null
         ? { latitude: bar.latitude, longitude: bar.longitude }
         : null);
@@ -477,116 +513,17 @@ function ConsentContent() {
           // Keep loading state true to prevent showing consent form during redirect
           return; // Don't show consent form and don't call setLoading(false)
         } else {
-          // Check business hours only for new customers
-          // Shared version extracted to lib/business-hours.ts — this inline copy is preserved per non-destructive rule
-          const isWithinBusinessHours = (barData: any) => {
-            try {
-              // Handle 24 hours mode
-              if (barData.business_24_hours === true) {
-                return true;
-              }
-              
-              // If no business hours configured, always open
-              if (!barData.business_hours_mode) {
-                return true;
-              }
-              
-              const now = new Date();
-              const currentHour = now.getHours();
-              const currentMinute = now.getMinutes();
-              const currentTotalMinutes = currentHour * 60 + currentMinute;
-              
-              // Get current day of week (0 = Sunday, 1 = Monday, etc.)
-              const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-              const currentDay = dayNames[now.getDay()];
-              
-              if (barData.business_hours_mode === 'simple') {
-                // Simple mode: same hours every day
-                if (!barData.business_hours_simple) {
-                  return true;
-                }
-                
-                // Parse open time (format: "HH:MM")
-                const [openHour, openMinute] = barData.business_hours_simple.openTime.split(':').map(Number);
-                const openTotalMinutes = openHour * 60 + openMinute;
-                
-                // Parse close time
-                const [closeHour, closeMinute] = barData.business_hours_simple.closeTime.split(':').map(Number);
-                const closeTotalMinutes = closeHour * 60 + closeMinute;
-                
-                // Handle overnight hours (e.g., 20:00 to 04:00)
-                if (barData.business_hours_simple.closeNextDay || closeTotalMinutes < openTotalMinutes) {
-                  // Venue is open overnight: current time >= open OR current time <= close
-                  return currentTotalMinutes >= openTotalMinutes || currentTotalMinutes <= closeTotalMinutes;
-                } else {
-                  // Normal hours: current time between open and close
-                  return currentTotalMinutes >= openTotalMinutes && currentTotalMinutes <= closeTotalMinutes;
-                }
-                
-              } else if (barData.business_hours_mode === 'advanced') {
-                // Advanced mode: different hours per day
-                if (!barData.business_hours_advanced || !barData.business_hours_advanced[currentDay]) {
-                  return true; // Default to open if no hours for this day
-                }
-                
-                const dayHours = barData.business_hours_advanced[currentDay];
-                if (!dayHours.open || !dayHours.close) {
-                  return true; // Default to open if missing open/close times
-                }
-                
-                // Parse open time
-                const [openHour, openMinute] = dayHours.open.split(':').map(Number);
-                const openTotalMinutes = openHour * 60 + openMinute;
-                
-                // Parse close time
-                const [closeHour, closeMinute] = dayHours.close.split(':').map(Number);
-                const closeTotalMinutes = closeHour * 60 + closeMinute;
-                
-                // Handle overnight hours
-                if (dayHours.closeNextDay || closeTotalMinutes < openTotalMinutes) {
-                  // Venue is open overnight: current time >= open OR current time <= close
-                  return currentTotalMinutes >= openTotalMinutes || currentTotalMinutes <= closeTotalMinutes;
-                } else {
-                  // Normal hours: current time between open and close
-                  return currentTotalMinutes >= openTotalMinutes && currentTotalMinutes <= closeTotalMinutes;
-                }
-              }
-            } catch (error) {
-              console.error('Error checking business hours:', error);
-              return true; // Default to open on error
-            }
-          };
+          // Check business hours only for new customers.
+          // The shared evaluator is timezone-aware and understands both the array
+          // and legacy object shape of business_hours_advanced — the inline copy
+          // that used to live here read the browser's clock and indexed that
+          // column as a day-keyed object, so it was wrong for every
+          // advanced-hours venue.
+          const openState = getVenueOpenState(bar as BarSchedule);
 
-          const isOpen = isWithinBusinessHours(bar);
-          
-          if (!isOpen) {
-            // Calculate next opening time
-            let nextOpenTime = 'tomorrow';
-            if (bar.business_hours_simple) {
-              const [openHour, openMinute] = bar.business_hours_simple.openTime.split(':').map(Number);
-              const now = new Date();
-              const currentHour = now.getHours();
-              
-              // Check if opening time is later today or tomorrow
-              if (currentHour < openHour) {
-                // Opens later today
-                nextOpenTime = `today at ${bar.business_hours_simple.openTime} am`;
-              } else {
-                // Opens tomorrow
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                tomorrow.setHours(openHour, openMinute, 0, 0);
-                nextOpenTime = `tomorrow at ${bar.business_hours_simple.openTime} am`;
-              }
-            }
-
+          if (!openState.isOpen) {
             // Show bar closed page instead of consent form
-            setBarClosedInfo({
-              barName: bar.name || 'Bar',
-              nextOpenTime,
-              businessHours: bar.business_hours_advanced || undefined
-            });
-            setShowBarClosed(true);
+            showVenueClosed();
             setLoading(false);
             return; // Don't show consent form
           }
@@ -711,7 +648,7 @@ function ConsentContent() {
       });
       
       // Redirect to authentication page
-      router.push('/auth/signin');
+      router.push('/login');
       return;
     }
 
@@ -883,7 +820,16 @@ function ConsentContent() {
 
     } catch (error: any) {
       console.error('Tab creation error:', error);
-      
+
+      // The database refuses a brand-new tab while the venue is closed. That is
+      // a normal outcome, not a failure, so show the closed-venue panel with
+      // its countdown instead of an error toast.
+      if (/currently closed|venue is closed|is currently closed/i.test(error.message || '')) {
+        showVenueClosed();
+        setCreating(false);
+        return;
+      }
+
       // Handle specific error cases
       if (error.message?.includes('unique_violation') || error.message?.includes('duplicate')) {
         showToast({
@@ -1091,8 +1037,9 @@ function ConsentContent() {
           }}
           barName={barClosedInfo.barName}
           nextOpenTime={barClosedInfo.nextOpenTime}
-          businessHours={barClosedInfo.businessHours}
-        />
+            businessHours={barClosedInfo.businessHours}
+            schedule={barClosedInfo.schedule}
+          />
       </div>
     );
   }
