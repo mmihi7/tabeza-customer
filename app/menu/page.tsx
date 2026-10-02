@@ -423,6 +423,7 @@ export default function MenuPage() {
   const [productModal, setProductModal] = useState<{ bp: BarProduct; price: number; strikethrough: boolean } | null>(null);
   const [showMenuTapHint, setShowMenuTapHint] = useState(false);
   const [menuSearch, setMenuSearch] = useState('');
+  const [showMenuSuggestions, setShowMenuSuggestions] = useState(false);
 
   const [barCategories, setBarCategories] = useState<{ id: string; name: string; kind: 'food' | 'drink'; sort_order: number }[]>([]);
 
@@ -2788,13 +2789,30 @@ export default function MenuPage() {
 
   // Sorted products (food first, then drinks)
   const sortedProducts = useMemo(() => {
-    return [...barProducts].sort((a, b) => {
-      const aIsDrink = isDrinkProduct(a.product);
-      const bIsDrink = isDrinkProduct(b.product);
-      if (aIsDrink !== bIsDrink) return aIsDrink ? 1 : -1;
-      return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
-    });
-  }, [barProducts, isDrinkProduct]);
+return [...barProducts].sort((a, b) => {
+        const aIsDrink = isDrinkProduct(a.product);
+        const bIsDrink = isDrinkProduct(b.product);
+        if (aIsDrink !== bIsDrink) return aIsDrink ? 1 : -1;
+        return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
+      });
+    }, [barProducts, isDrinkProduct]);
+
+    // Type-ahead matches for the search box, shown in a dropdown pinned directly
+    // under the input so results land under the cursor instead of down in the
+    // product grid behind the food images. Matches on name, description or
+    // category, same rules as the grid below it, capped so the dropdown stays a
+    // glanceable list rather than a second full menu.
+    const menuSuggestions = useMemo(() => {
+      const q = menuSearch.trim().toLowerCase();
+      if (!q) return [];
+      return sortedProducts
+        .filter(bp =>
+          (bp.product?.name || '').toLowerCase().includes(q) ||
+          (bp.product?.description || '').toLowerCase().includes(q) ||
+          (bp.product?.category || '').toLowerCase().includes(q)
+        )
+        .slice(0, 6);
+    }, [sortedProducts, menuSearch]);
 
   // Auto-collapse the interactive menu block after ~30s idle while in view.
   // Collapses to a compact "Browse Menu" bar; re-expands on tap.
@@ -3371,7 +3389,9 @@ export default function MenuPage() {
               <input
                 type="text"
                 value={menuSearch}
-                onChange={(e) => setMenuSearch(e.target.value)}
+                onChange={(e) => { setMenuSearch(e.target.value); setShowMenuSuggestions(true); }}
+                onFocus={() => setShowMenuSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowMenuSuggestions(false), 150)}
                 placeholder="Search drinks"
                 className="w-full rounded-lg pl-9 pr-3 py-2 text-sm outline-none transition-colors"
                 style={{
@@ -3388,6 +3408,59 @@ export default function MenuPage() {
                 >
                   <X size={14} style={{ color: 'rgba(255,255,255,0.5)' }} />
                 </button>
+              )}
+
+              {/* Suggestions pinned under the search bar. Tapping one opens the
+                  same product detail the card in the grid would. */}
+              {showMenuSuggestions && menuSuggestions.length > 0 && (
+                <div
+                  className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl shadow-2xl"
+                  style={{
+                    backgroundColor: '#16162c',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                  }}
+                >
+                  {menuSuggestions.map((bp) => {
+                    const imageUrl = getDisplayImage(bp.product);
+                    return (
+                      <button
+                        key={bp.id}
+                        onClick={() => {
+                          setShowMenuSuggestions(false);
+                          openProductDetail(bp, bp.sale_price, false);
+                        }}
+                        className="flex w-full items-center gap-3 px-2.5 py-2 text-left transition-colors hover:bg-white/5 active:scale-[0.99]"
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                      >
+                        <div
+                          className="h-9 w-9 shrink-0 overflow-hidden rounded-lg"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+                        >
+                          {imageUrl ? (
+                            <img src={imageUrl} alt={bp.product?.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Martini size={14} style={{ color: 'rgba(255,255,255,0.25)' }} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm" style={{ color: 'var(--cream)' }}>
+                            {bp.product?.name}
+                          </p>
+                          {bp.product?.category && (
+                            <p className="truncate text-[11px]" style={{ color: 'var(--muted)' }}>
+                              {bp.product.category}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-[#FF2E00]">
+                          {tempFormatCurrency(bp.sale_price)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
