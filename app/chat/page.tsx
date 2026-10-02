@@ -206,7 +206,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <style jsx global>{`
+      <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
