@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.0",
+    "@tabeza/schedule": "file:./lib/schedule",
     "@tabeza/shared": "file:./lib/shared",
     "@types/web-push": "^3.6.4",
     "@upstash/ratelimit": "^2.0.8",
