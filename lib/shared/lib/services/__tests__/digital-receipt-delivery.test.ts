@@ -142,7 +142,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mocksupabaseClient.from as jest.Mock).mockImplementationOnce(errorMock.from);
+      (mockSupabase.from as jest.Mock).mockImplementationOnce(errorMock.from);
 
       const result = await service.deliverToCustomer(
         samplePrintData,
@@ -215,7 +215,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mocksupabaseClient.from as jest.Mock).mockImplementation(mixedMock.from);
+      (mockSupabase.from as jest.Mock).mockImplementation(mixedMock.from);
 
       const customers = [
         { tabId: 'tab-1', tabNumber: 1, customerIdentifier: 'Customer 1' },
@@ -273,7 +273,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mocksupabaseClient.from as jest.Mock).mockImplementation(retryMock.from);
+      (mockSupabase.from as jest.Mock).mockImplementation(retryMock.from);
 
       const result = await serviceWithRetry.retryFailedDelivery(
         samplePrintData,
@@ -315,7 +315,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mocksupabaseClient.from as jest.Mock).mockImplementation(failMock.from);
+      (mockSupabase.from as jest.Mock).mockImplementation(failMock.from);
 
       const result = await serviceWithRetry.retryFailedDelivery(
         samplePrintData,
@@ -413,7 +413,7 @@ describe('DigitalReceiptDeliveryService', () => {
         }))
       };
 
-      (mocksupabaseClient.from as jest.Mock).mockImplementationOnce(failMock.from);
+      (mockSupabase.from as jest.Mock).mockImplementationOnce(failMock.from);
 
       await testService.deliverToCustomer(
         samplePrintData,

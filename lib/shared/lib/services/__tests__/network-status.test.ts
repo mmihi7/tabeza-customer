@@ -305,6 +305,9 @@ describe('Edge cases', () => {
   });
 
   it('should handle listener errors gracefully', () => {
+    // This describe block is a sibling of the one that declares the shared
+    // `let manager`, so it needs its own instance.
+    const manager = new NetworkStatusManager();
     const errorListener = jest.fn(() => {
       throw new Error('Listener error');
     });

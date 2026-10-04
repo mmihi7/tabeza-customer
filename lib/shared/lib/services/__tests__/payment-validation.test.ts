@@ -22,7 +22,7 @@ jest.mock('@/lib/supabase', () => ({
   }))
 }));
 
-jest.mock('./tab-resolution', () => ({
+jest.mock('../tab-resolution', () => ({
   resolveTabForPayment: jest.fn()
 }));
 
@@ -33,7 +33,7 @@ describe('Payment Validation Service', () => {
 
   describe('validatePaymentRequest', () => {
     it('should validate basic payment request structure', async () => {
-      const { resolveTabForPayment } = require('./tab-resolution');
+      const { resolveTabForPayment } = require('../tab-resolution');
       const { createServiceRoleClient } = require('@/lib/supabase');
       
       // Mock successful tab resolution
@@ -45,7 +45,7 @@ describe('Payment Validation Service', () => {
 
       // Mock successful balance query
       const mockSupabase = createServiceRoleClient();
-      mocksupabaseClient.from().select().eq().single.mockResolvedValue({
+      mockSupabase.from().select().eq().single.mockResolvedValue({
         data: { balance: 100 },
         error: null
       });
@@ -103,7 +103,7 @@ describe('Payment Validation Service', () => {
     });
 
     it('should reject payment for closed tab', async () => {
-      const { resolveTabForPayment } = require('./tab-resolution');
+      const { resolveTabForPayment } = require('../tab-resolution');
       
       // Mock tab resolution returning closed tab
       resolveTabForPayment.mockResolvedValue({
@@ -125,7 +125,7 @@ describe('Payment Validation Service', () => {
     });
 
     it('should accept payment for overdue tab', async () => {
-      const { resolveTabForPayment } = require('./tab-resolution');
+      const { resolveTabForPayment } = require('../tab-resolution');
       const { createServiceRoleClient } = require('@/lib/supabase');
       
       // Mock successful tab resolution for overdue tab
@@ -137,7 +137,7 @@ describe('Payment Validation Service', () => {
 
       // Mock successful balance query
       const mockSupabase = createServiceRoleClient();
-      mocksupabaseClient.from().select().eq().single.mockResolvedValue({
+      mockSupabase.from().select().eq().single.mockResolvedValue({
         data: { balance: 100 },
         error: null
       });
@@ -161,7 +161,7 @@ describe('Payment Validation Service', () => {
       const mockSupabase = createServiceRoleClient();
       
       // Mock finding pending payments
-      mocksupabaseClient.from().select().eq().eq().in().limit.mockResolvedValue({
+      mockSupabase.from().select().eq().eq().in().limit.mockResolvedValue({
         data: [{ id: 'payment-123' }],
         error: null
       });
@@ -176,7 +176,7 @@ describe('Payment Validation Service', () => {
       const mockSupabase = createServiceRoleClient();
       
       // Mock no pending payments
-      mocksupabaseClient.from().select().eq().eq().in().limit.mockResolvedValue({
+      mockSupabase.from().select().eq().eq().in().limit.mockResolvedValue({
         data: [],
         error: null
       });

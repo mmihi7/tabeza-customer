@@ -11,8 +11,8 @@
 import { NextRequest } from 'next/server';
 
 // Import the actual API route handlers
-import { POST as PaymentInitiationPOST } from '../../../../../apps/customer/app/api/payments/mpesa/route';
-import { POST as CallbackPOST } from '../../../../../apps/customer/app/api/mpesa/callback/route';
+import { POST as PaymentInitiationPOST } from '../../../../../app/api/payments/mpesa/route';
+import { POST as CallbackPOST } from '../../../../../app/api/mpesa/callback/route';
 
 // Mock environment variables
 const originalEnv = process.env;
@@ -49,11 +49,14 @@ const mockSupabaseClient = {
   }))
 };
 
-jest.mock('../../../../../apps/customer/lib/supabase', () => ({
+// The route imports @/lib/supabase directly, while @tabeza/shared pulls in its
+// own copy at lib/shared/lib/supabase. Both construct a real SupabaseClient at
+// import time (which throws without a URL), so both have to be mocked.
+jest.mock('../../../../../lib/supabase', () => ({
   createServiceRoleClient: () => mockSupabaseClient
 }));
 
-jest.mock('../../../../../apps/staff/lib/supabase', () => ({
+jest.mock('../../../../../lib/shared/lib/supabase', () => ({
   createServiceRoleClient: () => mockSupabaseClient
 }));
 

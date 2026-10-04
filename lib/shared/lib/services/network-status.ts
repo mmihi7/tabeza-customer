@@ -165,7 +165,7 @@ export class NetworkStatusManager {
     let saveData = false;
 
     // Get detailed connection info if available and enabled
-    if (this.enableDetailedInfo && 'connection' in navigator) {
+    if (this.enableDetailedInfo && typeof navigator !== 'undefined' && 'connection' in navigator) {
       const connection = (navigator as any).connection;
       
       if (connection) {
@@ -214,7 +214,7 @@ export class NetworkStatusManager {
     window.addEventListener('offline', this.handleOfflineEvent);
 
     // Listen for connection changes if available
-    if ('connection' in navigator) {
+    if (typeof navigator !== 'undefined' && 'connection' in navigator) {
       const connection = (navigator as any).connection;
       if (connection && connection.addEventListener) {
         connection.addEventListener('change', this.handleConnectionChange);
@@ -286,7 +286,7 @@ export class NetworkStatusManager {
       window.removeEventListener('online', this.handleOnlineEvent);
       window.removeEventListener('offline', this.handleOfflineEvent);
 
-      if ('connection' in navigator) {
+      if (typeof navigator !== 'undefined' && 'connection' in navigator) {
         const connection = (navigator as any).connection;
         if (connection && connection.removeEventListener) {
           connection.removeEventListener('change', this.handleConnectionChange);

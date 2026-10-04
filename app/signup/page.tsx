@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, QrCode, ChevronRight, Phone, Apple, User, Shield, CheckCircle } from 'lucide-react'
+import { Lock, Eye, EyeOff, QrCode, ChevronRight, Phone, Apple, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/Toast'
 import Logo from '@/components/Logo'
@@ -10,6 +10,83 @@ import Link from 'next/link'
 import { persistConsentRecord, APP_VERSION } from '@/lib/consent-records'
 import { usePlatformSettings } from '@/hooks/usePlatformSettings'
 import StepBirthday from './StepBirthday'
+import StepVerify from './StepVerify'
+
+// Survives a reload/tab-close so a half-finished signup resumes on the
+// "check your email" step instead of silently dropping back to the account form.
+const PENDING_VERIFY_KEY = 'tabeza-customer-pending-verify'
+const PENDING_PROFILE_KEY = 'tabeza-customer-pending-profile'
+// Short debounce against double-submits; cleared on failure so a corrected
+// attempt can go straight back out.
+const SIGNUP_ATTEMPT_COOLDOWN_MS = 5000
+
+interface PendingProfile {
+  first_name: string
+  last_name: string
+  mobile_number: string
+}
+
+function readPendingVerify(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return sessionStorage.getItem(PENDING_VERIFY_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The profile step runs *after* the account is created, but when email
+ * confirmation is on there is no session yet, so `updateUser` would be
+ * rejected and the name would be silently lost. Stash it and flush once a
+ * session exists.
+ */
+function stashPendingProfile(profile: PendingProfile) {
+  try {
+    sessionStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify(profile))
+  } catch {
+    /* storage unavailable — best effort */
+  }
+}
+
+function readPendingProfile(): PendingProfile | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(PENDING_PROFILE_KEY)
+    return raw ? (JSON.parse(raw) as PendingProfile) : null
+  } catch {
+    return null
+  }
+}
+
+function clearPendingProfile() {
+  try {
+    sessionStorage.removeItem(PENDING_PROFILE_KEY)
+  } catch {
+    /* storage unavailable — best effort */
+  }
+}
+
+/** Writes the stashed name to auth metadata. Requires an active session. */
+async function flushPendingProfile(): Promise<boolean> {
+  const pending = readPendingProfile()
+  if (!pending?.first_name) return true
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return false
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      first_name: pending.first_name,
+      last_name: pending.last_name,
+      mobile_number: pending.mobile_number,
+    },
+  })
+  if (error) {
+    console.warn('Could not save name to profile:', error)
+    return false
+  }
+  clearPendingProfile()
+  return true
+}
 
 export default function SignupPage() {
   return (
@@ -32,7 +109,18 @@ function SignupContent() {
 
   // If redirected from email confirmation, jump straight to consent
   const initialStep = searchParams.get('step') === 'consent' ? 'consent' : 'account'
-  const [step, setStep] = useState<'account' | 'name' | 'verify' | 'consent' | 'birthday' | 'success'>(initialStep as any)
+  // A signup waiting on email confirmation resumes where it left off — the
+  // user must not be dumped back on the account form with no idea they still
+  // need to check their inbox. Same for a name not yet persisted, since the
+  // account itself already exists at that point.
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState('')
+  const [step, setStep] = useState<'account' | 'name' | 'verify' | 'consent' | 'birthday' | 'success'>(
+    initialStep === 'consent'
+      ? 'consent'
+      : readPendingVerify() ? 'verify'
+      : readPendingProfile() ? 'name'
+      : 'account'
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -55,23 +143,44 @@ function SignupContent() {
     )
   }, [])
 
-  // Poll for email confirmation when on verify step
+  // Restore the email the pending verification belongs to so the verify screen
+  // can show which inbox to open after a reload.
   useEffect(() => {
-    if (step !== 'verify') return
-    const interval = setInterval(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user?.email_confirmed_at) {
-        clearInterval(interval)
-        setStep('consent')
-      }
-    }, 3000)
-    return () => clearInterval(interval)
+    if (step === 'verify') setEmail((current) => current || pendingVerifyEmail)
+  }, [step, pendingVerifyEmail])
+
+  // Repopulate the name fields when resuming a half-finished name step.
+  useEffect(() => {
+    if (step !== 'name') return
+    const pending = readPendingProfile()
+    if (!pending) return
+    setFirstName((c) => c || pending.first_name)
+    setLastName((c) => c || pending.last_name)
+    setMobileNumber((c) => c || pending.mobile_number)
+  }, [step])
+
+  // Confirmation polling lives in <StepVerify/> (poll + onAuthStateChange + an
+  // immediate check on mount), so it isn't duplicated here.
+
+  // Email is confirmed and we move past verify — stop resuming into the verify
+  // step on future loads. Only cleared on the way *out*, so the key survives a
+  // reload while the user is still waiting.
+  useEffect(() => {
+    if (step === 'verify') return
+    try {
+      sessionStorage.removeItem(PENDING_VERIFY_KEY)
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
   }, [step])
 
   useEffect(() => {
     // If we're on the consent step (redirected from email confirmation),
     // don't redirect away — the user needs to complete consent first.
     if (initialStep === 'consent') return
+    // Likewise for a signup still in progress: a confirmed email or a session
+    // mid-flow must not bounce the user away from a step they haven't finished.
+    if (readPendingVerify() || readPendingProfile()) return
 
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -85,11 +194,15 @@ function SignupContent() {
     
     // Rate limiting: prevent multiple signup attempts within 30 seconds
     const now = Date.now()
-    if (lastSignupAttempt && (now - lastSignupAttempt) < 30000) {
+    // Debounce rapid-fire submits only. The guard is cleared on failure below,
+    // so a mistyped email or a rejected password can be corrected and retried
+    // immediately instead of waiting out a cooldown.
+    const remaining = Math.ceil((SIGNUP_ATTEMPT_COOLDOWN_MS - (now - lastSignupAttempt)) / 1000)
+    if (lastSignupAttempt && remaining > 0) {
       showToast({
         type: 'warning',
         title: 'Please Wait',
-        message: 'Please wait 30 seconds before trying again'
+        message: `Please wait ${remaining} second${remaining === 1 ? '' : 's'} before trying again`
       })
       return
     }
@@ -98,7 +211,11 @@ function SignupContent() {
     setLastSignupAttempt(now)
     
     try {
-      const { error } = await supabase.auth.signUp({
+      // `data` matters: Supabase returns a session when the account is already
+      // confirmed (email confirmation disabled in the dashboard) and NO email is
+      // sent. Telling that user to check their inbox is a false instruction that
+      // stalls them on a screen nothing will ever satisfy.
+      const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { 
           emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback`,
@@ -110,6 +227,8 @@ function SignupContent() {
         }
       })
       if (error) {
+        // Nothing was created, so there is nothing to protect against a retry.
+        setLastSignupAttempt(0)
         if (error.status === 429) {
           showToast({
             type: 'error',
@@ -119,9 +238,26 @@ function SignupContent() {
         } else {
           showToast({ type: 'error', title: 'Signup Failed', message: error.message })
         }
+      } else if (data.session) {
+        // Already confirmed — no verification email was sent, so don't pretend
+        // otherwise. There is a session, so the name can be saved directly.
+        try {
+          sessionStorage.removeItem(PENDING_VERIFY_KEY)
+        } catch {
+          /* storage unavailable — non-fatal */
+        }
+        showToast({ type: 'success', title: 'Account Created', message: 'Welcome to Tabeza' })
+        setStep('name')
       } else {
-        showToast({ type: 'success', title: 'Account Created', message: 'Please check your email' })
-        setStep('verify')
+        // Confirmation required: a real verification email was sent.
+        try {
+          sessionStorage.setItem(PENDING_VERIFY_KEY, email)
+        } catch {
+          /* storage unavailable — the step still shows, it just won't resume */
+        }
+        setPendingVerifyEmail(email)
+        showToast({ type: 'success', title: 'Account Created', message: 'Check your email to confirm your address' })
+        setStep('name')
       }
     } catch (error) {
       showToast({ type: 'error', title: 'Signup Failed', message: 'An unexpected error occurred' })
@@ -130,17 +266,38 @@ function SignupContent() {
     }
   }
 
-  const handleNameSubmit = () => {
-    if (!firstName) {
+  const handleNameSubmit = async () => {
+    if (!firstName.trim()) {
       showToast({ type: 'warning', title: 'Missing Information', message: 'Please enter your first name' })
       return
     }
-    setStep('verify')
+    setLoading(true)
+    try {
+      const profile: PendingProfile = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        mobile_number: mobileNumber.trim(),
+      }
+      // Stash first so a failed write, or a confirmation still pending, is
+      // recoverable at the consent step.
+      stashPendingProfile(profile)
+      await flushPendingProfile()
+    } finally {
+      setLoading(false)
+    }
+    // Only show the "check your inbox" step when a verification email was
+    // actually sent. When email confirmation is disabled, signUp returns a
+    // session immediately and no mail goes out, so parking the user on the
+    // inbox screen would strand them waiting for an email that will never come.
+    setStep(pendingVerifyEmail ? 'verify' : 'consent')
   }
 
   const handleConsent = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.user) {
+      // Every path to consent has a session, so this is the reliable moment to
+      // persist a name captured before email confirmation.
+      await flushPendingProfile()
       try {
         await persistConsentRecord({ userId: session.user.id, decision: 'agreed', appVersion: APP_VERSION })
         setConsentedUserId(session.user.id)
@@ -517,63 +674,33 @@ function SignupContent() {
               onClick={handleNameSubmit}
               style={{
                 width: '100%',
-                backgroundColor: 'var(--amber)',
+                backgroundColor: loading ? 'var(--ink3)' : 'var(--amber)',
                 color: 'white',
                 padding: '8px 16px',
                 borderRadius: 8,
                 fontWeight: 500,
-                cursor: 'pointer'
+                cursor: loading ? 'wait' : 'pointer'
               }}
+              disabled={loading}
             >
-              Continue →
+              {loading ? 'Saving…' : 'Continue →'}
             </button>
           </div>
         )}
 
         {/* Step 3: Check your inbox */}
         {step === 'verify' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, textAlign: 'center' }}>
-            <div style={{ 
-              width: 64, 
-              height: 64, 
-              backgroundColor: '#10b98120', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              margin: '0 auto 16px' 
-            }}>
-              <Mail style={{ width: 32, height: 32, color: '#10b981' }} />
-            </div>
-            
-            <div>
-              <h1 style={{ 
-                fontSize: '24px', 
-                fontWeight: 600, 
-                color: 'var(--cream)', 
-                marginBottom: 8
-              }}>
-                Check your inbox
-              </h1>
-              <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: 16 }}>
-                We sent a link to<br />
-                <strong style={{ color: 'var(--cream)' }}>{email}</strong>
-              </p>
-              <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: 24 }}>
-                ✉<br />
-                Click the link in your email to verify your address. Link expires in 24 hours.
-              </p>
-              <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: 24 }}>
-                Nothing arrived? Check spam or resend the email.
-              </p>
-            </div>
-
-            {/* Waiting indicator — page auto-advances once email is confirmed */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--muted)', fontSize: '14px' }}>
-              <div style={{ width: 16, height: 16, borderTop: '2px solid var(--amber)', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-              Waiting for confirmation…
-            </div>
-          </div>
+          <StepVerify
+            email={email}
+            onVerified={() => {
+              try {
+                sessionStorage.removeItem(PENDING_VERIFY_KEY)
+              } catch {
+                /* storage unavailable — non-fatal */
+              }
+              setStep('consent')
+            }}
+          />
         )}
 
         {/* Step 4: Quick & honest */}
