@@ -2,9 +2,12 @@
 // Spec: Returning user step 3 - venue card + identity summary
 'use client'
 
+import ManagerChefCards from '@/components/crew/ManagerChefCards'
+
 interface StepConfirmProps {
   venueName: string
   venueMeta: string        // e.g. "Table 7 - Nairobi CBD"
+  barId: string | null     // venue id — feeds the manager / chef cards
   identityLabel: string    // "Amara W." | "The Phantom" | "Anonymous"
   onConfirm: () => void
   onBack: () => void
@@ -15,6 +18,7 @@ interface StepConfirmProps {
 export default function StepConfirm({
   venueName,
   venueMeta,
+  barId,
   identityLabel,
   onConfirm,
   onBack,
@@ -53,7 +57,7 @@ export default function StepConfirm({
           display: 'flex',
           alignItems: 'center',
           gap: '0.75rem',
-          marginBottom: '1.25rem',
+          marginBottom: '0.75rem',
         }}
       >
         <div
@@ -82,6 +86,9 @@ export default function StepConfirm({
           </p>
         </div>
       </div>
+
+      {/* Venue roster — manager + chef (both slots always render) */}
+      <ManagerChefCards barId={barId} />
 
       {/* Divider */}
       <div style={{ height: 1, background: 'var(--border)', marginBottom: '1rem' }} />

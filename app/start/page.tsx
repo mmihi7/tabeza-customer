@@ -1169,6 +1169,7 @@ function ConsentContent() {
       <StepConfirm
         venueName={selectedVenue.name}
         venueMeta={selectedVenue.category ?? ''}
+        barId={barId}
         identityLabel={identityLabel}
         onConfirm={handleStartTab}
         onBack={() => {
