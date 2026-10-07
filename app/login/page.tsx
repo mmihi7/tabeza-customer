@@ -145,7 +145,7 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px 16px',
+        padding: '96px 16px 24px',
         backgroundColor: 'var(--ink)',
         position: 'relative'
       }}
