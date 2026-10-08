@@ -7,7 +7,7 @@ import ManagerChefCards from '@/components/crew/ManagerChefCards'
 interface StepConfirmProps {
   venueName: string
   venueMeta: string        // e.g. "Table 7 - Nairobi CBD"
-  barId: string | null     // venue id — feeds the manager / chef cards
+  barId: string | null     // venue id — feeds the manager / supervisor / chef cards
   identityLabel: string    // "Amara W." | "The Phantom" | "Anonymous"
   onConfirm: () => void
   onBack: () => void
@@ -87,7 +87,7 @@ export default function StepConfirm({
         </div>
       </div>
 
-      {/* Venue roster — manager + chef (both slots always render) */}
+      {/* Venue roster — manager + supervisor + chef (all three slots always render) */}
       <ManagerChefCards barId={barId} />
 
       {/* Divider */}

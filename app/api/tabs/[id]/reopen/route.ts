@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { enforceVenueOpen, refusalResponse } from '@/lib/services/tab-hours';
+import { assertPlanWritable } from '@/lib/services/plan-gate';
 
 export async function PATCH(
   request: NextRequest,
@@ -54,6 +55,12 @@ export async function PATCH(
     const decision = await enforceVenueOpen(supabase, tab.bar_id, { tabId: tab.id });
     const refusal = refusalResponse(decision);
     if (refusal) return refusal;
+
+    /* Plan soft-lock: reopening revives an overdue tab, so a past-due venue
+       must not be able to revive service either. The tab is already known,
+       so the bar_id comes straight off it. */
+    const gate = await assertPlanWritable(supabase, tab.bar_id);
+    if (!gate.ok) return gate.response!;
 
     // Update status from 'overdue' to 'open'
     const { data: updatedTab, error: updateError } = await supabase

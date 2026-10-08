@@ -21,7 +21,7 @@ export async function GET(
 
     const { data: bar, error: barError } = await (supabase as any)
       .from('bars')
-      .select('id, name')
+      .select('id, name, role_card_images')
       .eq('id', barId)
       .maybeSingle()
 
@@ -55,7 +55,7 @@ export async function GET(
     if (error) {
       console.error('[venue/team] roster error:', error.message)
       // Fall back to an empty team instead of failing the whole page.
-      return NextResponse.json({ team: [] })
+      return NextResponse.json({ team: [], roleImages: {} })
     }
 
     const team = (roster ?? [])
@@ -73,9 +73,14 @@ export async function GET(
       }))
       .filter((m: any) => m.id && m.display_name)
 
-    return NextResponse.json({ team })
+    // Venue-uploaded role card images (Settings → Roles in tabeza-staff) —
+    // used by ManagerChefCards to replace the default Icons8 icons when a
+    // slot has no rostered person's photo.
+    const roleImages: Record<string, string | null> = bar.role_card_images ?? {}
+
+    return NextResponse.json({ team, roleImages })
   } catch (err) {
     console.error('[venue/team] unexpected:', err)
-    return NextResponse.json({ team: [] })
+    return NextResponse.json({ team: [], roleImages: {} })
   }
 }

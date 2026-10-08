@@ -555,6 +555,15 @@ function ConsentContent() {
       const res = await fetch(`/api/tabs/${overdueTab.id}/reopen`, { method: 'PATCH' });
       if (!res.ok) {
         const body = await res.json();
+        if (res.status === 402 && body.code === 'PAYMENT_REQUIRED') {
+          // Venue soft-locked — a normal outcome for the guest, not their fault.
+          showToast({
+            type: 'error',
+            title: 'Venue Unavailable',
+            message: body.message || 'This venue is temporarily unavailable. Please ask a member of staff for help.',
+          });
+          return;
+        }
         showToast({ type: 'error', title: 'Reopen Failed', message: body.error || 'Could not reopen tab.' });
         return;
       }
@@ -664,15 +673,35 @@ function ConsentContent() {
       return;
     }
 
+    // Outstanding-bill exemption — a customer who already has an open or
+    // overdue tab at this venue must always be let back in: they may be here
+    // to settle what they owe. The geofence exists to stop new tabs being
+    // opened remotely, not to lock out someone carrying a bill. (Unknown
+    // result → treat as no tab, so the normal gate still applies.)
+    let hasOutstandingTab = false;
+    if (user?.id && barId) {
+      try {
+        const res = await fetch(`/api/tabs/by-customer?customerId=${user.id}&barId=${barId}`);
+        if (res.ok) {
+          const body = await res.json();
+          hasOutstandingTab = Boolean(body.tab);
+        }
+      } catch (e) {
+        console.warn('⚠️ Outstanding-tab lookup failed, running proximity gate:', e);
+      }
+    }
+
     // Proximity gate — only people at or near the venue may connect (QR scan / slug URL).
-    const proximity = await checkVenueProximity();
-    if (!proximity.allowed) {
-      showToast({
-        type: 'error',
-        title: 'You seem to be away from this venue',
-        message: proximity.message
-      });
-      return;
+    if (!hasOutstandingTab) {
+      const proximity = await checkVenueProximity();
+      if (!proximity.allowed) {
+        showToast({
+          type: 'error',
+          title: 'You seem to be away from this venue',
+          message: proximity.message
+        });
+        return;
+      }
     }
 
     if (!barId) {
@@ -838,6 +867,19 @@ function ConsentContent() {
       // its countdown instead of an error toast.
       if (/currently closed|venue is closed|is currently closed/i.test(error.message || '')) {
         showVenueClosed();
+        setCreating(false);
+        return;
+      }
+
+      // The plan soft-lock refusal is likewise a normal outcome: the venue's
+      // subscription lapsed, the guest can't fix it. Show what to do instead
+      // of a failure toast (same rule as the closed-venue branch above).
+      if (/temporarily unavailable/i.test(error.message || '')) {
+        showToast({
+          type: 'error',
+          title: 'Venue Unavailable',
+          message: error.message,
+        });
         setCreating(false);
         return;
       }
@@ -1101,16 +1143,21 @@ function ConsentContent() {
             setBarSlug(venue.slug);
             setBarId(venue.id);
             setBarName(venue.name);
-            // Fetch venue coordinates for the proximity gate (saved/recent venue bypasses loadBarInfo).
+            // Fetch venue coordinates + geofence opt-out for the proximity gate
+            // (saved/recent venue bypasses loadBarInfo, so BOTH must be read here
+            // or location_check_enabled stays at its true default and the test
+            // bars — which have no coordinates — get blocked with "venue has not
+            // set its location yet").
             try {
               const { data: v } = await (supabase as any)
                 .from('bars')
-                .select('latitude, longitude')
+                .select('latitude, longitude, location_check_enabled')
                 .eq('id', venue.id)
                 .maybeSingle();
               setVenueCoords(v && v.latitude != null && v.longitude != null
                 ? { latitude: v.latitude, longitude: v.longitude }
                 : null);
+              setLocationCheckEnabled(v ? v.location_check_enabled !== false : true);
             } catch {
               setVenueCoords(null);
             }

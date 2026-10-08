@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { decideTabCreation, refusalResponse } from '@/lib/services/tab-hours';
+import { assertPlanWritable } from '@/lib/services/plan-gate';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest) {
     const decision = await decideTabCreation(supabase, { barId, ownerIdentifier });
     const refusal = refusalResponse(decision);
     if (refusal) return refusal;
+
+    /* Plan soft-lock: only reached when the decision is `allowed` — the
+       existing-tab lookup inside decideTabCreation already ran, so a guest
+       holding a tab never sees this refusal. */
+    const gate = await assertPlanWritable(supabase, barId);
+    if (!gate.ok) return gate.response!;
 
     // Get the next tab number for this bar
     const { data: maxTabData, error: maxTabError } = await supabase

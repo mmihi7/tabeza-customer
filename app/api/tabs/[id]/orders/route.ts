@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
 import { publishEvent } from '@/lib/pubsub';
 import { orderPlacementLimiter, applyRateLimit } from '@/lib/ratelimit';
+import { assertPlanWritable } from '@/lib/services/plan-gate';
 import type { Database } from '@/types/supabase';
 
 export async function GET(
@@ -74,31 +75,39 @@ export async function POST(
 
     const supabase = createServiceRoleClient();
 
+    /* Fetch the tab once, unconditionally — the plan gate applies to every
+       initiator (a past-due venue is read-only), and the venue-ordering flag
+       check below needs bar_id too. Previously this lookup only happened for
+       non-staff initiators, which would have skipped both gates. */
+    const { data: tab } = await supabase
+      .from('tabs')
+      .select('bar_id, status')
+      .eq('id', tabId)
+      .single();
+
+    // Plan soft-lock: a past-due venue takes no new orders from anyone.
+    if (tab) {
+      const gate = await assertPlanWritable(supabase, tab.bar_id);
+      if (!gate.ok) return gate.response!;
+    }
+
     // Customer ordering is venue-controlled (issue 5):
     // if the venue disabled customer ordering, only staff-initiated orders are allowed.
-    if (initiated_by !== 'staff') {
-      const { data: tab } = await supabase
-        .from('tabs')
-        .select('bar_id, status')
-        .eq('id', tabId)
-        .single();
+    if (initiated_by !== 'staff' && tab) {
+      // new venue columns not yet in generated types — cast for now
+      const { data: bar } = await (supabase
+        .from('bars')
+        .select('customer_ordering_enabled, show_customer_ordering')
+        .eq('id', tab.bar_id)
+        .single() as any);
 
-      if (tab) {
-        // new venue columns not yet in generated types — cast for now
-        const { data: bar } = await (supabase
-          .from('bars')
-          .select('customer_ordering_enabled, show_customer_ordering')
-          .eq('id', tab.bar_id)
-          .single() as any);
+      const orderingEnabled = bar?.customer_ordering_enabled !== false
+        && bar?.show_customer_ordering !== false;
 
-        const orderingEnabled = bar?.customer_ordering_enabled !== false
-          && bar?.show_customer_ordering !== false;
-
-        if (!orderingEnabled) {
-          return NextResponse.json({
-            error: 'This venue has disabled customer ordering. Please ask staff to place your order.',
-          }, { status: 403 });
-        }
+      if (!orderingEnabled) {
+        return NextResponse.json({
+          error: 'This venue has disabled customer ordering. Please ask staff to place your order.',
+        }, { status: 403 });
       }
     }
 

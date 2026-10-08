@@ -38,6 +38,7 @@ interface VenueCrewModalProps {
 const ROLE_LABEL: Record<string, string> = {
   assigned: 'Your waiter',
   manager: 'Manager',
+  supervisor: 'Supervisor',
   chef: 'Chef',
   waiter: 'Waiter',
   bartender: 'Bartender',
@@ -48,6 +49,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ROLE_COLOR: Record<string, string> = {
   assigned: '#22c55e',
   manager: '#FFB300',
+  supervisor: '#2dd4bf',
   chef: '#f97316',
   waiter: '#22c55e',
   bartender: '#38bdf8',

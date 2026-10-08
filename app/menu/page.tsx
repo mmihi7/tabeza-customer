@@ -2393,6 +2393,15 @@ export default function MenuPage() {
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
+        if (response.status === 402 && body.code === 'PAYMENT_REQUIRED') {
+          // Venue soft-locked — a normal outcome for the guest, not their fault.
+          showToast({
+            type: 'error',
+            title: 'Venue Unavailable',
+            message: body.message || 'This venue is temporarily unavailable. Please ask a member of staff for help.',
+          });
+          return;
+        }
         throw new Error(body.error || 'Failed to create order');
       }
 
